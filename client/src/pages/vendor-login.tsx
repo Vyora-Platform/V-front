@@ -36,10 +36,14 @@ export default function VendorLogin() {
     try {
       // Sign in with JWT (no Supabase)
       const response = await fetch(getApiUrl("/api/auth/login"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ email, password }),
+  credentials: "include",
+});
+
 
       const data = await response.json();
 
