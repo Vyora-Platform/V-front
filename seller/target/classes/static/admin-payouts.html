@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payout Management - Admin</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1877F2;
+            --primary-dark: #5568d3;
+            --secondary: #42B72A;
+            --success: #48bb78;
+            --danger: #f56565;
+            --warning: #ed8936;
+            --info: #4299e1;
+            --light: #f7fafc;
+            --dark: #2d3748;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Override body background for this page only */
+        body {
+            background: #f0f2f5;
+        }
+
+        .page-header {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-header h1 {
+            color: var(--dark);
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header .subtitle {
+            color: #718096;
+            font-size: 1rem;
+            margin: 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.12);
+        }
+
+        .stat-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .stat-content {
+            flex: 1;
+        }
+
+        .stat-content h3 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin: 0 0 0.25rem 0;
+        }
+
+        .stat-content p {
+            color: #718096;
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        .filter-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .filter-group select,
+        .filter-group input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .main-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .section-header h2 {
+            color: var(--dark);
+            font-size: 1.5rem;
+        }
+
+        .filter-group label {
+            font-size: 0.9rem;
+            color: var(--dark);
+            font-weight: 600;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            padding: 0.6rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: var(--light);
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--dark);
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-pending { background: #fef5e7; color: #d68910; }
+        .status-approved { background: #e8f5e9; color: #2e7d32; }
+        .status-processing { background: #e3f2fd; color: #1565c0; }
+        .status-paid { background: #e8f5e9; color: #1b5e20; }
+        .status-rejected { background: #ffebee; color: #c62828; }
+        .status-cancelled { background: #f5f5f5; color: #616161; }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .modal-header h3 {
+            color: var(--dark);
+            font-size: 1.3rem;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #718096;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .detail-item {
+            padding: 1rem;
+            background: var(--light);
+            border-radius: 8px;
+        }
+
+        .detail-item label {
+            display: block;
+            font-size: 0.85rem;
+            color: #718096;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .detail-item .value {
+            font-size: 1.1rem;
+            color: var(--dark);
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #718096;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #718096;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .toast {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            align-items: center;
+            gap: 1rem;
+            z-index: 2000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .toast.show {
+            display: flex;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .reference-number {
+            font-family: 'Courier New', monospace;
+            background: var(--light);
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin Panel</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="admin-sellers.html"><i class="fas fa-users"></i> Sellers</a></li>
+                <li><a href="admin-leads.html"><i class="fas fa-chart-line"></i> Leads</a></li>
+                <li><a href="admin-content.html"><i class="fas fa-images"></i> Content</a></li>
+                <li><a href="admin-payouts.html" class="active"><i class="fas fa-money-bill-wave"></i> Payouts</a></li>
+                <li class="nav-item-right">
+                    <div class="admin-profile" onclick="toggleProfileDropdown(event)">
+                        <div class="profile-trigger">
+                            <div class="profile-avatar" id="adminAvatar">A</div>
+                            <div class="profile-info">
+                                <span class="profile-name" id="adminName">Admin</span>
+                                <span class="profile-role">Administrator</span>
+                            </div>
+                            <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 4px;"></i>
+                        </div>
+                        <div class="profile-dropdown" id="profileDropdown">
+                            <div class="profile-header">
+                                <div class="profile-info">
+                                    <div class="profile-name" id="dropdownAdminName">Admin</div>
+                                    <div class="profile-email" id="dropdownAdminEmail">admin@example.com</div>
+                                </div>
+                            </div>
+                            <ul class="profile-menu">
+                                <li class="profile-menu-item">
+                                    <a href="admin-profile.html">
+                                        <i class="fas fa-user"></i>
+                                        <span>My Profile</span>
+                                    </a>
+                                </li>
+                                <li class="profile-menu-item">
+                                    <a href="admin-settings.html">
+                                        <i class="fas fa-cog"></i>
+                                        <span>Settings</span>
+                                    </a>
+                                </li>
+                                <li class="profile-menu-divider"></li>
+                                <li class="profile-menu-item logout">
+                                    <button onclick="logout()">
+                                        <i class="fas fa-sign-out-alt"></i>
+                                        <span>Logout</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-money-bill-wave"></i> All Payouts</h1>
+                <p class="subtitle">View and manage payouts for all sellers</p>
+            </div>
+            <button onclick="openCreateModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create Payout
+            </button>
+        </header>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalPayoutsAmount">₹0</h3>
+                    <p>Total Payout Amount</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="pendingCount">0</h3>
+                    <p>Pending Approval</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="approvedCount">0</h3>
+                    <p>Approved</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class="fas fa-check-double"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="paidCount">0</h3>
+                    <p>Paid This Month</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Status</label>
+                    <select id="filterStatus" onchange="applyFilters()">
+                        <option value="">All Statuses</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="APPROVED">Approved</option>
+                        <option value="PROCESSING">Processing</option>
+                        <option value="PAID">Paid</option>
+                        <option value="REJECTED">Rejected</option>
+                        <option value="CANCELLED">Cancelled</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Seller</label>
+                    <select id="filterSeller" onchange="applyFilters()">
+                        <option value="">All Sellers</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Search</label>
+                    <input type="text" id="filterSearch" placeholder="Reference, seller name..." onkeyup="applyFilters()">
+                </div>
+                <div class="filter-group" style="display: flex; align-items: flex-end;">
+                    <button onclick="clearFilters()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+
+            <!-- Payouts Table -->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            <th>Seller</th>
+                            <th>Amount</th>
+                            <th>Payment Method</th>
+                            <th>Status</th>
+                            <th>Requested</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payoutsTableBody">
+                        <tr>
+                            <td colspan="7">
+                                <div class="loading">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading payouts...
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Payout Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus"></i> Create New Payout</h3>
+                <button class="close-modal" onclick="closeCreateModal()">&times;</button>
+            </div>
+            <form onsubmit="handleCreatePayout(event)">
+                <div class="form-group">
+                    <label>Seller *</label>
+                    <select id="createSellerId" required>
+                        <option value="">-- Select Seller --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Amount *</label>
+                    <input type="number" id="createAmount" step="0.01" min="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Currency *</label>
+                    <select id="createCurrency" required>
+                        <option value="INR">INR</option>
+                        <option value="INR">INR</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Payment Method *</label>
+                    <select id="createPaymentMethod" required onchange="updatePaymentFields()">
+                        <option value="">-- Select Method --</option>
+                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                        <option value="UPI">UPI</option>
+                        <option value="CHEQUE">Cheque</option>
+                        <option value="CASH">Cash</option>
+                        <option value="PAYPAL">PayPal</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Payment Details *</label>
+                    <textarea id="createPaymentDetails" required placeholder="e.g., Account Number, IFSC, UPI ID, etc."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Notes (Optional)</label>
+                    <textarea id="createSellerNotes" placeholder="Any additional notes..."></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" onclick="closeCreateModal()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Create Payout
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Details Modal -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-info-circle"></i> Payout Details</h3>
+                <button class="close-modal" onclick="closeDetailsModal()">&times;</button>
+            </div>
+            <div id="detailsContent"></div>
+        </div>
+    </div>
+
+    <!-- Approve Modal -->
+    <div id="approveModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-check-circle"></i> Approve Payout</h3>
+                <button class="close-modal" onclick="closeApproveModal()">&times;</button>
+            </div>
+            <form onsubmit="handleApprovePayout(event)">
+                <input type="hidden" id="approvePayoutId">
+                <div class="form-group">
+                    <label>Admin Notes (Optional)</label>
+                    <textarea id="approveNotes" placeholder="Add any notes for approval..."></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" onclick="closeApproveModal()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> Approve
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reject Modal -->
+    <div id="rejectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-times-circle"></i> Reject Payout</h3>
+                <button class="close-modal" onclick="closeRejectModal()">&times;</button>
+            </div>
+            <form onsubmit="handleRejectPayout(event)">
+                <input type="hidden" id="rejectPayoutId">
+                <div class="form-group">
+                    <label>Reason for Rejection *</label>
+                    <textarea id="rejectNotes" required placeholder="Please provide a reason for rejection..."></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" onclick="closeRejectModal()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-ban"></i> Reject
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mark as Paid Modal -->
+    <div id="paidModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-check-double"></i> Mark as Paid</h3>
+                <button class="close-modal" onclick="closePaidModal()">&times;</button>
+            </div>
+            <form onsubmit="handleMarkAsPaid(event)">
+                <input type="hidden" id="paidPayoutId">
+                <div class="form-group">
+                    <label>Admin Notes *</label>
+                    <textarea id="paidNotes" required placeholder="e.g., Transaction ID, payment confirmation details..."></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" onclick="closePaidModal()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-double"></i> Mark as Paid
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        let allPayouts = [];
+        let allSellers = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadSellers();
+            await loadPayouts();
+        });
+
+        // Load sellers for dropdown
+        async function loadSellers() {
+            try {
+                allSellers = await apiCall('/sellers');
+                const sellerSelects = ['filterSeller', 'createSellerId'];
+                sellerSelects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    select.innerHTML = selectId === 'filterSeller' ? '<option value="">All Sellers</option>' : '<option value="">-- Select Seller --</option>';
+                    allSellers.forEach(seller => {
+                        select.innerHTML += `<option value="${seller.id}">${seller.name} (${seller.email})</option>`;
+                    });
+                });
+            } catch (error) {
+                showToast('Failed to load sellers: ' + error.message, 'error');
+            }
+        }
+
+        // Load all payouts
+        async function loadPayouts() {
+            try {
+                const payouts = await apiCall('/payouts/all');
+                allPayouts = payouts;
+                updateStatistics(payouts);
+                displayPayouts(payouts);
+            } catch (error) {
+                showToast('Failed to load payouts: ' + error.message, 'error');
+                document.getElementById('payoutsTableBody').innerHTML = `
+                    <tr><td colspan="7"><div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load payouts</p>
+                    </div></td></tr>
+                `;
+            }
+        }
+
+        // Update statistics
+        function updateStatistics(payouts) {
+            const totalAmount = payouts.reduce((sum, p) => sum + (p.amount || 0), 0);
+            const pending = payouts.filter(p => p.status === 'PENDING').length;
+            const approved = payouts.filter(p => p.status === 'APPROVED').length;
+            const paid = payouts.filter(p => p.status === 'PAID').length;
+
+            document.getElementById('totalPayoutsAmount').textContent = '₹' + totalAmount.toLocaleString();
+            document.getElementById('pendingCount').textContent = pending;
+            document.getElementById('approvedCount').textContent = approved;
+            document.getElementById('paidCount').textContent = paid;
+        }
+
+        // Display payouts in table
+        function displayPayouts(payouts) {
+            const tbody = document.getElementById('payoutsTableBody');
+            
+            if (payouts.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="7"><div class="empty-state">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <p>No payouts found</p>
+                    </div></td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = payouts.map(payout => `
+                <tr>
+                    <td><span class="reference-number">${payout.referenceNumber || 'N/A'}</span></td>
+                    <td>
+                        <div style="font-weight: 600;">${payout.sellerName || 'N/A'}</div>
+                        <div style="font-size: 0.85rem; color: #718096;">${payout.sellerEmail || ''}</div>
+                    </td>
+                    <td style="font-weight: 600; font-size: 1.1rem;">${payout.currency || 'INR'} ${(payout.amount || 0).toLocaleString()}</td>
+                    <td>${formatPaymentMethod(payout.paymentMethod)}</td>
+                    <td>${getStatusBadge(payout.status)}</td>
+                    <td>${payout.requestedAt ? new Date(payout.requestedAt).toLocaleDateString() : 'N/A'}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button onclick="viewPayoutDetails('${payout.id}')" class="btn btn-primary btn-sm" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            ${payout.status === 'PENDING' ? `
+                                <button onclick="openApproveModal('${payout.id}')" class="btn btn-success btn-sm" title="Approve">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button onclick="openRejectModal('${payout.id}')" class="btn btn-danger btn-sm" title="Reject">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            ` : ''}
+                            ${payout.status === 'APPROVED' || payout.status === 'PROCESSING' ? `
+                                <button onclick="openPaidModal('${payout.id}')" class="btn btn-success btn-sm" title="Mark as Paid">
+                                    <i class="fas fa-check-double"></i>
+                                </button>
+                                <button onclick="openRejectModal('${payout.id}')" class="btn btn-danger btn-sm" title="Reject">
+                                    <i class="fas fa-ban"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const status = document.getElementById('filterStatus').value;
+            const sellerId = document.getElementById('filterSeller').value;
+            const search = document.getElementById('filterSearch').value.toLowerCase();
+
+            let filtered = allPayouts;
+
+            if (status) {
+                filtered = filtered.filter(p => p.status === status);
+            }
+            if (sellerId) {
+                filtered = filtered.filter(p => p.sellerId === sellerId);
+            }
+            if (search) {
+                filtered = filtered.filter(p => 
+                    (p.referenceNumber && p.referenceNumber.toLowerCase().includes(search)) ||
+                    (p.sellerName && p.sellerName.toLowerCase().includes(search)) ||
+                    (p.sellerEmail && p.sellerEmail.toLowerCase().includes(search))
+                );
+            }
+
+            displayPayouts(filtered);
+        }
+
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterSeller').value = '';
+            document.getElementById('filterSearch').value = '';
+            displayPayouts(allPayouts);
+        }
+
+        // Create payout modal
+        function openCreateModal() {
+            document.getElementById('createModal').classList.add('active');
+        }
+
+        function closeCreateModal() {
+            document.getElementById('createModal').classList.remove('active');
+            document.querySelector('#createModal form').reset();
+        }
+
+        async function handleCreatePayout(event) {
+            event.preventDefault();
+            
+            const data = {
+                sellerId: document.getElementById('createSellerId').value,
+                amount: parseFloat(document.getElementById('createAmount').value),
+                currency: document.getElementById('createCurrency').value,
+                paymentMethod: document.getElementById('createPaymentMethod').value,
+                paymentDetails: document.getElementById('createPaymentDetails').value,
+                sellerNotes: document.getElementById('createSellerNotes').value
+            };
+
+            try {
+                await apiCall('/payouts', 'POST', data);
+                showToast('Payout created successfully!', 'success');
+                closeCreateModal();
+                await loadPayouts();
+            } catch (error) {
+                showToast('Failed to create payout: ' + error.message, 'error');
+            }
+        }
+
+        // View payout details
+        async function viewPayoutDetails(payoutId) {
+            try {
+                const payout = await apiCall(`/payouts/${payoutId}`);
+                
+                const detailsHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>Reference Number</label>
+                            <div class="value reference-number">${payout.referenceNumber || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label>Status</label>
+                            <div class="value">${getStatusBadge(payout.status)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label>Amount</label>
+                            <div class="value">${payout.currency} ${(payout.amount || 0).toLocaleString()}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label>Payment Method</label>
+                            <div class="value">${formatPaymentMethod(payout.paymentMethod)}</div>
+                        </div>
+                    </div>
+
+                    <div class="detail-grid">
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <label>Seller</label>
+                            <div class="value">${payout.sellerName || 'N/A'}</div>
+                            <div style="font-size: 0.9rem; color: #718096; margin-top: 0.25rem;">${payout.sellerEmail || ''}</div>
+                        </div>
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <label>Payment Details</label>
+                            <div class="value" style="font-size: 0.95rem; white-space: pre-wrap;">${payout.paymentDetails || 'N/A'}</div>
+                        </div>
+                    </div>
+
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>Requested At</label>
+                            <div class="value">${payout.requestedAt ? new Date(payout.requestedAt).toLocaleString() : 'N/A'}</div>
+                        </div>
+                        ${payout.approvedAt ? `
+                            <div class="detail-item">
+                                <label>Approved At</label>
+                                <div class="value">${new Date(payout.approvedAt).toLocaleString()}</div>
+                                <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">By: ${payout.approvedBy || 'N/A'}</div>
+                            </div>
+                        ` : ''}
+                        ${payout.paidAt ? `
+                            <div class="detail-item">
+                                <label>Paid At</label>
+                                <div class="value">${new Date(payout.paidAt).toLocaleString()}</div>
+                                <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">By: ${payout.paidBy || 'N/A'}</div>
+                            </div>
+                        ` : ''}
+                        ${payout.rejectedAt ? `
+                            <div class="detail-item">
+                                <label>Rejected At</label>
+                                <div class="value">${new Date(payout.rejectedAt).toLocaleString()}</div>
+                                <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">By: ${payout.rejectedBy || 'N/A'}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    ${payout.sellerNotes ? `
+                        <div class="detail-item" style="margin-bottom: 1rem;">
+                            <label>Seller Notes</label>
+                            <div class="value" style="font-size: 0.95rem; white-space: pre-wrap;">${payout.sellerNotes}</div>
+                        </div>
+                    ` : ''}
+
+                    ${payout.adminNotes ? `
+                        <div class="detail-item" style="margin-bottom: 1rem;">
+                            <label>Admin Notes</label>
+                            <div class="value" style="font-size: 0.95rem; white-space: pre-wrap;">${payout.adminNotes}</div>
+                        </div>
+                    ` : ''}
+
+                    <div style="margin-top: 1.5rem; text-align: right;">
+                        <button onclick="closeDetailsModal()" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                `;
+                
+                document.getElementById('detailsContent').innerHTML = detailsHTML;
+                document.getElementById('detailsModal').classList.add('active');
+                
+            } catch (error) {
+                showToast('Failed to load payout details: ' + error.message, 'error');
+            }
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('detailsModal').classList.remove('active');
+        }
+
+        // Approve payout
+        function openApproveModal(payoutId) {
+            document.getElementById('approvePayoutId').value = payoutId;
+            document.getElementById('approveModal').classList.add('active');
+        }
+
+        function closeApproveModal() {
+            document.getElementById('approveModal').classList.remove('active');
+            document.getElementById('approveNotes').value = '';
+        }
+
+        async function handleApprovePayout(event) {
+            event.preventDefault();
+            
+            const payoutId = document.getElementById('approvePayoutId').value;
+            const adminNotes = document.getElementById('approveNotes').value;
+
+            try {
+                await apiCall(`/payouts/${payoutId}/approve`, 'POST', { adminNotes });
+                showToast('Payout approved successfully!', 'success');
+                closeApproveModal();
+                await loadPayouts();
+            } catch (error) {
+                showToast('Failed to approve payout: ' + error.message, 'error');
+            }
+        }
+
+        // Reject payout
+        function openRejectModal(payoutId) {
+            document.getElementById('rejectPayoutId').value = payoutId;
+            document.getElementById('rejectModal').classList.add('active');
+        }
+
+        function closeRejectModal() {
+            document.getElementById('rejectModal').classList.remove('active');
+            document.getElementById('rejectNotes').value = '';
+        }
+
+        async function handleRejectPayout(event) {
+            event.preventDefault();
+            
+            const payoutId = document.getElementById('rejectPayoutId').value;
+            const adminNotes = document.getElementById('rejectNotes').value;
+
+            try {
+                await apiCall(`/payouts/${payoutId}/reject`, 'POST', { adminNotes });
+                showToast('Payout rejected', 'success');
+                closeRejectModal();
+                await loadPayouts();
+            } catch (error) {
+                showToast('Failed to reject payout: ' + error.message, 'error');
+            }
+        }
+
+        // Mark as paid
+        function openPaidModal(payoutId) {
+            document.getElementById('paidPayoutId').value = payoutId;
+            document.getElementById('paidModal').classList.add('active');
+        }
+
+        function closePaidModal() {
+            document.getElementById('paidModal').classList.remove('active');
+            document.getElementById('paidNotes').value = '';
+        }
+
+        async function handleMarkAsPaid(event) {
+            event.preventDefault();
+            
+            const payoutId = document.getElementById('paidPayoutId').value;
+            const adminNotes = document.getElementById('paidNotes').value;
+
+            try {
+                await apiCall(`/payouts/${payoutId}/paid`, 'POST', { adminNotes });
+                showToast('Payout marked as paid!', 'success');
+                closePaidModal();
+                await loadPayouts();
+            } catch (error) {
+                showToast('Failed to mark payout as paid: ' + error.message, 'error');
+            }
+        }
+
+        // Helper functions
+        function getStatusBadge(status) {
+            const statusClass = `status-${status.toLowerCase()}`;
+            return `<span class="status-badge ${statusClass}">${status}</span>`;
+        }
+
+        function formatPaymentMethod(method) {
+            if (!method) return 'N/A';
+            return method.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function updatePaymentFields() {
+            const method = document.getElementById('createPaymentMethod').value;
+            const detailsField = document.getElementById('createPaymentDetails');
+            
+            switch(method) {
+                case 'BANK_TRANSFER':
+                    detailsField.placeholder = 'Account Number: XXX\nAccount Name: XXX\nBank Name: XXX\nIFSC: XXX';
+                    break;
+                case 'UPI':
+                    detailsField.placeholder = 'UPI ID: example@upi';
+                    break;
+                case 'PAYPAL':
+                    detailsField.placeholder = 'PayPal Email: example@email.com';
+                    break;
+                default:
+                    detailsField.placeholder = 'Enter payment details...';
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+            const color = type === 'success' ? '#48bb78' : '#f56565';
+            
+            toast.innerHTML = `
+                <i class="fas ${icon}" style="color: ${color}; font-size: 1.5rem;"></i>
+                <span>${message}</span>
+            `;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Load admin profile info
+        async function loadAdminProfile() {
+            try {
+                const userEmail = localStorage.getItem('userEmail') || 'admin@example.com';
+                const userName = localStorage.getItem('userName') || 'Admin';
+                const firstLetter = userName.charAt(0).toUpperCase();
+                
+                document.getElementById('adminAvatar').textContent = firstLetter;
+                document.getElementById('adminName').textContent = userName;
+                document.getElementById('dropdownAdminName').textContent = userName;
+                document.getElementById('dropdownAdminEmail').textContent = userEmail;
+            } catch (error) {
+                console.error('Failed to load admin profile:', error);
+            }
+        }
+
+        // Toggle profile dropdown
+        function toggleProfileDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('profileDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const profile = document.querySelector('.admin-profile');
+            const dropdown = document.getElementById('profileDropdown');
+            if (profile && !profile.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Load profile on page load
+        loadAdminProfile();
+
+        function logout() {
+            localStorage.clear();
+            showToast('Logged out successfully', 'success');
+            setTimeout(() => window.location.href = 'login.html', 1000);
+        }
+
+        // Close modals on outside click
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+

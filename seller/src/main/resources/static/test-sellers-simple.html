@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Sellers Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .log {
+            background: #2d2d2d;
+            color: #0f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .info { color: #0ff; }
+        h1 { color: #333; }
+        .seller-card {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #1877F2;
+        }
+        button {
+            background: #1877F2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover { background: #166FE5; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Simple Sellers Test</h1>
+    <p>This page will show you EXACTLY what's happening</p>
+    
+    <button onclick="testSellers()">Test Now</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    
+    <h2>Live Log:</h2>
+    <div id="log" class="log">Waiting for test...</div>
+    
+    <h2>Sellers Display:</h2>
+    <div id="sellers"></div>
+    
+    <script>
+        const API_BASE_URL = 'http://localhost:8181/api/v1';
+        let logDiv = document.getElementById('log');
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logDiv.innerHTML += `<div class="${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLogs() {
+            logDiv.innerHTML = 'Logs cleared.<br>';
+        }
+        
+        async function testSellers() {
+            clearLogs();
+            addLog('=== STARTING SELLER TEST ===', 'info');
+            
+            // Step 1: Check Auth
+            addLog('Step 1: Checking authentication...', 'info');
+            const token = localStorage.getItem('token');
+            const role = localStorage.getItem('userRole');
+            
+            if (!token) {
+                addLog('❌ ERROR: No token found!', 'error');
+                addLog('➡️ SOLUTION: Go to http://localhost:8181/login.html and login', 'error');
+                return;
+            }
+            
+            addLog(`✅ Token found: ${token.substring(0, 30)}...`, 'success');
+            addLog(`✅ Role: ${role}`, 'success');
+            
+            if (role !== 'ADMIN') {
+                addLog(`❌ ERROR: Role is ${role}, should be ADMIN`, 'error');
+                addLog('➡️ SOLUTION: Logout and login with admin@seller.com', 'error');
+                return;
+            }
+            
+            // Step 2: Fetch Sellers
+            addLog('Step 2: Fetching sellers from API...', 'info');
+            addLog(`URL: ${API_BASE_URL}/sellers`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/sellers`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                addLog(`Response Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addLog(`❌ Error Response: ${errorText}`, 'error');
+                    return;
+                }
+                
+                const sellers = await response.json();
+                addLog(`✅ SUCCESS! Received ${sellers.length} sellers`, 'success');
+                addLog(`Data type: ${Array.isArray(sellers) ? 'Array' : typeof sellers}`, 'info');
+                
+                // Step 3: Display Sellers
+                addLog('Step 3: Displaying sellers...', 'info');
+                
+                if (sellers.length === 0) {
+                    addLog('⚠️ No sellers in database', 'info');
+                    document.getElementById('sellers').innerHTML = '<p>No sellers found</p>';
+                    return;
+                }
+                
+                // Show detailed info for each seller
+                addLog('Seller details:', 'info');
+                sellers.forEach((seller, index) => {
+                    addLog(`  [${index + 1}] ${seller.name} (${seller.email}) - Status: ${seller.status}`, 'success');
+                });
+                
+                // Render sellers
+                const sellersDiv = document.getElementById('sellers');
+                sellersDiv.innerHTML = sellers.map(seller => `
+                    <div class="seller-card">
+                        <h3>${seller.name}</h3>
+                        <p><strong>Email:</strong> ${seller.email}</p>
+                        <p><strong>Phone:</strong> ${seller.phoneNumber || 'N/A'}</p>
+                        <p><strong>Business:</strong> ${seller.businessName || 'N/A'}</p>
+                        <p><strong>Status:</strong> ${seller.status || 'ACTIVE'}</p>
+                        <p><strong>Customers:</strong> ${seller.totalCustomers || 0}</p>
+                        <p><strong>Referrals:</strong> ${seller.totalReferrals || 0}</p>
+                        <p><strong>Joined:</strong> ${new Date(seller.createdAt).toLocaleDateString()}</p>
+                    </div>
+                `).join('');
+                
+                addLog('✅ Sellers displayed successfully!', 'success');
+                addLog('=== TEST COMPLETE ===', 'success');
+                
+            } catch (error) {
+                addLog(`❌ FETCH ERROR: ${error.message}`, 'error');
+                addLog(`Stack: ${error.stack}`, 'error');
+                
+                if (error.message.includes('Failed to fetch')) {
+                    addLog('', 'error');
+                    addLog('⚠️ This usually means:', 'error');
+                    addLog('  1. Server is not running on port 8181', 'error');
+                    addLog('  2. Network connection issue', 'error');
+                    addLog('  3. CORS blocking (but should be configured)', 'error');
+                }
+            }
+        }
+        
+        // Auto-run on page load
+        window.onload = function() {
+            addLog('Page loaded. Click "Test Now" or waiting 2 seconds...', 'info');
+            setTimeout(testSellers, 2000);
+        };
+    </script>
+</body>
+</html>
+

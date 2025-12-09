@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Seller Hub</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin Panel</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html" class="active"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="admin-sellers.html"><i class="fas fa-users"></i> Sellers</a></li>
+                <li><a href="admin-leads.html"><i class="fas fa-chart-line"></i> Leads</a></li>
+                <li><a href="admin-content.html"><i class="fas fa-images"></i> Content</a></li>
+                <li><a href="admin-payouts.html"><i class="fas fa-money-bill-wave"></i> Payouts</a></li>
+                <li class="nav-item-right">
+                    <div class="admin-profile" onclick="toggleProfileDropdown(event)">
+                        <div class="profile-trigger">
+                            <div class="profile-avatar" id="adminAvatar">A</div>
+                            <div class="profile-info">
+                                <span class="profile-name" id="adminName">Admin</span>
+                                <span class="profile-role">Administrator</span>
+                            </div>
+                            <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 4px;"></i>
+                        </div>
+                        <div class="profile-dropdown" id="profileDropdown">
+                            <div class="profile-header">
+                                <div class="profile-info">
+                                    <div class="profile-name" id="dropdownAdminName">Admin</div>
+                                    <div class="profile-email" id="dropdownAdminEmail">admin@example.com</div>
+                                </div>
+                            </div>
+                            <ul class="profile-menu">
+                                <li class="profile-menu-item">
+                                    <a href="admin-profile.html">
+                                        <i class="fas fa-user"></i>
+                                        <span>My Profile</span>
+                                    </a>
+                                </li>
+                                <li class="profile-menu-item">
+                                    <a href="admin-settings.html">
+                                        <i class="fas fa-cog"></i>
+                                        <span>Settings</span>
+                                    </a>
+                                </li>
+                                <li class="profile-menu-divider"></li>
+                                <li class="profile-menu-item logout">
+                                    <button onclick="logout()">
+                                        <i class="fas fa-sign-out-alt"></i>
+                                        <span>Logout</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-chart-line"></i> Admin Dashboard</h1>
+                <p class="subtitle">System Overview & Management</p>
+            </div>
+        </header>
+
+        <!-- System Stats -->
+        <div class="stats-grid">
+            <div class="stat-card" style="border-left: 3px solid #0052CC;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #0052CC 0%, #0747A6 100%);">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalSellers">0</h3>
+                    <p>Total Sellers</p>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-left: 3px solid #00875A;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #00875A 0%, #006644 100%);">
+                    <i class="fas fa-user-friends"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalCustomers">0</h3>
+                    <p>Total Customers</p>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-left: 3px solid #0065FF;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #0065FF 0%, #0052CC 100%);">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalLeads">0</h3>
+                    <p>Total Leads</p>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-left: 3px solid #FF8B00;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #FF8B00 0%, #FF991F 100%);">
+                    <i class="fas fa-images"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalContent">0</h3>
+                    <p>Marketing Content</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Sellers -->
+        <div class="recent-section" style="margin-bottom: 2rem;">
+            <div class="section-header">
+                <h2><i class="fas fa-users"></i> Recent Sellers</h2>
+                <a href="admin-sellers.html" class="view-all">
+                    View All <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+            <div id="recentSellers">
+                <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+
+        <!-- Admin Actions -->
+        <div class="action-grid">
+            <div class="action-card">
+                <div class="action-icon" style="background: linear-gradient(135deg, #0052CC 0%, #0747A6 100%);">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h3>Manage Sellers</h3>
+                <p>View and manage all seller accounts</p>
+                <a href="admin-sellers.html" class="btn btn-primary">
+                    <i class="fas fa-arrow-right"></i> View Sellers
+                </a>
+            </div>
+
+            <div class="action-card">
+                <div class="action-icon" style="background: linear-gradient(135deg, #00875A 0%, #006644 100%);">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3>Manage Leads</h3>
+                <p>View and manage all sales leads</p>
+                <a href="admin-leads.html" class="btn btn-primary">
+                    <i class="fas fa-arrow-right"></i> View Leads
+                </a>
+            </div>
+
+            <div class="action-card">
+                <div class="action-icon" style="background: linear-gradient(135deg, #FF8B00 0%, #FF991F 100%);">
+                    <i class="fas fa-upload"></i>
+                </div>
+                <h3>Upload Content</h3>
+                <p>Add marketing materials for sellers</p>
+                <a href="admin-content.html" class="btn btn-primary">
+                    <i class="fas fa-arrow-right"></i> Manage Content
+                </a>
+            </div>
+
+            <div class="action-card">
+                <div class="action-icon" style="background: linear-gradient(135deg, #0065FF 0%, #0052CC 100%);">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <h3>Manage Payouts</h3>
+                <p>Handle seller payments and commissions</p>
+                <a href="admin-payouts.html" class="btn btn-primary">
+                    <i class="fas fa-arrow-right"></i> View Payouts
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2025 Seller Management System. Built with <i class="fas fa-heart"></i></p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Check authentication and role
+        const token = localStorage.getItem('token');
+        const userRole = localStorage.getItem('userRole');
+        
+        console.log('Admin Dashboard - Auth Check:', {
+            token: token ? 'Present' : 'Missing',
+            userRole: userRole || 'Not set'
+        });
+        
+        if (!token) {
+            console.warn('No token found - redirecting to login');
+            alert('⚠️ You are not logged in. Please login first.');
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        if (!userRole) {
+            console.warn('No role found in localStorage - clearing and redirecting');
+            localStorage.clear();
+            alert('⚠️ Session expired. Please login again.');
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        if (userRole !== 'ADMIN') {
+            console.warn('Access denied - User role:', userRole, 'Expected: ADMIN');
+            alert(`⚠️ Access denied! You are logged in as ${userRole}. Admin access required.\n\nRedirecting to your dashboard...`);
+            if (userRole === 'SELLER' || userRole === 'EMPLOYEE') {
+                window.location.href = 'seller-dashboard.html';
+            } else {
+                window.location.href = 'login.html';
+            }
+            return;
+        }
+        
+        console.log('✅ Admin access granted');
+        
+        // Debug: Show current session info
+        console.log('Current Session:', {
+            token: token ? token.substring(0, 20) + '...' : 'None',
+            role: userRole,
+            email: localStorage.getItem('userEmail'),
+            name: localStorage.getItem('userName')
+        });
+        
+        // Load admin profile info
+        async function loadAdminProfile() {
+            try {
+                const userEmail = localStorage.getItem('userEmail') || 'admin@example.com';
+                const userName = localStorage.getItem('userName') || 'Admin';
+                const firstLetter = userName.charAt(0).toUpperCase();
+                
+                document.getElementById('adminAvatar').textContent = firstLetter;
+                document.getElementById('adminName').textContent = userName;
+                document.getElementById('dropdownAdminName').textContent = userName;
+                document.getElementById('dropdownAdminEmail').textContent = userEmail;
+            } catch (error) {
+                console.error('Failed to load admin profile:', error);
+            }
+        }
+
+        // Toggle profile dropdown
+        function toggleProfileDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('profileDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const profile = document.querySelector('.admin-profile');
+            const dropdown = document.getElementById('profileDropdown');
+            if (profile && !profile.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Load profile on page load
+        loadAdminProfile();
+        
+        function logout() {
+            localStorage.clear();
+            showToast('Logged out successfully', 'success');
+            setTimeout(() => window.location.href = 'login.html', 1000);
+        }
+        
+        // Load dashboard data
+        async function loadDashboard() {
+            try {
+                console.log('Loading dashboard data...');
+                console.log('Token:', localStorage.getItem('token'));
+                console.log('User Role:', localStorage.getItem('userRole'));
+                
+                // Load all sellers
+                const sellers = await apiCall('/sellers');
+                console.log('Sellers loaded for dashboard:', sellers.length, 'sellers');
+                console.log('Sellers data:', sellers);
+                
+                document.getElementById('totalSellers').textContent = sellers.length;
+                
+                // Display recent sellers
+                displayRecentSellers(sellers.slice(0, 5));
+                
+                // Count total customers across all sellers
+                let totalCustomers = 0;
+                let totalLeads = 0;
+                
+                for (const seller of sellers) {
+                    try {
+                        // Get customers for this seller
+                        const customers = await apiCall(`/customers/seller/${seller.id}`);
+                        totalCustomers += customers.length;
+                    } catch (e) {
+                        console.error('Error loading customers for seller:', seller.id, e);
+                    }
+                }
+                
+                document.getElementById('totalCustomers').textContent = totalCustomers;
+                
+                // Get all leads for admin
+                try {
+                    const leads = await apiCall('/leads/all');
+                    document.getElementById('totalLeads').textContent = leads.length;
+                } catch (e) {
+                    console.error('Error loading leads:', e);
+                    document.getElementById('totalLeads').textContent = '0';
+                }
+                
+                // Load marketing content
+                try {
+                    const content = await apiCall('/marketing-content');
+                    document.getElementById('totalContent').textContent = content.length;
+                } catch (e) {
+                    console.error('Error loading marketing content:', e);
+                    document.getElementById('totalContent').textContent = '0';
+                }
+                
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                if (error.message && (error.message.includes('401') || error.message.includes('403'))) {
+                    showToast('Session expired. Please login again.', 'error');
+                    setTimeout(() => logout(), 2000);
+                } else {
+                    showToast('Some data could not be loaded. Check console for details.', 'warning');
+                }
+            }
+        }
+        
+        function displayRecentSellers(sellers) {
+            const container = document.getElementById('recentSellers');
+            
+            if (sellers.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><p>No sellers yet</p></div>';
+                return;
+            }
+            
+            container.innerHTML = sellers.map(seller => `
+                <div class="seller-card" style="padding: 1.25rem; border-bottom: 1px solid var(--border-color); transition: all 0.3s;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                <div style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #1877F2, #42B72A); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 1.2rem;">
+                                    ${seller.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600; color: var(--dark); font-size: 1.1rem;">${seller.name}</div>
+                                    ${getStatusBadge(seller.status || 'ACTIVE')}
+                                </div>
+                            </div>
+                            <div style="margin-left: 3.5rem;">
+                                <div style="font-size: 0.9rem; color: #718096; margin-bottom: 0.25rem;">
+                                    <i class="fas fa-envelope" style="width: 20px;"></i> ${seller.email}
+                                </div>
+                                <div style="font-size: 0.9rem; color: #718096; margin-bottom: 0.25rem;">
+                                    <i class="fas fa-phone" style="width: 20px;"></i> ${seller.phoneNumber || 'N/A'}
+                                </div>
+                                <div style="font-size: 0.9rem; color: #718096;">
+                                    <i class="fas fa-calendar" style="width: 20px;"></i> Joined ${new Date(seller.createdAt).toLocaleDateString()}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; margin-left: 3.5rem; flex-wrap: wrap;">
+                        <button onclick="viewSellerDetails('${seller.id}')" class="btn btn-primary btn-sm" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" title="View Details">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                        <button onclick="editSeller('${seller.id}')" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: #ffa726; color: white; border: none;" title="Edit Seller">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button onclick="toggleBlockSeller('${seller.id}', '${seller.status || 'ACTIVE'}')" class="btn btn-sm" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: ${(seller.status === 'SUSPENDED' || seller.status === 'INACTIVE') ? '#42B72A' : '#ed8936'}; color: white; border: none;" title="${(seller.status === 'SUSPENDED' || seller.status === 'INACTIVE') ? 'Unblock' : 'Block'} Seller">
+                            <i class="fas fa-${(seller.status === 'SUSPENDED' || seller.status === 'INACTIVE') ? 'check' : 'ban'}"></i> ${(seller.status === 'SUSPENDED' || seller.status === 'INACTIVE') ? 'Unblock' : 'Block'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // View seller details
+        function viewSellerDetails(sellerId) {
+            window.location.href = `admin-sellers.html?seller=${sellerId}`;
+        }
+        
+        // Edit seller
+        function editSeller(sellerId) {
+            window.location.href = `admin-sellers.html?action=edit&seller=${sellerId}`;
+        }
+        
+        // Toggle block/unblock seller
+        async function toggleBlockSeller(sellerId, currentStatus) {
+            const isBlocked = currentStatus === 'SUSPENDED' || currentStatus === 'INACTIVE';
+            const action = isBlocked ? 'unblock' : 'block';
+            const newStatus = isBlocked ? 'ACTIVE' : 'SUSPENDED';
+            
+            if (!confirm(`Are you sure you want to ${action} this seller?`)) {
+                return;
+            }
+            
+            try {
+                // Update seller status via API
+                await apiCall(`/sellers/${sellerId}`, 'PUT', {
+                    status: newStatus
+                });
+                
+                showToast(`Seller ${action}ed successfully!`, 'success');
+                // Reload dashboard data
+                loadDashboard();
+            } catch (error) {
+                showToast(`Failed to ${action} seller: ${error.message}`, 'error');
+            }
+        }
+        
+        
+        // Load dashboard on page load
+        loadDashboard();
+    </script>
+</body>
+</html>
+

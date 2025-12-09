@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Debug Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #1877F2;
+            margin-bottom: 1rem;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .test-item {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            border-left: 4px solid #ccc;
+            background: #f8f9fa;
+        }
+        
+        .test-item.success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        
+        .test-item.error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        
+        .test-item.running {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+        }
+        
+        .test-label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .test-result {
+            font-family: monospace;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        
+        .btn {
+            background: #1877F2;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-right: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #166FE5;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1877F2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin-top: 0.5rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .icon-success {
+            color: #28a745;
+        }
+        
+        .icon-error {
+            color: #dc3545;
+        }
+        
+        .icon-running {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-bug"></i> Admin Debug Dashboard</h1>
+        <p style="margin-bottom: 2rem; color: #666;">Real-time diagnostic tool - Tests run automatically</p>
+        
+        <div class="section">
+            <h2><i class="fas fa-play"></i> Actions</h2>
+            <button class="btn" onclick="runAllTests()">
+                <i class="fas fa-redo"></i> Run All Tests Again
+            </button>
+            <button class="btn btn-danger" onclick="clearAuth()">
+                <i class="fas fa-trash"></i> Clear Auth & Reload
+            </button>
+            <button class="btn" onclick="goToLogin()">
+                <i class="fas fa-sign-in-alt"></i> Go to Login
+            </button>
+        </div>
+        
+        <div id="test1" class="section">
+            <h2><i class="fas fa-key"></i> Test 1: Authentication Check</h2>
+            <div id="test1-result"></div>
+        </div>
+        
+        <div id="test2" class="section">
+            <h2><i class="fas fa-users"></i> Test 2: Fetch Sellers</h2>
+            <div id="test2-result"></div>
+        </div>
+        
+        <div id="test3" class="section">
+            <h2><i class="fas fa-images"></i> Test 3: Fetch Marketing Content</h2>
+            <div id="test3-result"></div>
+        </div>
+        
+        <div id="test4" class="section">
+            <h2><i class="fas fa-chart-line"></i> Test 4: Fetch Leads</h2>
+            <div id="test4-result"></div>
+        </div>
+        
+        <div id="summary" class="section">
+            <h2><i class="fas fa-clipboard-check"></i> Summary</h2>
+            <div id="summary-result"></div>
+        </div>
+    </div>
+    
+    <script src="js/app.js"></script>
+    <script>
+        const API_BASE_URL = 'http://localhost:8181/api/v1';
+        
+        let testResults = {
+            auth: false,
+            sellers: false,
+            content: false,
+            leads: false
+        };
+        
+        function clearAuth() {
+            if (confirm('This will clear authentication and reload the page. Continue?')) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+        
+        function goToLogin() {
+            window.location.href = 'login.html';
+        }
+        
+        async function runAllTests() {
+            console.log('=== STARTING ALL TESTS ===');
+            await test1_checkAuth();
+            
+            if (testResults.auth) {
+                await test2_fetchSellers();
+                await test3_fetchContent();
+                await test4_fetchLeads();
+            }
+            
+            showSummary();
+        }
+        
+        async function test1_checkAuth() {
+            const resultDiv = document.getElementById('test1-result');
+            resultDiv.innerHTML = '<div class="test-item running"><div class="spinner"></div> Checking authentication...</div>';
+            
+            const token = localStorage.getItem('token');
+            const role = localStorage.getItem('userRole');
+            const name = localStorage.getItem('userName');
+            const email = localStorage.getItem('userEmail');
+            
+            console.log('Test 1: Authentication Check');
+            console.log('Token:', token ? `Present (${token.length} chars)` : 'MISSING');
+            console.log('Role:', role);
+            console.log('Name:', name);
+            console.log('Email:', email);
+            
+            if (!token) {
+                testResults.auth = false;
+                resultDiv.innerHTML = `
+                    <div class="test-item error">
+                        <div class="test-label"><i class="fas fa-times-circle icon-error"></i> FAILED: No Authentication Token</div>
+                        <div class="test-result">
+                            ❌ Token: MISSING<br>
+                            ❌ You are NOT logged in<br>
+                            <br>
+                            <strong>Solution:</strong> Click "Go to Login" button above and login as admin.
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (role !== 'ADMIN') {
+                testResults.auth = false;
+                resultDiv.innerHTML = `
+                    <div class="test-item error">
+                        <div class="test-label"><i class="fas fa-times-circle icon-error"></i> FAILED: Wrong Role</div>
+                        <div class="test-result">
+                            ✅ Token: Present<br>
+                            ❌ Role: ${role || 'NOT SET'} (should be ADMIN)<br>
+                            <br>
+                            <strong>Solution:</strong> Logout and login with admin credentials (admin@seller.com)
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            testResults.auth = true;
+            resultDiv.innerHTML = `
+                <div class="test-item success">
+                    <div class="test-label"><i class="fas fa-check-circle icon-success"></i> PASSED: Authentication OK</div>
+                    <div class="test-result">
+                        ✅ Token: Present (${token.length} characters)<br>
+                        ✅ Role: ${role}<br>
+                        ✅ Name: ${name || 'Not set'}<br>
+                        ✅ Email: ${email || 'Not set'}<br>
+                        <br>
+                        <strong>Token Preview:</strong> ${token.substring(0, 50)}...
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function test2_fetchSellers() {
+            const resultDiv = document.getElementById('test2-result');
+            resultDiv.innerHTML = '<div class="test-item running"><div class="spinner"></div> Fetching sellers from API...</div>';
+            
+            const token = localStorage.getItem('token');
+            
+            try {
+                console.log('Test 2: Fetching sellers...');
+                console.log('URL:', API_BASE_URL + '/sellers');
+                
+                const response = await fetch(API_BASE_URL + '/sellers', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    
+                    testResults.sellers = false;
+                    resultDiv.innerHTML = `
+                        <div class="test-item error">
+                            <div class="test-label"><i class="fas fa-times-circle icon-error"></i> FAILED: HTTP Error ${response.status}</div>
+                            <div class="test-result">
+                                ❌ Status: ${response.status} ${response.statusText}<br>
+                                ❌ Endpoint: GET /api/v1/sellers<br>
+                                <br>
+                                <strong>Error Response:</strong>
+                                <pre>${errorText}</pre>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const sellers = await response.json();
+                console.log('Sellers received:', sellers);
+                
+                testResults.sellers = true;
+                resultDiv.innerHTML = `
+                    <div class="test-item success">
+                        <div class="test-label"><i class="fas fa-check-circle icon-success"></i> PASSED: Sellers Fetched Successfully</div>
+                        <div class="test-result">
+                            ✅ Status: 200 OK<br>
+                            ✅ Count: ${sellers.length} sellers<br>
+                            ✅ Data Type: ${Array.isArray(sellers) ? 'Array' : typeof sellers}<br>
+                            <br>
+                            <strong>Data Preview:</strong>
+                            <pre>${JSON.stringify(sellers.slice(0, 2), null, 2)}</pre>
+                            ${sellers.length > 2 ? `<em>... and ${sellers.length - 2} more</em>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                
+                testResults.sellers = false;
+                resultDiv.innerHTML = `
+                    <div class="test-item error">
+                        <div class="test-label"><i class="fas fa-times-circle icon-error"></i> FAILED: Network/Fetch Error</div>
+                        <div class="test-result">
+                            ❌ Error: ${error.message}<br>
+                            <br>
+                            <strong>Possible causes:</strong><br>
+                            • Server is not running on port 8181<br>
+                            • Network connection issue<br>
+                            • CORS policy blocking request<br>
+                            <br>
+                            <strong>Solution:</strong> Make sure Spring Boot server is running
+                            <pre>${error.stack}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        async function test3_fetchContent() {
+            const resultDiv = document.getElementById('test3-result');
+            resultDiv.innerHTML = '<div class="test-item running"><div class="spinner"></div> Fetching marketing content from API...</div>';
+            
+            const token = localStorage.getItem('token');
+            
+            try {
+                console.log('Test 3: Fetching marketing content...');
+                console.log('URL:', API_BASE_URL + '/marketing-content');
+                
+                const response = await fetch(API_BASE_URL + '/marketing-content', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    
+                    testResults.content = false;
+                    resultDiv.innerHTML = `
+                        <div class="test-item error">
+                            <div class="test-label"><i class="fas fa-times-circle icon-error"></i> FAILED: HTTP Error ${response.status}</div>
+                            <div class="test-result">
+                                ❌ Status: ${response.status} ${response.statusText}<br>
+                                ❌ Endpoint: GET /api/v1/marketing-content<br>
+                                <br>
+                                <strong>Error Response:</strong>
+                                <pre>${errorText}</pre>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const content = await response.json();
+                console.log('Content received:', content);
+                
+                testResults.content = true;
+                resultDiv.innerHTML = `
+                    <div class="test-item success">
+                        <div class="test-label"><i class="fas fa-check-circle icon-success"></i> PASSED: Content Fetched Successfully</div>
+                        <div class="test-result">
+                            ✅ Status: 200 OK<br>
+                            ✅ Count: ${content.length} items<br>
+                            ✅ Data Type: ${Array.isArray(content) ? 'Array' : typeof content}<br>
+                            ${content.length === 0 ? '<br><em>ℹ️ Database is empty - no content uploaded yet. This is OK.</em>' : ''}
+                            <br>
+                            <strong>Data Preview:</strong>
+                            <pre>${JSON.stringify(content.slice(0, 2), null, 2)}</pre>
+                            ${content.length > 2 ? `<em>... and ${content.length - 2} more</em>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                
+                testResults.content = false;
+                resultDiv.innerHTML = `
+                    <div class="test-item error">
+                        <div class="test-label"><i class="fas fa-times-circle icon-error"></i> FAILED: Network/Fetch Error</div>
+                        <div class="test-result">
+                            ❌ Error: ${error.message}<br>
+                            <br>
+                            <strong>Solution:</strong> Make sure Spring Boot server is running
+                            <pre>${error.stack}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        async function test4_fetchLeads() {
+            const resultDiv = document.getElementById('test4-result');
+            resultDiv.innerHTML = '<div class="test-item running"><div class="spinner"></div> Fetching leads from API...</div>';
+            
+            const token = localStorage.getItem('token');
+            
+            try {
+                console.log('Test 4: Fetching leads...');
+                console.log('URL:', API_BASE_URL + '/leads/all');
+                
+                const response = await fetch(API_BASE_URL + '/leads/all', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    
+                    testResults.leads = false;
+                    resultDiv.innerHTML = `
+                        <div class="test-item error">
+                            <div class="test-label"><i class="fas fa-times-circle icon-error"></i> FAILED: HTTP Error ${response.status}</div>
+                            <div class="test-result">
+                                ❌ Status: ${response.status} ${response.statusText}<br>
+                                ❌ Endpoint: GET /api/v1/leads/all<br>
+                                <br>
+                                <strong>Error Response:</strong>
+                                <pre>${errorText}</pre>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const leads = await response.json();
+                console.log('Leads received:', leads);
+                
+                testResults.leads = true;
+                resultDiv.innerHTML = `
+                    <div class="test-item success">
+                        <div class="test-label"><i class="fas fa-check-circle icon-success"></i> PASSED: Leads Fetched Successfully</div>
+                        <div class="test-result">
+                            ✅ Status: 200 OK<br>
+                            ✅ Count: ${leads.length} leads<br>
+                            ✅ Data Type: ${Array.isArray(leads) ? 'Array' : typeof leads}<br>
+                            <br>
+                            <strong>Data Preview:</strong>
+                            <pre>${JSON.stringify(leads.slice(0, 2), null, 2)}</pre>
+                            ${leads.length > 2 ? `<em>... and ${leads.length - 2} more</em>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                
+                testResults.leads = false;
+                resultDiv.innerHTML = `
+                    <div class="test-item error">
+                        <div class="test-label"><i class="fas fa-times-circle icon-error"></i> FAILED: Network/Fetch Error</div>
+                        <div class="test-result">
+                            ❌ Error: ${error.message}<br>
+                            <br>
+                            <strong>Solution:</strong> Make sure Spring Boot server is running
+                            <pre>${error.stack}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        function showSummary() {
+            const summaryDiv = document.getElementById('summary-result');
+            
+            const passCount = Object.values(testResults).filter(r => r === true).length;
+            const totalCount = Object.keys(testResults).length;
+            
+            let summary = '<div style="font-size: 1.2rem; margin-bottom: 1rem;">';
+            summary += `<strong>Results: ${passCount}/${totalCount} tests passed</strong>`;
+            summary += '</div>';
+            
+            summary += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">';
+            
+            for (const [key, value] of Object.entries(testResults)) {
+                const icon = value ? 'fa-check-circle icon-success' : 'fa-times-circle icon-error';
+                const status = value ? 'PASS' : 'FAIL';
+                summary += `
+                    <div class="test-item ${value ? 'success' : 'error'}">
+                        <i class="fas ${icon}"></i> 
+                        <strong>${key.toUpperCase()}:</strong> ${status}
+                    </div>
+                `;
+            }
+            
+            summary += '</div>';
+            
+            if (passCount === totalCount) {
+                summary += `
+                    <div style="margin-top: 2rem; padding: 1.5rem; background: #d4edda; border-radius: 8px; border-left: 4px solid #28a745;">
+                        <h3 style="color: #28a745; margin-bottom: 0.5rem;">
+                            <i class="fas fa-check-circle"></i> All Tests Passed!
+                        </h3>
+                        <p style="margin-bottom: 1rem;">
+                            The APIs are working correctly. If pages still don't show data, try:
+                        </p>
+                        <ol style="margin-left: 1.5rem;">
+                            <li>Hard refresh browser: <code>Ctrl+Shift+R</code> (Windows) or <code>Cmd+Shift+R</code> (Mac)</li>
+                            <li>Clear browser cache</li>
+                            <li>Try in incognito/private window</li>
+                            <li>Check browser console (F12) for JavaScript errors</li>
+                        </ol>
+                        <br>
+                        <a href="admin-sellers.html" class="btn">Go to Sellers Page</a>
+                        <a href="admin-dashboard.html" class="btn">Go to Dashboard</a>
+                    </div>
+                `;
+            } else if (!testResults.auth) {
+                summary += `
+                    <div style="margin-top: 2rem; padding: 1.5rem; background: #f8d7da; border-radius: 8px; border-left: 4px solid #dc3545;">
+                        <h3 style="color: #dc3545; margin-bottom: 0.5rem;">
+                            <i class="fas fa-exclamation-triangle"></i> Authentication Failed
+                        </h3>
+                        <p>You need to login first to access admin features.</p>
+                        <br>
+                        <button onclick="goToLogin()" class="btn">Go to Login Page</button>
+                    </div>
+                `;
+            } else {
+                summary += `
+                    <div style="margin-top: 2rem; padding: 1.5rem; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                        <h3 style="color: #856404; margin-bottom: 0.5rem;">
+                            <i class="fas fa-exclamation-triangle"></i> Some Tests Failed
+                        </h3>
+                        <p>Check the failed tests above for details and solutions.</p>
+                        <br>
+                        <p><strong>Common solutions:</strong></p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li>Make sure Spring Boot server is running</li>
+                            <li>Check server logs for errors</li>
+                            <li>Verify MongoDB is running</li>
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            summaryDiv.innerHTML = summary;
+        }
+        
+        // Run all tests on page load
+        window.onload = function() {
+            runAllTests();
+        };
+    </script>
+</body>
+</html>
+

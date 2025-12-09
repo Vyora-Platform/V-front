@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Marketing Content - Admin Panel</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.5rem;
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+        
+        .content-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        
+        .content-thumbnail {
+            width: 100%;
+            height: 160px;
+            background: linear-gradient(135deg, #0052CC 0%, #0747A6 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .content-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        
+        .content-thumbnail i {
+            font-size: 3rem;
+            color: white;
+            opacity: 0.8;
+            pointer-events: none;
+        }
+        
+        .content-type-badge {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: rgba(255,255,255,0.95);
+            padding: 0.2rem 0.6rem;
+            border-radius: 16px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .content-body {
+            padding: 1rem;
+        }
+        
+        .content-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.4rem;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .content-stats {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: #718096;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 0.25rem;
+            color: #718096;
+            font-size: 0.875rem;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .content-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 1rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .content-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 0.875rem;
+            }
+            
+            .content-thumbnail {
+                height: 140px;
+            }
+            
+            .content-thumbnail i {
+                font-size: 2.5rem;
+            }
+            
+            .content-body {
+                padding: 0.875rem;
+            }
+            
+            .content-title {
+                font-size: 0.9rem;
+            }
+            
+            .content-stats {
+                font-size: 0.75rem;
+                gap: 0.5rem;
+            }
+            
+            .content-type-badge {
+                font-size: 0.65rem;
+                padding: 0.15rem 0.5rem;
+            }
+            
+            /* Make buttons stack on mobile */
+            .content-card .btn {
+                font-size: 0.8rem !important;
+                padding: 0.4rem 0.6rem !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            
+            .content-thumbnail {
+                height: 180px;
+            }
+            
+            .content-card {
+                border-radius: 10px;
+            }
+            
+            /* Full width buttons on small mobile */
+            .content-card button {
+                min-width: auto !important;
+            }
+        }
+        
+        /* Make filter section responsive */
+        @media (max-width: 768px) {
+            .page-header {
+                flex-direction: column;
+                align-items: stretch !important;
+                gap: 1rem;
+            }
+            
+            .page-header button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin Panel</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="admin-sellers.html"><i class="fas fa-users"></i> Sellers</a></li>
+                <li><a href="admin-leads.html"><i class="fas fa-chart-line"></i> Leads</a></li>
+                <li><a href="admin-content.html" class="active"><i class="fas fa-images"></i> Content</a></li>
+                <li><a href="admin-payouts.html"><i class="fas fa-money-bill-wave"></i> Payouts</a></li>
+                <li class="nav-item-right">
+                    <div class="admin-profile" onclick="toggleProfileDropdown(event)">
+                        <div class="profile-trigger">
+                            <div class="profile-avatar" id="adminAvatar">A</div>
+                            <div class="profile-info">
+                                <span class="profile-name" id="adminName">Admin</span>
+                                <span class="profile-role">Administrator</span>
+                            </div>
+                            <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 4px;"></i>
+                        </div>
+                        <div class="profile-dropdown" id="profileDropdown">
+                            <div class="profile-header">
+                                <div class="profile-info">
+                                    <div class="profile-name" id="dropdownAdminName">Admin</div>
+                                    <div class="profile-email" id="dropdownAdminEmail">admin@example.com</div>
+                                </div>
+                            </div>
+                            <ul class="profile-menu">
+                                <li class="profile-menu-item">
+                                    <a href="admin-profile.html">
+                                        <i class="fas fa-user"></i>
+                                        <span>My Profile</span>
+                                    </a>
+                                </li>
+                                <li class="profile-menu-item">
+                                    <a href="admin-settings.html">
+                                        <i class="fas fa-cog"></i>
+                                        <span>Settings</span>
+                                    </a>
+                                </li>
+                                <li class="profile-menu-divider"></li>
+                                <li class="profile-menu-item logout">
+                                    <button onclick="logout()">
+                                        <i class="fas fa-sign-out-alt"></i>
+                                        <span>Logout</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-images"></i> Marketing Content Library</h1>
+                <p class="subtitle">Manage all marketing materials for sellers</p>
+            </div>
+            <button onclick="openUploadModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Upload New Content
+            </button>
+        </header>
+
+        <!-- Stats -->
+        <!-- Filters Section -->
+        <div style="background: white; border-radius: 16px; padding: 1.5rem; box-shadow: var(--shadow-sm); margin-bottom: 2rem;">
+            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #2d3748;">
+                        <i class="fas fa-filter"></i> Content Type
+                    </label>
+                    <select id="filterContentType" onchange="applyFilters()" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                        <option value="">All Types</option>
+                        <option value="IMAGE">Image</option>
+                        <option value="VIDEO">Video</option>
+                        <option value="PDF">PDF Document</option>
+                        <option value="TEXT">Text</option>
+                        <option value="LINK">Link</option>
+                    </select>
+                </div>
+                
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #2d3748;">
+                        <i class="fas fa-tag"></i> Category
+                    </label>
+                    <select id="filterCategory" onchange="applyFilters()" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                        <option value="">All Categories</option>
+                        <option value="PROMOTIONS">Promotions</option>
+                        <option value="PRODUCT">Product</option>
+                        <option value="EDUCATIONAL">Educational</option>
+                        <option value="TRANSACTIONAL">Transactional</option>
+                        <option value="OFFERS">Offers</option>
+                        <option value="ANNOUNCEMENT">Announcement</option>
+                        <option value="EVENT">Event</option>
+                    </select>
+                </div>
+                
+                <div style="flex: 1; min-width: 250px;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #2d3748;">
+                        <i class="fas fa-search"></i> Search
+                    </label>
+                    <input type="text" id="filterSearch" onkeyup="applyFilters()" 
+                           placeholder="Search by title or description..." 
+                           style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                </div>
+                
+                <div style="display: flex; align-items: flex-end; gap: 0.5rem;">
+                    <button onclick="clearFilters()" class="btn btn-secondary" style="white-space: nowrap;">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+            
+            <div id="filterResults" style="margin-top: 1rem; color: #718096; font-size: 0.9rem;">
+                <!-- Filter results count will appear here -->
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);">
+                    <i class="fas fa-images"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalContent">0</h3>
+                    <p>Total Content</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <i class="fas fa-download"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalDownloads">0</h3>
+                    <p>Total Downloads</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class="fas fa-share-alt"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalShares">0</h3>
+                    <p>Total Shares</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <i class="fas fa-eye"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalViews">0</h3>
+                    <p>Total Views</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Grid -->
+        <div id="contentContainer" class="content-grid">
+            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading content...</div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h2><i class="fas fa-upload"></i> Upload Marketing Content</h2>
+            <form id="uploadForm" onsubmit="handleUpload(event)">
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" id="contentTitle" required placeholder="e.g., Summer Sale Promotion">
+                </div>
+                
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="contentDescription" rows="3" placeholder="Describe the content..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Business Category *</label>
+                    <select id="contentCategory" required>
+                        <option value="">-- Select Category --</option>
+                        <option value="PROMOTIONS">Promotions</option>
+                        <option value="TRANSACTIONAL">Transactional</option>
+                        <option value="OFFERS">Offers</option>
+                        <option value="SEASONAL">Seasonal</option>
+                        <option value="PRODUCT">Product</option>
+                        <option value="SERVICE">Service</option>
+                        <option value="BRAND">Brand</option>
+                        <option value="EDUCATIONAL">Educational</option>
+                        <option value="ANNOUNCEMENT">Announcement</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Content Type *</label>
+                    <select id="contentType" required onchange="updateFileAccept()">
+                        <option value="">-- Select Type --</option>
+                        <option value="IMAGE">Image</option>
+                        <option value="VIDEO">Video</option>
+                        <option value="PDF">PDF Document</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Upload File *</label>
+                    <input type="file" id="contentFile" required accept="image/*,video/*,.pdf" onchange="previewFile()">
+                    <small style="color: #718096;">Select image, video, or PDF file from your device (Max 10MB)</small>
+                </div>
+                
+                <!-- File Preview -->
+                <div id="filePreview" style="display: none; margin-top: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Preview:</label>
+                    <div id="previewContainer" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 1rem; background: #f7fafc; text-align: center;">
+                        <!-- Preview will be inserted here -->
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tags (comma separated)</label>
+                    <input type="text" id="contentTags" placeholder="sale, discount, summer">
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        <i class="fas fa-upload"></i> Upload Content
+                    </button>
+                    <button type="button" onclick="closeUploadModal()" class="btn btn-secondary" style="flex: 1;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Content Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h2><i class="fas fa-edit"></i> Edit Marketing Content</h2>
+            <form id="editForm" onsubmit="handleEdit(event)">
+                <input type="hidden" id="editContentId">
+                
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" id="editTitle" required placeholder="e.g., Summer Sale Promotion">
+                </div>
+                
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="editDescription" rows="3" placeholder="Describe the content..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Business Category *</label>
+                    <select id="editCategory" required>
+                        <option value="">-- Select Category --</option>
+                        <option value="PROMOTIONS">Promotions</option>
+                        <option value="TRANSACTIONAL">Transactional</option>
+                        <option value="OFFERS">Offers</option>
+                        <option value="SEASONAL">Seasonal</option>
+                        <option value="PRODUCT">Product</option>
+                        <option value="SERVICE">Service</option>
+                        <option value="BRAND">Brand</option>
+                        <option value="EDUCATIONAL">Educational</option>
+                        <option value="ANNOUNCEMENT">Announcement</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tags (comma separated)</label>
+                    <input type="text" id="editTags" placeholder="sale, discount, summer">
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" onclick="closeEditModal()" class="btn btn-secondary" style="flex: 1;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // Close modal when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('uploadModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeUploadModal();
+                    }
+                });
+            }
+        });
+    </script>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2025 Seller Management System. Built with <i class="fas fa-heart"></i></p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Check authentication
+        const token = localStorage.getItem('token');
+        const userRole = localStorage.getItem('userRole');
+        
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+        
+        if (userRole !== 'ADMIN') {
+            alert('Access denied! Admin role required.');
+            window.location.href = 'seller-dashboard.html';
+        }
+        
+        const userName = localStorage.getItem('userName');
+        const userEmail = localStorage.getItem('userEmail');
+        
+        // document.getElementById('userName').textContent = userName || 'Admin';
+        // document.getElementById('userEmail').textContent = userEmail || '';
+
+
+          // Only set if elements exist (they don't on this page, but keeping for future)
+          const userNameEl = document.getElementById('userName');
+        const userEmailEl = document.getElementById('userEmail');
+        if (userNameEl) userNameEl.textContent = userName || 'Admin';
+        if (userEmailEl) userEmailEl.textContent = userEmail || '';
+        
+        // Load admin profile info
+        async function loadAdminProfile() {
+            try {
+                const userEmail = localStorage.getItem('userEmail') || 'admin@example.com';
+                const userName = localStorage.getItem('userName') || 'Admin';
+                const firstLetter = userName.charAt(0).toUpperCase();
+                
+                document.getElementById('adminAvatar').textContent = firstLetter;
+                document.getElementById('adminName').textContent = userName;
+                document.getElementById('dropdownAdminName').textContent = userName;
+                document.getElementById('dropdownAdminEmail').textContent = userEmail;
+            } catch (error) {
+                console.error('Failed to load admin profile:', error);
+            }
+        }
+
+        // Toggle profile dropdown
+        function toggleProfileDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('profileDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const profile = document.querySelector('.admin-profile');
+            const dropdown = document.getElementById('profileDropdown');
+            if (profile && !profile.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Load profile on page load
+        loadAdminProfile();
+        
+        function logout() {
+            localStorage.clear();
+            showToast('Logged out successfully', 'success');
+            setTimeout(() => window.location.href = 'login.html', 1000);
+        }
+        
+        // Store all content globally for filtering
+        let allContent = [];
+        
+        // Load marketing content
+        async function loadContent() {
+            try {
+                console.log('Loading marketing content...');
+                console.log('Token:', localStorage.getItem('token'));
+                console.log('User Role:', localStorage.getItem('userRole'));
+                
+                const content = await apiCall('/marketing-content');
+                console.log('Content loaded successfully:', content.length, 'items');
+                console.log('Content data:', content);
+                
+                allContent = content; // Store for filtering
+                
+                // Update stats
+                document.getElementById('totalContent').textContent = content.length;
+                
+                const totalDownloads = content.reduce((sum, item) => sum + (item.downloadCount || 0), 0);
+                const totalShares = content.reduce((sum, item) => sum + (item.shareCount || 0), 0);
+                const totalViews = content.reduce((sum, item) => sum + (item.viewCount || 0), 0);
+                
+                document.getElementById('totalDownloads').textContent = totalDownloads;
+                document.getElementById('totalShares').textContent = totalShares;
+                document.getElementById('totalViews').textContent = totalViews;
+                
+                // Display content
+                displayContent(content);
+                updateFilterResults(content.length, content.length);
+                
+            } catch (error) {
+                console.error('Error loading content:', error);
+                document.getElementById('contentContainer').innerHTML = 
+                    '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load content: ' + error.message + '</p></div>';
+            }
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            const typeFilter = document.getElementById('filterContentType').value;
+            const categoryFilter = document.getElementById('filterCategory').value;
+            const searchFilter = document.getElementById('filterSearch').value.toLowerCase();
+            
+            let filteredContent = allContent;
+            
+            // Filter by content type
+            if (typeFilter) {
+                filteredContent = filteredContent.filter(item => item.contentType === typeFilter);
+            }
+            
+            // Filter by category
+            if (categoryFilter) {
+                filteredContent = filteredContent.filter(item => item.category === categoryFilter);
+            }
+            
+            // Filter by search text
+            if (searchFilter) {
+                filteredContent = filteredContent.filter(item => 
+                    (item.title && item.title.toLowerCase().includes(searchFilter)) ||
+                    (item.description && item.description.toLowerCase().includes(searchFilter)) ||
+                    (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchFilter)))
+                );
+            }
+            
+            displayContent(filteredContent);
+            updateFilterResults(filteredContent.length, allContent.length);
+        }
+        
+        // Clear all filters
+        function clearFilters() {
+            document.getElementById('filterContentType').value = '';
+            document.getElementById('filterCategory').value = '';
+            document.getElementById('filterSearch').value = '';
+            displayContent(allContent);
+            updateFilterResults(allContent.length, allContent.length);
+        }
+        
+        // Update filter results display
+        function updateFilterResults(showing, total) {
+            const resultsDiv = document.getElementById('filterResults');
+            if (showing === total) {
+                resultsDiv.innerHTML = `<i class="fas fa-info-circle"></i> Showing all ${total} items`;
+            } else {
+                resultsDiv.innerHTML = `<i class="fas fa-filter"></i> Showing ${showing} of ${total} items`;
+            }
+        }
+        
+        /**
+         * Toggle content active status
+         */
+        async function toggleContentStatus(contentId, currentStatus) {
+            try {
+                const newStatus = !currentStatus;
+                
+                const response = await apiCall(`/marketing-content/${contentId}/status`, 'PUT', {
+                    active: newStatus
+                });
+                
+                showToast(`Content ${newStatus ? 'activated' : 'deactivated'} successfully!`, 'success');
+                loadContent();
+            } catch (error) {
+                console.error('Error toggling content status:', error);
+                showToast('Failed to update content status', 'error');
+            }
+        }
+        
+        function displayContent(content) {
+            const container = document.getElementById('contentContainer');
+            
+            if (content.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-images"></i><p>No marketing content yet. Upload content for sellers to use!</p></div>';
+                return;
+            }
+            
+            container.innerHTML = content.map(item => {
+                let thumbnailHTML = '';
+                
+                // Get thumbnail URL
+                const thumbnailSrc = item.thumbnailUrl || item.contentUrl;
+                
+                // Show actual image preview for images
+                if (item.contentType === 'IMAGE' && thumbnailSrc) {
+                    thumbnailHTML = `
+                        <img src="${thumbnailSrc}" alt="${item.title}" 
+                             style="width: 100%; height: 100%; object-fit: cover;"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);">
+                            <i class="fas fa-image" style="font-size: 4rem; color: white; opacity: 0.8;"></i>
+                        </div>
+                    `;
+                }
+                // Show thumbnail for videos
+                else if (item.contentType === 'VIDEO' && thumbnailSrc) {
+                    thumbnailHTML = `<img src="${thumbnailSrc}" alt="${item.title}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                }
+                // Show thumbnail for PDFs
+                else if (item.contentType === 'PDF' && thumbnailSrc) {
+                    thumbnailHTML = `<img src="${thumbnailSrc}" alt="${item.title}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                }
+                // Fallback to icon
+                else {
+                    thumbnailHTML = `<i class="fas fa-${getContentIcon(item.contentType)}"></i>`;
+                }
+                
+                // Determine active status
+                const isActive = item.active !== false;
+                const statusBadge = isActive ? 
+                    '<span style="background: #E3FCEF; color: #00875A; padding: 0.2rem 0.4rem; border-radius: 12px; font-size: 0.65rem; font-weight: 500; white-space: nowrap;"><i class="fas fa-check-circle"></i> Active</span>' :
+                    '<span style="background: #FFEBE6; color: #DE350B; padding: 0.2rem 0.4rem; border-radius: 12px; font-size: 0.65rem; font-weight: 500; white-space: nowrap;"><i class="fas fa-times-circle"></i> Inactive</span>';
+                
+                return `
+                <div class="content-card" style="opacity: ${isActive ? '1' : '0.6'}">
+                    <div class="content-thumbnail">
+                        ${thumbnailHTML}
+                        <div class="content-type-badge">${item.contentType}</div>
+                    </div>
+                    <div class="content-body">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.4rem; gap: 0.5rem;">
+                            <div class="content-title" style="flex: 1;">${item.title}</div>
+                            ${statusBadge}
+                        </div>
+                        <div style="color: #718096; font-size: 0.8rem; margin-bottom: 0.6rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                            ${item.description || 'No description'}
+                        </div>
+                        <div style="color: #718096; font-size: 0.75rem; margin-bottom: 0.5rem;">
+                            <strong>Category:</strong> ${item.category || 'Uncategorized'}
+                        </div>
+                        <div class="content-stats">
+                            <div class="stat-item">
+                                <i class="fas fa-eye"></i>
+                                <span>${item.viewCount || 0}</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-download"></i>
+                                <span>${item.downloadCount || 0}</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-share-alt"></i>
+                                <span>${item.shareCount || 0}</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 0.6rem; font-size: 0.7rem; color: #a0aec0;">
+                            <i class="fas fa-calendar"></i> ${new Date(item.createdAt).toLocaleDateString()}
+                        </div>
+                        <div style="margin-top: 0.75rem; display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                            ${item.contentUrl ? `
+                                <button onclick="window.open('${item.contentUrl}', '_blank')" class="btn btn-primary btn-sm" style="flex: 1; min-width: 70px; font-size: 0.75rem; padding: 0.4rem 0.6rem;">
+                                    <i class="fas fa-external-link-alt"></i> View
+                                </button>
+                            ` : ''}
+                            <button onclick="editContent('${item.id}')" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 70px; background: #F4F5F7; color: #172B4D; border: 1px solid #DFE1E6; font-size: 0.75rem; padding: 0.4rem 0.6rem;">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button onclick="toggleContentStatus('${item.id}', ${isActive})" 
+                                    class="btn btn-sm" 
+                                    style="flex: 1; min-width: 80px; background: ${isActive ? '#DE350B' : '#00875A'}; color: white; border: none; font-size: 0.75rem; padding: 0.4rem 0.6rem;">
+                                <i class="fas fa-${isActive ? 'times' : 'check'}-circle"></i> ${isActive ? 'Deactivate' : 'Activate'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+        
+        function getContentIcon(type) {
+            const icons = {
+                'TEXT': 'file-text',
+                'IMAGE': 'image',
+                'VIDEO': 'video',
+                'PDF': 'file-pdf',
+                'LINK': 'link'
+            };
+            return icons[type] || 'file';
+        }
+        
+        function openUploadModal() {
+            const form = document.getElementById('uploadForm');
+            if (form) {
+                form.reset();
+            }
+            // Hide preview when opening modal
+            document.getElementById('filePreview').style.display = 'none';
+            
+            const modal = document.getElementById('uploadModal');
+            if (modal) {
+                modal.classList.add('active');
+                console.log('Modal opened');
+            } else {
+                console.error('Modal element not found!');
+            }
+        }
+        
+        function closeUploadModal() {
+            const modal = document.getElementById('uploadModal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+        
+        function updateFileAccept() {
+            const contentType = document.getElementById('contentType').value;
+            const fileInput = document.getElementById('contentFile');
+            
+            switch(contentType) {
+                case 'IMAGE':
+                    fileInput.accept = 'image/*';
+                    break;
+                case 'VIDEO':
+                    fileInput.accept = 'video/*';
+                    break;
+                case 'PDF':
+                    fileInput.accept = '.pdf';
+                    break;
+                default:
+                    fileInput.accept = 'image/*,video/*,.pdf';
+            }
+        }
+        
+        function previewFile() {
+            const fileInput = document.getElementById('contentFile');
+            const file = fileInput.files[0];
+            const previewDiv = document.getElementById('filePreview');
+            const previewContainer = document.getElementById('previewContainer');
+            
+            if (!file) {
+                previewDiv.style.display = 'none';
+                return;
+            }
+            
+            previewDiv.style.display = 'block';
+            const fileType = file.type.split('/')[0];
+            
+            if (fileType === 'image') {
+                // Show image preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewContainer.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview" 
+                             style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+                    `;
+                };
+                reader.readAsDataURL(file);
+            } else if (fileType === 'video') {
+                // Show video preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewContainer.innerHTML = `
+                        <video controls style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+                            <source src="${e.target.result}" type="${file.type}">
+                        </video>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            } else if (file.type === 'application/pdf') {
+                // Show PDF icon
+                previewContainer.innerHTML = `
+                    <div style="padding: 2rem;">
+                        <i class="fas fa-file-pdf" style="font-size: 4rem; color: #dc2626;"></i>
+                        <p style="margin-top: 1rem; font-weight: 600;">${file.name}</p>
+                        <p style="color: #718096; font-size: 0.9rem;">${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                `;
+            } else {
+                // Generic file preview
+                previewContainer.innerHTML = `
+                    <div style="padding: 2rem;">
+                        <i class="fas fa-file" style="font-size: 4rem; color: #1877F2;"></i>
+                        <p style="margin-top: 1rem; font-weight: 600;">${file.name}</p>
+                        <p style="color: #718096; font-size: 0.9rem;">${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function handleUpload(event) {
+            event.preventDefault();
+            
+            const fileInput = document.getElementById('contentFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showToast('⚠️ Please select a file to upload', 'warning');
+                return;
+            }
+            
+            // Validate file size (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('❌ File size must be less than 10MB', 'error');
+                return;
+            }
+            
+            const tags = document.getElementById('contentTags').value
+                .split(',')
+                .map(tag => tag.trim())
+                .filter(tag => tag.length > 0)
+                .join(',');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('title', document.getElementById('contentTitle').value);
+            formData.append('description', document.getElementById('contentDescription').value || '');
+            formData.append('category', document.getElementById('contentCategory').value);
+            formData.append('contentType', document.getElementById('contentType').value);
+            formData.append('tags', tags);
+            
+            console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
+            
+            try {
+                const token = localStorage.getItem('token');
+                
+                const response = await fetch('/api/v1/marketing-content', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Upload failed: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Upload response:', result);
+                showToast('✅ Content uploaded successfully!', 'success');
+                closeUploadModal();
+                document.getElementById('uploadForm').reset();
+                loadContent(); // Reload content list
+            } catch (error) {
+                console.error('Upload error:', error);
+                showToast('❌ Failed to upload content: ' + error.message, 'error');
+            }
+        }
+        
+        // Edit Content
+        function editContent(contentId) {
+            const content = allContent.find(c => c.id === contentId);
+            if (!content) {
+                showToast('❌ Content not found', 'error');
+                return;
+            }
+            
+            // Populate form with content data
+            document.getElementById('editContentId').value = content.id;
+            document.getElementById('editTitle').value = content.title || '';
+            document.getElementById('editDescription').value = content.description || '';
+            document.getElementById('editCategory').value = content.category || '';
+            document.getElementById('editTags').value = content.tags ? content.tags.join(', ') : '';
+            
+            // Show modal
+            document.getElementById('editModal').classList.add('active');
+        }
+        
+        function closeEditModal() {
+            const modal = document.getElementById('editModal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+        
+        async function handleEdit(event) {
+            event.preventDefault();
+            
+            const contentId = document.getElementById('editContentId').value;
+            const title = document.getElementById('editTitle').value;
+            const description = document.getElementById('editDescription').value;
+            const category = document.getElementById('editCategory').value;
+            const tags = document.getElementById('editTags').value.split(',').map(t => t.trim()).filter(t => t);
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/v1/marketing-content/${contentId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        description: description,
+                        category: category,
+                        tags: tags
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update content');
+                }
+                
+                showToast('✅ Content updated successfully!', 'success');
+                closeEditModal();
+                document.getElementById('editForm').reset();
+                loadContent(); // Reload content list
+            } catch (error) {
+                console.error('Edit error:', error);
+                showToast('❌ Failed to update content: ' + error.message, 'error');
+            }
+        }
+        
+        // Load content on page load
+        loadContent();
+    </script>
+</body>
+</html>
+

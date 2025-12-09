@@ -1,0 +1,1702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Sellers - Admin Panel</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .sellers-table {
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+        
+        .sellers-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .sellers-table th {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .sellers-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .sellers-table tr:hover {
+            background: var(--light);
+        }
+        
+        .seller-actions {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .dropdown-btn {
+            background: #1877F2;
+            color: white;
+            padding: 0.6rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(24, 119, 242, 0.2);
+            min-width: 110px;
+        }
+        
+        .dropdown-btn:hover {
+            background: #1464D0;
+            box-shadow: 0 4px 8px rgba(24, 119, 242, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .dropdown-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(24, 119, 242, 0.2);
+        }
+        
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 0.5rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+            min-width: 220px;
+            z-index: 1000;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .dropdown-menu.show {
+            display: block;
+            animation: slideDown 0.2s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .dropdown-item {
+            padding: 0.85rem 1.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            color: #2d3748;
+            transition: all 0.2s ease;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        
+        .dropdown-item:hover {
+            background: linear-gradient(90deg, #EBF5FF 0%, #F0F7FF 100%);
+            color: #1877F2;
+            padding-left: 1.5rem;
+        }
+        
+        .dropdown-item i {
+            width: 20px;
+            text-align: center;
+            font-size: 1rem;
+        }
+        
+        .dropdown-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, #e2e8f0 50%, transparent 100%);
+            margin: 0.5rem 0;
+        }
+        
+        .dropdown-item.danger {
+            color: #f56565;
+        }
+        
+        .dropdown-item.danger:hover {
+            background: linear-gradient(90deg, #FFF5F5 0%, #FFF8F8 100%);
+            color: #c53030;
+            padding-left: 1.5rem;
+        }
+        
+        .dropdown-item.success {
+            color: #48bb78;
+        }
+        
+        .dropdown-item.success:hover {
+            background: linear-gradient(90deg, #F0FFF4 0%, #F5FFF7 100%);
+            color: #2f855a;
+            padding-left: 1.5rem;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: #2d3748;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #718096;
+        }
+        
+        .close-modal:hover {
+            color: #2d3748;
+        }
+        
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .detail-item {
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        
+        .detail-item label {
+            display: block;
+            font-size: 0.875rem;
+            color: #718096;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .detail-item .value {
+            font-size: 1rem;
+            color: #2d3748;
+            font-weight: 500;
+        }
+        
+        .customers-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .customer-item {
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            background: white;
+        }
+        
+        .customer-item:hover {
+            background: #f7fafc;
+        }
+        
+        /* Mobile Optimizations */
+        @media (max-width: 768px) {
+            /* Modal adjustments */
+            .modal-content {
+                width: 95%;
+                max-width: 95vw;
+                margin: 1rem;
+                max-height: calc(100vh - 2rem);
+            }
+            
+            /* Form optimizations */
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                font-size: 16px !important; /* Prevents zoom on iOS */
+                min-height: 48px !important;
+                padding: 0.875rem !important;
+            }
+            
+            .form-group select {
+                background-size: 16px;
+                padding-right: 2.5rem !important;
+            }
+            
+            .form-group label {
+                font-size: 0.95rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            /* Button optimizations */
+            .btn {
+                min-height: 48px;
+                font-size: 1rem;
+            }
+            
+            /* Table responsive */
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+        
+        /* Extra small devices */
+        @media (max-width: 480px) {
+            .modal-content {
+                width: 100%;
+                max-width: 100vw;
+                margin: 0;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+            
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                font-size: 16px !important;
+            }
+            
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin Panel</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="admin-sellers.html" class="active"><i class="fas fa-users"></i> Sellers</a></li>
+                <li><a href="admin-leads.html"><i class="fas fa-chart-line"></i> Leads</a></li>
+                <li><a href="admin-content.html"><i class="fas fa-images"></i> Content</a></li>
+                <li><a href="admin-payouts.html"><i class="fas fa-money-bill-wave"></i> Payouts</a></li>
+                <li class="nav-item-right">
+                    <div class="admin-profile" onclick="toggleProfileDropdown(event)">
+                        <div class="profile-trigger">
+                            <div class="profile-avatar" id="adminAvatar">A</div>
+                            <div class="profile-info">
+                                <span class="profile-name" id="adminName">Admin</span>
+                                <span class="profile-role">Administrator</span>
+                            </div>
+                            <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 4px;"></i>
+                        </div>
+                        <div class="profile-dropdown" id="profileDropdown">
+                            <div class="profile-header">
+                                <div class="profile-info">
+                                    <div class="profile-name" id="dropdownAdminName">Admin</div>
+                                    <div class="profile-email" id="dropdownAdminEmail">admin@example.com</div>
+                                </div>
+                            </div>
+                            <ul class="profile-menu">
+                                <li class="profile-menu-item">
+                                    <a href="admin-profile.html">
+                                        <i class="fas fa-user"></i>
+                                        <span>My Profile</span>
+                                    </a>
+                                </li>
+                                <li class="profile-menu-item">
+                                    <a href="admin-settings.html">
+                                        <i class="fas fa-cog"></i>
+                                        <span>Settings</span>
+                                    </a>
+                                </li>
+                                <li class="profile-menu-divider"></li>
+                                <li class="profile-menu-item logout">
+                                    <button onclick="logout()">
+                                        <i class="fas fa-sign-out-alt"></i>
+                                        <span>Logout</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Debug Info Bar -->
+        <div id="debugInfo" style="background: #fff3cd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #ffc107; display: none;">
+            <strong>🔍 Debug Info:</strong> <span id="debugMessage">Loading...</span>
+        </div>
+        
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-users"></i> All Sellers</h1>
+                <p class="subtitle">View and manage all seller accounts</p>
+            </div>
+            <button onclick="openOnboardSellerModal()" class="btn btn-primary">
+                <i class="fas fa-user-plus"></i> Onboard Seller
+            </button>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalSellers">0</h3>
+                    <p>Total Sellers</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="activeSellers">0</h3>
+                    <p>Active</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="pendingSellers">0</h3>
+                    <p>Pending</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class="fas fa-user-friends"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalCustomers">0</h3>
+                    <p>Total Customers</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-section" style="background: white; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #4a5568;">Status</label>
+                    <select id="filterStatus" onchange="applyFilters()" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                        <option value="">All Statuses</option>
+                        <option value="ACTIVE">Active</option>
+                        <option value="SUSPENDED">Suspended</option>
+                        <option value="INACTIVE">Inactive</option>
+                        <option value="PENDING">Pending</option>
+                    </select>
+                </div>
+
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #4a5568;">Search</label>
+                    <input type="text" id="filterSearch" onkeyup="applyFilters()" placeholder="Search by name or email..." style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                </div>
+
+                <div style="display: flex; align-items: flex-end;">
+                    <button onclick="clearFilters()" class="btn btn-secondary" style="width: 100%;">
+                        <i class="fas fa-undo"></i> Clear Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sellers Table -->
+        <div class="dashboard-section">
+            <div class="section-header" style="margin-bottom: 1.5rem;">
+                <h2><i class="fas fa-list"></i> Sellers Management</h2>
+            </div>
+            <div id="sellersContainer" class="table-container">
+                <div class="loading" style="padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading sellers...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seller Details Modal -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-circle"></i> Seller Details</h2>
+                <button onclick="closeDetailsModal()" class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="detailsContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Customers Modal -->
+    <div id="customersModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-users"></i> Seller Customers</h2>
+                <button onclick="closeCustomersModal()" class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="customersContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Referrals Modal -->
+    <div id="referralsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-network-wired"></i> Referral Network</h2>
+                <button onclick="closeReferralsModal()" class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="referralsContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leads Modal -->
+    <div id="leadsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-chart-line"></i> Seller Leads</h2>
+                <button onclick="closeLeadsModal()" class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="leadsContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Seller Details Modal -->
+    <div id="editSellerModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-edit"></i> Edit Seller Details</h2>
+                <button onclick="closeEditSellerModal()" class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="editSellerForm" onsubmit="handleEditSeller(event)" style="padding: 2rem;">
+                <input type="hidden" id="editSellerId">
+                
+                <h3 style="margin-bottom: 1rem; color: #1877F2; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
+                    <i class="fas fa-user"></i> Personal Information
+                </h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="editSellerName" required placeholder="John Doe" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email *</label>
+                        <input type="email" id="editSellerEmail" required placeholder="john@example.com" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="tel" id="editSellerPhone" placeholder="+1234567890" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Account Status</label>
+                        <select id="editSellerStatus" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="PENDING">Pending</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <h3 style="margin-bottom: 1rem; color: #1877F2; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
+                    <i class="fas fa-briefcase"></i> Business Information
+                </h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="form-group">
+                        <label>Business Name</label>
+                        <input type="text" id="editSellerBusinessName" placeholder="Acme Corporation" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Business Type</label>
+                        <select id="editSellerBusinessType" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                            <option value="">-- Select Type --</option>
+                            <option value="AGENCY">Agency</option>
+                            <option value="INDIVIDUAL">Individual</option>
+                            <option value="CORPORATION">Corporation</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Address</label>
+                        <textarea id="editSellerAddress" rows="2" placeholder="Street, City, State, ZIP" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;"></textarea>
+                    </div>
+                </div>
+                
+                <h3 style="margin-bottom: 1rem; color: #1877F2; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
+                    <i class="fas fa-credit-card"></i> Payment Information
+                </h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="form-group">
+                        <label>Bank Name</label>
+                        <input type="text" id="editSellerBankName" placeholder="Bank of America" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Account Number</label>
+                        <input type="text" id="editSellerAccountNumber" placeholder="1234567890" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Account Holder Name</label>
+                        <input type="text" id="editSellerAccountHolder" placeholder="John Doe" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>IFSC/Routing Code</label>
+                        <input type="text" id="editSellerIFSC" placeholder="IFSC0001234" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select id="editSellerPaymentMethod" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                            <option value="">-- Select Method --</option>
+                            <option value="BANK_TRANSFER">Bank Transfer</option>
+                            <option value="PAYPAL">PayPal</option>
+                            <option value="UPI">UPI</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="OTHER">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>UPI ID / PayPal Email</label>
+                        <input type="text" id="editSellerUPI" placeholder="seller@upi or email@paypal.com" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" onclick="closeEditSellerModal()" class="btn btn-secondary" style="flex: 1;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Onboard Seller Modal -->
+    <div id="onboardSellerModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Onboard New Seller</h2>
+                <button onclick="closeOnboardSellerModal()" class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="onboardSellerForm" onsubmit="handleOnboardSeller(event)" style="padding: 2rem;">
+                <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="sellerName" required placeholder="John Doe" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email *</label>
+                        <input type="email" id="sellerEmail" required placeholder="john@example.com" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Password *</label>
+                        <input type="password" id="sellerPassword" required placeholder="Enter password" minlength="6" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                        <small style="color: #718096;">Minimum 6 characters</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Confirm Password *</label>
+                        <input type="password" id="sellerConfirmPassword" required placeholder="Re-enter password" minlength="6" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="tel" id="sellerPhone" placeholder="+1234567890" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Seller Type *</label>
+                        <select id="sellerBusinessType" required onchange="toggleAdminTypeFields()" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                            <option value="">-- Select Type --</option>
+                            <option value="INDIVIDUAL">Individual</option>
+                            <option value="AGENCY">Agency</option>
+                            <option value="CREATOR">Creator</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Conditional field for INDIVIDUAL -->
+                    <div class="form-group" id="adminIndividualField" style="display: none;">
+                        <label>Current Occupation</label>
+                        <select id="sellerCurrentOccupation" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                            <option value="">-- Select Occupation --</option>
+                            <option value="Student">Student</option>
+                            <option value="Freelancer">Freelancer</option>
+                            <option value="Software Developer">Software Developer</option>
+                            <option value="Designer">Designer</option>
+                            <option value="Digital Marketer">Digital Marketer</option>
+                            <option value="Content Writer">Content Writer</option>
+                            <option value="Sales Professional">Sales Professional</option>
+                            <option value="Business Owner">Business Owner</option>
+                            <option value="Consultant">Consultant</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Conditional field for AGENCY -->
+                    <div class="form-group" id="adminAgencyField" style="display: none;">
+                        <label>Number of Creators</label>
+                        <select id="sellerNumberOfCreators" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                            <option value="">-- Select Range --</option>
+                            <option value="1-5">1-5 creators</option>
+                            <option value="6-10">6-10 creators</option>
+                            <option value="11-25">11-25 creators</option>
+                            <option value="26-50">26-50 creators</option>
+                            <option value="51-100">51-100 creators</option>
+                            <option value="100+">100+ creators</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Conditional field for CREATOR -->
+                    <div class="form-group" id="adminCreatorField" style="display: none;">
+                        <label>Number of Followers</label>
+                        <select id="sellerNumberOfFollowers" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                            <option value="">-- Select Range --</option>
+                            <option value="0-1K">0-1K followers</option>
+                            <option value="1K-10K">1K-10K followers</option>
+                            <option value="10K-50K">10K-50K followers</option>
+                            <option value="50K-100K">50K-100K followers</option>
+                            <option value="100K-500K">100K-500K followers</option>
+                            <option value="500K-1M">500K-1M followers</option>
+                            <option value="1M+">1M+ followers</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Address</label>
+                        <textarea id="sellerAddress" rows="3" placeholder="Street, City, State, ZIP" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Referral Code (Optional)</label>
+                        <input type="text" id="sellerReferralCode" placeholder="Enter referring seller's code" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                        <small style="color: #718096;">If referred by another seller</small>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        <i class="fas fa-user-plus"></i> Onboard Seller
+                    </button>
+                    <button type="button" onclick="closeOnboardSellerModal()" class="btn btn-secondary" style="flex: 1;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Status Action Modal -->
+    <div id="statusActionModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-slash"></i> Change Seller Status</h2>
+                <button onclick="closeStatusActionModal()" class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div style="padding: 2rem;">
+                <input type="hidden" id="statusActionSellerId">
+                <input type="hidden" id="statusActionSellerName">
+                
+                <p style="margin-bottom: 2rem; color: #4a5568; font-size: 1.1rem;">
+                    Choose action for: <strong id="statusActionSellerNameDisplay"></strong>
+                </p>
+                
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    <button onclick="suspendSeller()" class="btn" style="width: 100%; padding: 1.5rem; background: #ed8936; color: white; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                        <i class="fas fa-ban" style="font-size: 1.5rem;"></i>
+                        <div style="text-align: left;">
+                            <div style="font-weight: 600;">Suspend (Block)</div>
+                            <div style="font-size: 0.85rem; opacity: 0.9;">Temporarily block access - Can be reversed</div>
+                        </div>
+                    </button>
+                    
+                    <button onclick="deactivateSeller()" class="btn" style="width: 100%; padding: 1.5rem; background: #f56565; color: white; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                        <i class="fas fa-times-circle" style="font-size: 1.5rem;"></i>
+                        <div style="text-align: left;">
+                            <div style="font-weight: 600;">Deactivate</div>
+                            <div style="font-size: 0.85rem; opacity: 0.9;">Mark account as inactive - Can be reactivated</div>
+                        </div>
+                    </button>
+                    
+                    <button onclick="closeStatusActionModal()" class="btn btn-secondary" style="width: 100%; padding: 1rem;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2025 Seller Management System. Built with <i class="fas fa-heart"></i></p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Check authentication
+        console.log('=== CHECKING AUTHENTICATION ===');
+        const token = localStorage.getItem('token');
+        const userRole = localStorage.getItem('userRole');
+        
+        console.log('Token:', token ? 'Present' : 'MISSING');
+        console.log('Role:', userRole);
+        
+        if (!token) {
+            console.error('NO TOKEN - Redirecting to login');
+            alert('⚠️ You are not logged in. Redirecting to login page...');
+            window.location.href = 'login.html';
+        }
+        
+        if (userRole !== 'ADMIN') {
+            console.error('WRONG ROLE:', userRole, '- Redirecting');
+            alert(`⚠️ Access denied! You are logged in as ${userRole}. Admin role required.`);
+            window.location.href = 'seller-dashboard.html';
+        }
+        
+        console.log('✅ Authentication check passed');
+        
+        const userName = localStorage.getItem('userName');
+        const userEmail = localStorage.getItem('userEmail');
+        
+        // Only set if elements exist (they don't on this page, but keeping for future)
+        const userNameEl = document.getElementById('userName');
+        const userEmailEl = document.getElementById('userEmail');
+        if (userNameEl) userNameEl.textContent = userName || 'Admin';
+        if (userEmailEl) userEmailEl.textContent = userEmail || '';
+        
+        // Load admin profile info
+        async function loadAdminProfile() {
+            try {
+                const userEmail = localStorage.getItem('userEmail') || 'admin@example.com';
+                const userName = localStorage.getItem('userName') || 'Admin';
+                const firstLetter = userName.charAt(0).toUpperCase();
+                
+                document.getElementById('adminAvatar').textContent = firstLetter;
+                document.getElementById('adminName').textContent = userName;
+                document.getElementById('dropdownAdminName').textContent = userName;
+                document.getElementById('dropdownAdminEmail').textContent = userEmail;
+            } catch (error) {
+                console.error('Failed to load admin profile:', error);
+            }
+        }
+
+        // Toggle profile dropdown
+        function toggleProfileDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('profileDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const profile = document.querySelector('.admin-profile');
+            const dropdown = document.getElementById('profileDropdown');
+            if (profile && !profile.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Load profile on page load
+        loadAdminProfile();
+
+        function logout() {
+            localStorage.clear();
+            showToast('Logged out successfully', 'success');
+            setTimeout(() => window.location.href = 'login.html', 1000);
+        }
+        
+        // Show debug message
+        function showDebug(message, isError = false) {
+            const debugInfo = document.getElementById('debugInfo');
+            const debugMessage = document.getElementById('debugMessage');
+            debugInfo.style.display = 'block';
+            debugMessage.textContent = message;
+            if (isError) {
+                debugInfo.style.background = '#f8d7da';
+                debugInfo.style.borderLeftColor = '#dc3545';
+            } else {
+                debugInfo.style.background = '#d4edda';
+                debugInfo.style.borderLeftColor = '#28a745';
+            }
+        }
+        
+        // Load sellers
+        async function loadSellers() {
+            try {
+                console.log('Loading sellers...');
+                console.log('Token:', localStorage.getItem('token'));
+                console.log('User Role:', localStorage.getItem('userRole'));
+                
+                showDebug('Fetching sellers from API...', false);
+                
+                const sellers = await apiCall('/sellers');
+                console.log('Sellers loaded successfully:', sellers.length, 'sellers');
+                console.log('Sellers data:', sellers);
+                
+                showDebug(`✅ Successfully loaded ${sellers.length} sellers`, false);
+                
+                allSellersList = sellers; // Store for filtering
+                
+                // Update stats
+                document.getElementById('totalSellers').textContent = sellers.length;
+                
+                const active = sellers.filter(s => (s.status || 'ACTIVE') === 'ACTIVE').length;
+                const pending = sellers.filter(s => s.status === 'PENDING').length;
+                
+                document.getElementById('activeSellers').textContent = active;
+                document.getElementById('pendingSellers').textContent = pending;
+                
+                // Count total customers
+                let totalCustomers = 0;
+                for (const seller of sellers) {
+                    totalCustomers += seller.totalCustomers || 0;
+                }
+                document.getElementById('totalCustomers').textContent = totalCustomers;
+                
+                // Display sellers table
+                displaySellers(sellers);
+                
+            } catch (error) {
+                console.error('Error loading sellers:', error);
+                showDebug(`❌ Error: ${error.message}`, true);
+                document.getElementById('sellersContainer').innerHTML = 
+                    '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load sellers: ' + error.message + '</p><p style="margin-top: 1rem;"><a href="debug-admin.html" class="btn btn-primary">Open Debug Tool</a></p></div>';
+            }
+        }
+        
+        function displaySellers(sellers) {
+            const container = document.getElementById('sellersContainer');
+            
+            if (sellers.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><p>No sellers yet</p></div>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Business</th>
+                            <th>Customers</th>
+                            <th>Referrals</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sellers.map(seller => `
+                            <tr>
+                                <td><strong>${seller.name}</strong></td>
+                                <td>${seller.email}</td>
+                                <td>${seller.phoneNumber || 'N/A'}</td>
+                                <td>${seller.businessName || 'N/A'}</td>
+                                <td>${seller.totalCustomers || 0}</td>
+                                <td>${seller.totalReferrals || 0}</td>
+                                <td>${getStatusBadge(seller.status || 'ACTIVE')}</td>
+                                <td>${new Date(seller.createdAt).toLocaleDateString()}</td>
+                                <td>
+                                    <div class="seller-actions">
+                                        <button onclick="toggleDropdown('${seller.id}')" class="dropdown-btn">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                            <span>Actions</span>
+                                            <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
+                                        </button>
+                                        <div id="dropdown-${seller.id}" class="dropdown-menu">
+                                            <button onclick="closeDropdown('${seller.id}'); viewSellerDetails('${seller.id}')" class="dropdown-item">
+                                                <i class="fas fa-eye"></i>
+                                                <span>View Details</span>
+                                            </button>
+                                            <button onclick="closeDropdown('${seller.id}'); editSellerDetails('${seller.id}')" class="dropdown-item">
+                                                <i class="fas fa-edit"></i>
+                                                <span>Edit Seller</span>
+                                            </button>
+                                            <div class="dropdown-divider"></div>
+                                            <button onclick="closeDropdown('${seller.id}'); viewSellerCustomers('${seller.id}')" class="dropdown-item">
+                                                <i class="fas fa-users"></i>
+                                                <span>View Customers</span>
+                                            </button>
+                                            <button onclick="closeDropdown('${seller.id}'); viewSellerLeads('${seller.id}')" class="dropdown-item">
+                                                <i class="fas fa-chart-line"></i>
+                                                <span>View Leads</span>
+                                            </button>
+                                            <button onclick="closeDropdown('${seller.id}'); viewSellerReferrals('${seller.id}')" class="dropdown-item">
+                                                <i class="fas fa-network-wired"></i>
+                                                <span>View Referrals</span>
+                                            </button>
+                                            <div class="dropdown-divider"></div>
+                                            ${(seller.status === 'SUSPENDED' || seller.status === 'INACTIVE') ? `
+                                                <button onclick="closeDropdown('${seller.id}'); activateSeller('${seller.id}', '${seller.name.replace(/'/g, "\\'")}', '${seller.status}')" class="dropdown-item success">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    <span>Activate Seller</span>
+                                                </button>
+                                            ` : `
+                                                <button onclick="closeDropdown('${seller.id}'); showStatusActionModal('${seller.id}', '${seller.name.replace(/'/g, "\\'")}', '${seller.status || 'ACTIVE'}')" class="dropdown-item danger">
+                                                    <i class="fas fa-ban"></i>
+                                                    <span>Block/Deactivate</span>
+                                                </button>
+                                            `}
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        async function viewSellerDetails(sellerId) {
+            try {
+                const seller = await apiCall(`/sellers/${sellerId}`);
+                
+                const detailsHTML = `
+                    <h3 style="margin-bottom: 1rem; color: #1877F2; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
+                        <i class="fas fa-user"></i> Personal Information
+                    </h3>
+                    <div class="detail-grid" style="margin-bottom: 2rem;">
+                        <div class="detail-item">
+                            <label><i class="fas fa-user"></i> Name</label>
+                            <div class="value">${seller.name}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-envelope"></i> Email</label>
+                            <div class="value">${seller.email}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-phone"></i> Phone</label>
+                            <div class="value">${seller.phoneNumber || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-check-circle"></i> Status</label>
+                            <div class="value">${getStatusBadge(seller.status || 'ACTIVE')}</div>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin-bottom: 1rem; color: #1877F2; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
+                        <i class="fas fa-briefcase"></i> Business Information
+                    </h3>
+                    <div class="detail-grid" style="margin-bottom: 2rem;">
+                        <div class="detail-item">
+                            <label><i class="fas fa-briefcase"></i> Business Name</label>
+                            <div class="value">${seller.businessName || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-industry"></i> Business Type</label>
+                            <div class="value">${seller.businessType || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <label><i class="fas fa-map-marker-alt"></i> Address</label>
+                            <div class="value">${seller.address || 'N/A'}</div>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin-bottom: 1rem; color: #1877F2; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
+                        <i class="fas fa-credit-card"></i> Payment Information
+                    </h3>
+                    <div class="detail-grid" style="margin-bottom: 2rem;">
+                        <div class="detail-item">
+                            <label><i class="fas fa-university"></i> Bank Name</label>
+                            <div class="value">${seller.bankName || 'Not provided'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-hashtag"></i> Account Number</label>
+                            <div class="value">${seller.accountNumber ? '****' + seller.accountNumber.slice(-4) : 'Not provided'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-user-tie"></i> Account Holder</label>
+                            <div class="value">${seller.accountHolderName || 'Not provided'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-code"></i> IFSC/Routing Code</label>
+                            <div class="value">${seller.ifscCode || 'Not provided'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-credit-card"></i> Payment Method</label>
+                            <div class="value">${seller.paymentMethod || 'Not specified'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-mobile-alt"></i> UPI/PayPal</label>
+                            <div class="value">${seller.upiId || 'Not provided'}</div>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin-bottom: 1rem; color: #1877F2; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">
+                        <i class="fas fa-chart-bar"></i> Statistics
+                    </h3>
+                    <div class="detail-grid" style="margin-bottom: 2rem;">
+                        <div class="detail-item">
+                            <label><i class="fas fa-qrcode"></i> Referral Code</label>
+                            <div class="value" style="font-family: monospace; color: #1877F2;">${seller.referralCode}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-user-tag"></i> Referred By</label>
+                            <div class="value">${seller.referredBy || 'Direct Sign-up'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-users"></i> Total Customers</label>
+                            <div class="value">${seller.totalCustomers || 0}</div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-user-friends"></i> Total Referrals</label>
+                            <div class="value">${seller.totalReferrals || 0}</div>
+                        </div>
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <label><i class="fas fa-calendar-alt"></i> Joined Date</label>
+                            <div class="value">${new Date(seller.createdAt).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid #e2e8f0; display: flex; gap: 1rem; justify-content: flex-end;">
+                        <button onclick="closeDetailsModal()" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                `;
+                
+                document.getElementById('detailsContent').innerHTML = detailsHTML;
+                document.getElementById('detailsModal').classList.add('active');
+                
+            } catch (error) {
+                showToast('Failed to load seller details: ' + error.message, 'error');
+            }
+        }
+        
+        function closeDetailsModal() {
+            document.getElementById('detailsModal').classList.remove('active');
+        }
+        
+        async function viewSellerCustomers(sellerId) {
+            try {
+                const customers = await apiCall(`/customers/seller/${sellerId}`);
+                
+                if (customers.length === 0) {
+                    document.getElementById('customersContent').innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-users"></i>
+                            <p>This seller has no customers yet</p>
+                        </div>
+                        <div style="margin-top: 1.5rem; text-align: right;">
+                            <button onclick="closeCustomersModal()" class="btn btn-secondary">Close</button>
+                        </div>
+                    `;
+                } else {
+                    const customersHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <strong>${customers.length} Customer${customers.length !== 1 ? 's' : ''} Found</strong>
+                        </div>
+                        <div class="customers-list">
+                            ${customers.map(customer => `
+                                <div class="customer-item">
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <div style="flex: 1;">
+                                            <div style="font-weight: 600; font-size: 1.1rem; color: #2d3748; margin-bottom: 0.5rem;">
+                                                <i class="fas fa-user"></i> ${customer.name}
+                                            </div>
+                                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.9rem; color: #718096;">
+                                                <div><i class="fas fa-envelope"></i> ${customer.email}</div>
+                                                <div><i class="fas fa-phone"></i> ${customer.phoneNumber || 'N/A'}</div>
+                                                <div><i class="fas fa-map-marker-alt"></i> ${customer.address || 'N/A'}</div>
+                                                <div><i class="fas fa-calendar"></i> ${new Date(customer.createdAt).toLocaleDateString()}</div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            ${getStatusBadge(customer.status || 'ACTIVE')}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div style="margin-top: 1.5rem; text-align: right;">
+                            <button onclick="closeCustomersModal()" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                        </div>
+                    `;
+                    document.getElementById('customersContent').innerHTML = customersHTML;
+                }
+                
+                document.getElementById('customersModal').classList.add('active');
+                
+            } catch (error) {
+                showToast('Failed to load customers: ' + error.message, 'error');
+            }
+        }
+        
+        function closeCustomersModal() {
+            document.getElementById('customersModal').classList.remove('active');
+        }
+        
+        async function viewSellerLeads(sellerId) {
+            try {
+                // Get all leads first (admin endpoint)
+                const allLeads = await apiCall('/leads/all');
+                // Filter by seller
+                const leads = allLeads.filter(lead => lead.sellerId === sellerId);
+                
+                if (leads.length === 0) {
+                    document.getElementById('leadsContent').innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-chart-line"></i>
+                            <p>This seller has no leads yet</p>
+                        </div>
+                        <div style="margin-top: 1.5rem; text-align: right;">
+                            <button onclick="closeLeadsModal()" class="btn btn-secondary">Close</button>
+                        </div>
+                    `;
+                } else {
+                    const leadsHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <strong>${leads.length} Lead${leads.length !== 1 ? 's' : ''} Found</strong>
+                        </div>
+                        <div class="customers-list">
+                            ${leads.map(lead => `
+                                <div class="customer-item">
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <div style="flex: 1;">
+                                            <div style="font-weight: 600; font-size: 1.1rem; color: #2d3748; margin-bottom: 0.5rem;">
+                                                <i class="fas fa-user-tie"></i> ${lead.name}
+                                            </div>
+                                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.9rem; color: #718096;">
+                                                <div><i class="fas fa-envelope"></i> ${lead.email || 'N/A'}</div>
+                                                <div><i class="fas fa-phone"></i> ${lead.phoneNumber || 'N/A'}</div>
+                                                <div><i class="fas fa-building"></i> ${lead.company || 'N/A'}</div>
+                                                <div><i class="fas fa-tag"></i> ${lead.source}</div>
+                                                <div><i class="fas fa-rupee-sign"></i> ${lead.estimatedValue ? '₹' + lead.estimatedValue : 'N/A'}</div>
+                                                <div><i class="fas fa-calendar"></i> ${new Date(lead.createdAt).toLocaleDateString()}</div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            ${getLeadStatusBadge(lead.status)}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div style="margin-top: 1.5rem; text-align: right;">
+                            <button onclick="closeLeadsModal()" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                        </div>
+                    `;
+                    document.getElementById('leadsContent').innerHTML = leadsHTML;
+                }
+                
+                document.getElementById('leadsModal').classList.add('active');
+                
+            } catch (error) {
+                showToast('Failed to load leads: ' + error.message, 'error');
+            }
+        }
+        
+        function closeLeadsModal() {
+            document.getElementById('leadsModal').classList.remove('active');
+        }
+        
+        // Status Action Functions
+        function showStatusActionModal(sellerId, sellerName, currentStatus) {
+            document.getElementById('statusActionSellerId').value = sellerId;
+            document.getElementById('statusActionSellerName').value = sellerName;
+            document.getElementById('statusActionSellerNameDisplay').textContent = sellerName;
+            document.getElementById('statusActionModal').classList.add('active');
+        }
+        
+        function closeStatusActionModal() {
+            document.getElementById('statusActionModal').classList.remove('active');
+        }
+        
+        async function suspendSeller() {
+            const sellerId = document.getElementById('statusActionSellerId').value;
+            const sellerName = document.getElementById('statusActionSellerName').value;
+            
+            if (!confirm(`Are you sure you want to SUSPEND (Block) "${sellerName}"?\n\nThis will prevent the seller from logging in and accessing the system.`)) {
+                return;
+            }
+            
+            try {
+                await apiCall(`/sellers/${sellerId}`, 'PUT', {
+                    status: 'SUSPENDED'
+                });
+                
+                showToast(`✅ ${sellerName} has been suspended successfully!`, 'success');
+                closeStatusActionModal();
+                loadSellers(); // Reload sellers list
+            } catch (error) {
+                showToast(`❌ Failed to suspend seller: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deactivateSeller() {
+            const sellerId = document.getElementById('statusActionSellerId').value;
+            const sellerName = document.getElementById('statusActionSellerName').value;
+            
+            if (!confirm(`Are you sure you want to DEACTIVATE "${sellerName}"?\n\nThis will mark the account as inactive.`)) {
+                return;
+            }
+            
+            try {
+                await apiCall(`/sellers/${sellerId}`, 'PUT', {
+                    status: 'INACTIVE'
+                });
+                
+                showToast(`✅ ${sellerName} has been deactivated successfully!`, 'success');
+                closeStatusActionModal();
+                loadSellers(); // Reload sellers list
+            } catch (error) {
+                showToast(`❌ Failed to deactivate seller: ${error.message}`, 'error');
+            }
+        }
+        
+        async function activateSeller(sellerId, sellerName, currentStatus) {
+            const action = currentStatus === 'SUSPENDED' ? 'unblock' : 'activate';
+            
+            if (!confirm(`Are you sure you want to ${action.toUpperCase()} "${sellerName}"?\n\nThis will restore the seller's access to the system.`)) {
+                return;
+            }
+            
+            try {
+                await apiCall(`/sellers/${sellerId}`, 'PUT', {
+                    status: 'ACTIVE'
+                });
+                
+                showToast(`✅ ${sellerName} has been ${action}ed successfully!`, 'success');
+                loadSellers(); // Reload sellers list
+            } catch (error) {
+                showToast(`❌ Failed to ${action} seller: ${error.message}`, 'error');
+            }
+        }
+        
+        // Filter Functions
+        let allSellersList = [];
+        
+        function applyFilters() {
+            const statusFilter = document.getElementById('filterStatus').value;
+            const searchFilter = document.getElementById('filterSearch').value.toLowerCase();
+            
+            let filtered = allSellersList;
+            
+            if (statusFilter) {
+                filtered = filtered.filter(seller => 
+                    (seller.status || 'ACTIVE') === statusFilter
+                );
+            }
+            
+            if (searchFilter) {
+                filtered = filtered.filter(seller => 
+                    seller.name.toLowerCase().includes(searchFilter) ||
+                    seller.email.toLowerCase().includes(searchFilter) ||
+                    (seller.businessName && seller.businessName.toLowerCase().includes(searchFilter))
+                );
+            }
+            
+            displaySellers(filtered);
+        }
+        
+        function clearFilters() {
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterSearch').value = '';
+            displaySellers(allSellersList);
+        }
+        
+        // Onboard Seller Functions
+        function openOnboardSellerModal() {
+            document.getElementById('onboardSellerForm').reset();
+            document.getElementById('onboardSellerModal').classList.add('active');
+        }
+        
+        function closeOnboardSellerModal() {
+            document.getElementById('onboardSellerModal').classList.remove('active');
+        }
+        
+        function toggleAdminTypeFields() {
+            const sellerType = document.getElementById('sellerBusinessType').value;
+            const individualField = document.getElementById('adminIndividualField');
+            const agencyField = document.getElementById('adminAgencyField');
+            const creatorField = document.getElementById('adminCreatorField');
+
+            // Hide all conditional fields
+            individualField.style.display = 'none';
+            agencyField.style.display = 'none';
+            creatorField.style.display = 'none';
+
+            // Clear all conditional field values
+            document.getElementById('sellerCurrentOccupation').value = '';
+            document.getElementById('sellerNumberOfCreators').value = '';
+            document.getElementById('sellerNumberOfFollowers').value = '';
+
+            // Show the relevant field based on seller type
+            if (sellerType === 'INDIVIDUAL') {
+                individualField.style.display = 'block';
+            } else if (sellerType === 'AGENCY') {
+                agencyField.style.display = 'block';
+            } else if (sellerType === 'CREATOR') {
+                creatorField.style.display = 'block';
+            }
+        }
+        
+        async function handleOnboardSeller(event) {
+            event.preventDefault();
+            
+            // Get password values
+            const password = document.getElementById('sellerPassword').value;
+            const confirmPassword = document.getElementById('sellerConfirmPassword').value;
+            
+            // Validate password match
+            if (password !== confirmPassword) {
+                showToast('❌ Passwords do not match!', 'error');
+                return;
+            }
+            
+            // Validate password length
+            if (password.length < 6) {
+                showToast('❌ Password must be at least 6 characters!', 'error');
+                return;
+            }
+            
+            const sellerType = document.getElementById('sellerBusinessType').value;
+            const sellerData = {
+                name: document.getElementById('sellerName').value,
+                email: document.getElementById('sellerEmail').value,
+                password: password, // Include password for user account creation
+                phoneNumber: document.getElementById('sellerPhone').value || null,
+                businessType: sellerType,
+                address: document.getElementById('sellerAddress').value || null,
+                usedReferralCode: document.getElementById('sellerReferralCode').value || null
+            };
+            
+            // Add type-specific fields based on seller type
+            if (sellerType === 'INDIVIDUAL') {
+                sellerData.currentOccupation = document.getElementById('sellerCurrentOccupation').value || null;
+            } else if (sellerType === 'AGENCY') {
+                sellerData.numberOfCreators = document.getElementById('sellerNumberOfCreators').value || null;
+            } else if (sellerType === 'CREATOR') {
+                sellerData.numberOfFollowers = document.getElementById('sellerNumberOfFollowers').value || null;
+            }
+            
+            try {
+                // Single call creates both seller and user account
+                await apiCall('/sellers/register', 'POST', sellerData);
+                
+                showToast(`✅ Seller ${sellerData.name} onboarded successfully with login credentials!`, 'success');
+                closeOnboardSellerModal();
+                loadSellers(); // Reload the sellers list
+                
+            } catch (error) {
+                showToast(`❌ Failed to onboard seller: ${error.message}`, 'error');
+            }
+        }
+        
+        // Edit Seller Functions
+        async function editSellerDetails(sellerId) {
+            try {
+                const seller = await apiCall(`/sellers/${sellerId}`);
+                
+                // Populate form with seller data
+                document.getElementById('editSellerId').value = seller.id;
+                document.getElementById('editSellerName').value = seller.name || '';
+                document.getElementById('editSellerEmail').value = seller.email || '';
+                document.getElementById('editSellerPhone').value = seller.phoneNumber || '';
+                document.getElementById('editSellerStatus').value = seller.status || 'ACTIVE';
+                document.getElementById('editSellerBusinessName').value = seller.businessName || '';
+                document.getElementById('editSellerBusinessType').value = seller.businessType || '';
+                document.getElementById('editSellerAddress').value = seller.address || '';
+                
+                // Populate payment information
+                document.getElementById('editSellerBankName').value = seller.bankName || '';
+                document.getElementById('editSellerAccountNumber').value = seller.accountNumber || '';
+                document.getElementById('editSellerAccountHolder').value = seller.accountHolderName || '';
+                document.getElementById('editSellerIFSC').value = seller.ifscCode || '';
+                document.getElementById('editSellerPaymentMethod').value = seller.paymentMethod || '';
+                document.getElementById('editSellerUPI').value = seller.upiId || '';
+                
+                // Open modal
+                document.getElementById('editSellerModal').classList.add('active');
+                
+            } catch (error) {
+                showToast(`❌ Failed to load seller data: ${error.message}`, 'error');
+            }
+        }
+        
+        function closeEditSellerModal() {
+            document.getElementById('editSellerModal').classList.remove('active');
+        }
+        
+        // Dropdown Functions
+        function toggleDropdown(sellerId) {
+            const dropdown = document.getElementById(`dropdown-${sellerId}`);
+            const allDropdowns = document.querySelectorAll('.dropdown-menu');
+            
+            // Close all other dropdowns
+            allDropdowns.forEach(d => {
+                if (d.id !== `dropdown-${sellerId}`) {
+                    d.classList.remove('show');
+                }
+            });
+            
+            // Toggle current dropdown
+            dropdown.classList.toggle('show');
+            
+            // Prevent event from bubbling
+            event.stopPropagation();
+        }
+        
+        function closeDropdown(sellerId) {
+            const dropdown = document.getElementById(`dropdown-${sellerId}`);
+            if (dropdown) {
+                dropdown.classList.remove('show');
+            }
+        }
+        
+        function closeAllDropdowns() {
+            const allDropdowns = document.querySelectorAll('.dropdown-menu');
+            allDropdowns.forEach(dropdown => {
+                dropdown.classList.remove('show');
+            });
+        }
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.seller-actions')) {
+                closeAllDropdowns();
+            }
+        });
+        
+        async function handleEditSeller(event) {
+            event.preventDefault();
+            
+            const sellerId = document.getElementById('editSellerId').value;
+            
+            const updateData = {
+                name: document.getElementById('editSellerName').value,
+                email: document.getElementById('editSellerEmail').value,
+                phoneNumber: document.getElementById('editSellerPhone').value || null,
+                status: document.getElementById('editSellerStatus').value,
+                businessName: document.getElementById('editSellerBusinessName').value || null,
+                businessType: document.getElementById('editSellerBusinessType').value || null,
+                address: document.getElementById('editSellerAddress').value || null,
+                bankName: document.getElementById('editSellerBankName').value || null,
+                accountNumber: document.getElementById('editSellerAccountNumber').value || null,
+                accountHolderName: document.getElementById('editSellerAccountHolder').value || null,
+                ifscCode: document.getElementById('editSellerIFSC').value || null,
+                paymentMethod: document.getElementById('editSellerPaymentMethod').value || null,
+                upiId: document.getElementById('editSellerUPI').value || null
+            };
+            
+            try {
+                await apiCall(`/sellers/${sellerId}`, 'PUT', updateData);
+                
+                showToast(`✅ Seller details updated successfully!`, 'success');
+                closeEditSellerModal();
+                loadSellers(); // Reload the sellers list
+                
+            } catch (error) {
+                showToast(`❌ Failed to update seller: ${error.message}`, 'error');
+            }
+        }
+        
+        async function viewSellerReferrals(sellerId) {
+            try {
+                const referralInfo = await apiCall(`/sellers/${sellerId}/referrals`);
+                
+                console.log('Referral Info:', referralInfo);
+                
+                const referralsHTML = `
+                    <div class="detail-grid" style="margin-bottom: 2rem;">
+                        <div class="detail-item">
+                            <label><i class="fas fa-qrcode"></i> Seller's Referral Code</label>
+                            <div class="value" style="font-family: monospace; font-size: 1.2rem; color: #1877F2;">
+                                ${referralInfo.myReferralCode || 'N/A'}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-user-tag"></i> Referred By</label>
+                            <div class="value">
+                                ${referralInfo.referredBy ? 
+                                    `${referralInfo.referredBy.name}<br><small style="color: #718096;">${referralInfo.referredBy.email}</small>` : 
+                                    'Direct Sign-up'}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-users"></i> Total Referrals Made</label>
+                            <div class="value" style="font-size: 1.5rem; color: #1877F2;">
+                                ${referralInfo.totalReferrals || 0}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${referralInfo.referredSellers && referralInfo.referredSellers.length > 0 ? `
+                        <div style="margin-top: 2rem;">
+                            <h3 style="margin-bottom: 1rem; color: #2d3748;">
+                                <i class="fas fa-network-wired"></i> Sellers Referred (${referralInfo.referredSellers.length})
+                            </h3>
+                            <div class="customers-list">
+                                ${referralInfo.referredSellers.map(referred => `
+                                    <div class="customer-item">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <div>
+                                                <div style="font-weight: 600; font-size: 1.1rem; color: #2d3748;">
+                                                    <i class="fas fa-user"></i> ${referred.name || 'N/A'}
+                                                </div>
+                                                <div style="font-size: 0.9rem; color: #718096; margin-top: 0.25rem;">
+                                                    <i class="fas fa-envelope"></i> ${referred.email || 'N/A'}
+                                                </div>
+                                            </div>
+                                            <div style="text-align: right; font-size: 0.85rem; color: #718096;">
+                                                <div><i class="fas fa-calendar"></i> ${referred.createdAt ? new Date(referred.createdAt).toLocaleDateString() : 'N/A'}</div>
+                                                <div style="margin-top: 0.25rem;">${getStatusBadge(referred.accountStatus || 'ACTIVE')}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="empty-state">
+                            <i class="fas fa-user-friends"></i>
+                            <p>This seller hasn't referred anyone yet</p>
+                        </div>
+                    `}
+                    
+                    <div style="margin-top: 1.5rem; text-align: right;">
+                        <button onclick="closeReferralsModal()" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                `;
+                
+                document.getElementById('referralsContent').innerHTML = referralsHTML;
+                document.getElementById('referralsModal').classList.add('active');
+                
+            } catch (error) {
+                showToast('Failed to load referral information: ' + error.message, 'error');
+            }
+        }
+        
+        function closeReferralsModal() {
+            document.getElementById('referralsModal').classList.remove('active');
+        }
+        
+        function getLeadStatusBadge(status) {
+            const statusColors = {
+                'NEW': 'background: linear-gradient(135deg, #1877F2, #42B72A); color: white;',
+                'CONTACTED': 'background: linear-gradient(135deg, #4facfe, #00f2fe); color: white;',
+                'QUALIFIED': 'background: linear-gradient(135deg, #43e97b, #38f9d7); color: white;',
+                'NEGOTIATION': 'background: linear-gradient(135deg, #fa709a, #fee140); color: white;',
+                'WON': 'background: linear-gradient(135deg, #30cfd0, #330867); color: white;',
+                'LOST': 'background: linear-gradient(135deg, #f093fb, #f5576c); color: white;',
+                'FOLLOW_UP': 'background: linear-gradient(135deg, #ffecd2, #fcb69f); color: #333;'
+            };
+            
+            const style = statusColors[status] || 'background: #e2e8f0; color: #2d3748;';
+            return `<span style="${style} padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600; white-space: nowrap;">${status}</span>`;
+        }
+        
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+        
+        // Load sellers on page load
+        console.log('=== PAGE LOADED ===');
+        console.log('About to call loadSellers()...');
+        
+        // Try to load sellers immediately
+        try {
+            loadSellers();
+        } catch (error) {
+            console.error('CRITICAL ERROR calling loadSellers:', error);
+            document.getElementById('sellersContainer').innerHTML = 
+                '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Critical error: ' + error.message + '</p></div>';
+        }
+        
+        // Also try again after DOM is fully ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('DOM fully loaded, trying loadSellers again...');
+                setTimeout(loadSellers, 500);
+            });
+        }
+    </script>
+</body>
+</html>
+

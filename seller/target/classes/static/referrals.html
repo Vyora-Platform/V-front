@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Referrals - Seller Hub</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/seller-profile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .referral-code-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem;
+            border-radius: 16px;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .referral-code-display {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 1.5rem 0;
+        }
+        
+        .referral-code {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            margin-bottom: 1rem;
+        }
+        
+        .copy-button {
+            background: white;
+            color: var(--primary-color);
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .copy-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .status-badge {
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .status-ACTIVE {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+        
+        .status-INACTIVE {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .status-PENDING {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        .status-BLOCKED {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .status-SUSPENDED {
+            background: #fed7aa;
+            color: #ea580c;
+        }
+        
+        .business-type-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+        
+        .filter-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .filter-group label i {
+            color: #1877F2;
+            margin-right: 0.25rem;
+        }
+        
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: #1877F2;
+            box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.1);
+        }
+        
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-secondary:hover {
+            background: #475569;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead th {
+            text-align: left;
+            padding: 1rem;
+            font-weight: 600;
+            color: #1a202c;
+            border-bottom: 2px solid #e2e8f0;
+            background: #f7fafc;
+            white-space: nowrap;
+        }
+        
+        tbody td {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        tbody tr:hover {
+            background: #f7fafc;
+        }
+        
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-store"></i>
+                <span>Seller Hub</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="seller-dashboard.html"><i class="fas fa-home"></i> Home</a></li>
+                <li><a href="my-leads.html"><i class="fas fa-users-cog"></i> Leads</a></li>
+                <li><a href="marketing-library.html"><i class="fas fa-images"></i> Marketing</a></li>
+                <li><a href="customers.html"><i class="fas fa-user-friends"></i> Customers</a></li>
+                <li><a href="referrals.html" class="active"><i class="fas fa-share-nodes"></i> Referrals</a></li>
+                <li class="nav-item-right">
+                    <div class="profile-dropdown">
+                        <div class="profile-circle" onclick="toggleProfileDropdown()">
+                            <span id="profileInitials">S</span>
+                        </div>
+                        <div class="profile-dropdown-menu" id="profileDropdownMenu">
+                            <div class="profile-dropdown-header">
+                                <div class="profile-dropdown-avatar">
+                                    <span id="dropdownInitials">S</span>
+                                </div>
+                                <div class="profile-dropdown-info">
+                                    <h4 id="dropdownName">Loading...</h4>
+                                    <p id="dropdownEmail">Loading...</p>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <div class="profile-dropdown-section">
+                                <button onclick="openEditProfileModal()" class="profile-edit-btn">
+                                    <i class="fas fa-edit"></i> Edit Profile
+                                </button>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-briefcase"></i> Business Details</h5>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Business Name</span>
+                                    <span class="profile-detail-value" id="dropdownBusinessName">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Business Type</span>
+                                    <span class="profile-detail-value" id="dropdownBusinessType">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Phone</span>
+                                    <span class="profile-detail-value" id="dropdownPhone">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Address</span>
+                                    <span class="profile-detail-value" id="dropdownAddress">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-chart-line"></i> Account Stats</h5>
+                                <div class="profile-stats-grid">
+                                    <div class="profile-stat-item">
+                                        <span class="profile-stat-value" id="dropdownCustomers">0</span>
+                                        <span class="profile-stat-label">Customers</span>
+                                    </div>
+                                    <div class="profile-stat-item">
+                                        <span class="profile-stat-value" id="dropdownReferrals">0</span>
+                                        <span class="profile-stat-label">Referrals</span>
+                                    </div>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Referral Code</span>
+                                    <span class="profile-detail-value profile-referral-code" id="dropdownReferralCode">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Used Code</span>
+                                    <span class="profile-detail-value" id="dropdownUsedReferralCode">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Status</span>
+                                    <span class="profile-detail-value" id="dropdownStatus">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Member Since</span>
+                                    <span class="profile-detail-value" id="dropdownMemberSince">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Last Updated</span>
+                                    <span class="profile-detail-value" id="dropdownUpdatedAt">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-wallet"></i> Payment Information</h5>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Payment Method</span>
+                                    <span class="profile-detail-value" id="dropdownPaymentMethod">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Bank Name</span>
+                                    <span class="profile-detail-value" id="dropdownBankName">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Account Holder</span>
+                                    <span class="profile-detail-value" id="dropdownAccountHolder">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Account Number</span>
+                                    <span class="profile-detail-value" id="dropdownAccountNumber">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">IFSC Code</span>
+                                    <span class="profile-detail-value" id="dropdownIFSC">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">UPI ID</span>
+                                    <span class="profile-detail-value" id="dropdownUPI">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <button class="profile-logout-btn" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                            </button>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-share-nodes"></i> My Referral Network</h1>
+                <p class="subtitle">Track your referrals and grow your network</p>
+            </div>
+        </header>
+
+        <!-- Referral Code Card -->
+        <div class="referral-code-card">
+            <h2>Your Referral Code</h2>
+            <p style="opacity: 0.9;">Share this code with other sellers to grow your network!</p>
+            <div class="referral-code-display">
+                <div class="referral-code" id="referralCode">LOADING...</div>
+                <button class="copy-button" onclick="copyReferralCode()">
+                    <i class="fas fa-copy"></i> Copy Code
+                </button>
+            </div>
+            <p style="font-size: 0.9rem; opacity: 0.8;">
+                When someone signs up with your referral code, they'll appear in your network below!
+            </p>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalReferrals">0</h3>
+                    <p>Total Referrals</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="activeReferrals">0</h3>
+                    <p>Active Sellers</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="referralPoints">0</h3>
+                    <p>Referral Points</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <i class="fas fa-calendar-plus"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="thisMonthReferrals">0</h3>
+                    <p>This Month</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label><i class="fas fa-filter"></i> Status</label>
+                    <select id="filterStatus" onchange="applyFilters()">
+                        <option value="">All Statuses</option>
+                        <option value="ACTIVE">Active</option>
+                        <option value="INACTIVE">Inactive</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="BLOCKED">Blocked</option>
+                        <option value="SUSPENDED">Suspended</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label><i class="fas fa-briefcase"></i> Business Type</label>
+                    <select id="filterBusinessType" onchange="applyFilters()">
+                        <option value="">All Types</option>
+                        <option value="AGENCY">Agency</option>
+                        <option value="INDIVIDUAL">Individual</option>
+                        <option value="CORPORATION">Corporation</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label><i class="fas fa-user"></i> Name</label>
+                    <input type="text" id="filterName" placeholder="Search by name..." onkeyup="applyFilters()">
+                </div>
+
+                <div class="filter-group">
+                    <label><i class="fas fa-envelope"></i> Email</label>
+                    <input type="text" id="filterEmail" placeholder="Search by email..." onkeyup="applyFilters()">
+                </div>
+
+                <div class="filter-group">
+                    <label><i class="fas fa-phone"></i> Phone</label>
+                    <input type="text" id="filterPhone" placeholder="Search by phone..." onkeyup="applyFilters()">
+                </div>
+            </div>
+            
+            <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                <div style="color: #64748b; font-size: 0.875rem;">
+                    <i class="fas fa-info-circle"></i> 
+                    <span id="filterResultsText">Showing all referrals</span>
+                </div>
+                <button onclick="clearFilters()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
+                    <i class="fas fa-times"></i> Clear Filters
+                </button>
+            </div>
+        </div>
+
+        <!-- Referrals List -->
+        <div style="margin-top: 2rem;">
+            <h2 style="margin-bottom: 1rem;"><i class="fas fa-users"></i> My Referrals</h2>
+            <div id="referralsContainer" class="table-container">
+                <div class="loading" style="text-align: center; padding: 2rem; color: #64748b;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem;"></i>
+                    <p style="margin-top: 1rem;">Loading referrals...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2025 Seller Management System. Built with <i class="fas fa-heart"></i></p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script src="js/seller-profile.js"></script>
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+        
+        const userName = localStorage.getItem('userName');
+        const userEmail = localStorage.getItem('userEmail');
+        const sellerId = localStorage.getItem('sellerId');
+        
+        console.log('🔍 Referrals Page - Authentication Info:');
+        console.log('Token:', token ? 'Present' : 'Missing');
+        console.log('UserName:', userName);
+        console.log('UserEmail:', userEmail);
+        console.log('SellerId:', sellerId);
+        
+        if (!sellerId) {
+            console.error('❌ SellerId is missing! Cannot load referrals.');
+            document.getElementById('referralsContainer').innerHTML = 
+                '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Error: Seller ID not found. Please logout and login again.</p></div>';
+        }
+        
+        const userNameEl = document.getElementById('userName');
+        const userEmailEl = document.getElementById('userEmail');
+        if (userNameEl) userNameEl.textContent = userName || 'Seller';
+        if (userEmailEl) userEmailEl.textContent = userEmail || '';
+        
+        let allReferrals = [];
+        
+        function logout() {
+            localStorage.clear();
+            showToast('Logged out successfully', 'success');
+            setTimeout(() => window.location.href = 'login.html', 1000);
+        }
+        
+        async function loadReferralInfo() {
+            try {
+                console.log('📡 Loading referral info for seller:', sellerId);
+                console.log('📡 API URL:', `/api/v1/sellers/${sellerId}/referrals`);
+                
+                const referralInfo = await apiCall(`/sellers/${sellerId}/referrals`);
+                console.log('✅ Referral Info loaded:', referralInfo);
+                console.log('✅ Raw response structure:', JSON.stringify(referralInfo, null, 2));
+                
+                // FIX: Backend returns 'referredSellers' not 'referrals'
+                const referrals = referralInfo.referredSellers || [];
+                
+                // Check if referrals exist and log details
+                if (referrals) {
+                    console.log('✅ Referrals array exists with length:', referrals.length);
+                    console.log('✅ Referrals data:', referrals);
+                } else {
+                    console.warn('⚠️ referralInfo.referredSellers is undefined or null');
+                    console.log('Available keys in response:', Object.keys(referralInfo));
+                }
+                
+                // Display referral code
+                document.getElementById('referralCode').textContent = referralInfo.myReferralCode || 'N/A';
+                
+                // Update stats
+                const totalReferrals = referralInfo.totalReferrals || 0;
+                document.getElementById('totalReferrals').textContent = totalReferrals;
+                
+                console.log('📊 Total Referrals from API:', totalReferrals);
+                console.log('📊 Actual referrals array length:', referrals.length);
+                
+                // Calculate active referrals (those with ACTIVE status)
+                const activeReferrals = referrals.filter(r => (r.status || r.accountStatus) === 'ACTIVE').length;
+                document.getElementById('activeReferrals').textContent = activeReferrals;
+                
+                // Calculate referral points (10 points per referral)
+                document.getElementById('referralPoints').textContent = totalReferrals * 10;
+                
+                // Calculate this month's referrals
+                const thisMonth = new Date();
+                thisMonth.setDate(1);
+                thisMonth.setHours(0, 0, 0, 0);
+                
+                const thisMonthCount = referrals.filter(r => new Date(r.createdAt) >= thisMonth).length;
+                document.getElementById('thisMonthReferrals').textContent = thisMonthCount;
+                
+                console.log('📊 Stats calculated:', {
+                    total: totalReferrals,
+                    active: activeReferrals,
+                    points: totalReferrals * 10,
+                    thisMonth: thisMonthCount,
+                    referralsArray: referrals.length
+                });
+                
+                // Store referrals and display
+                allReferrals = referrals;
+                console.log('📋 About to display referrals:', referrals.length, 'items');
+                updateFilterResultsText(referrals.length, referrals.length);
+                displayReferrals(referrals);
+                
+            } catch (error) {
+                console.error('❌ Error loading referral info:', error);
+                console.error('❌ Error details:', error.message);
+                console.error('❌ Error stack:', error.stack);
+                document.getElementById('referralsContainer').innerHTML = 
+                    '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load referrals. Please try again.</p></div>';
+            }
+        }
+        
+        function formatStatus(status) {
+            const statusMap = {
+                'ACTIVE': 'Active',
+                'INACTIVE': 'Inactive',
+                'PENDING': 'Pending',
+                'BLOCKED': 'Blocked',
+                'SUSPENDED': 'Suspended'
+            };
+            return statusMap[status] || status;
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+        
+        function displayReferrals(referrals) {
+            const container = document.getElementById('referralsContainer');
+            
+            console.log('📋 Displaying referrals:', referrals.length);
+            
+            if (referrals.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="text-align: center; padding: 3rem;">
+                        <i class="fas fa-share-nodes" style="font-size: 4rem; color: #cbd5e1; margin-bottom: 1rem;"></i>
+                        <h3 style="color: #64748b; margin-bottom: 0.5rem;">No Referrals Yet</h3>
+                        <p style="color: #94a3b8;">Share your referral code to start building your network!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Business Name</th>
+                            <th>Business Type</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th>Customers</th>
+                            <th>Referrals</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${referrals.map(referral => {
+                            const status = referral.status || referral.accountStatus || 'ACTIVE';
+                            
+                            return `
+                                <tr>
+                                    <td><strong>${referral.name || 'N/A'}</strong></td>
+                                    <td>${referral.email || 'N/A'}</td>
+                                    <td>${referral.phoneNumber || 'N/A'}</td>
+                                    <td>${referral.businessName || 'N/A'}</td>
+                                    <td>
+                                        ${referral.businessType ? 
+                                            `<span class="business-type-badge">${referral.businessType}</span>` : 
+                                            'N/A'
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-${status}">
+                                            ${formatStatus(status)}
+                                        </span>
+                                    </td>
+                                    <td>${formatDate(referral.createdAt)}</td>
+                                    <td style="text-align: center;">
+                                        <strong>${referral.totalCustomers || 0}</strong>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <strong>${referral.totalReferrals || 0}</strong>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        function applyFilters() {
+            const statusFilter = document.getElementById('filterStatus').value;
+            const businessTypeFilter = document.getElementById('filterBusinessType').value;
+            const nameFilter = document.getElementById('filterName').value.toLowerCase();
+            const emailFilter = document.getElementById('filterEmail').value.toLowerCase();
+            const phoneFilter = document.getElementById('filterPhone').value.toLowerCase();
+            
+            let filtered = allReferrals;
+            
+            // Filter by status
+            if (statusFilter) {
+                filtered = filtered.filter(r => (r.status || r.accountStatus) === statusFilter);
+            }
+            
+            // Filter by business type
+            if (businessTypeFilter) {
+                filtered = filtered.filter(r => 
+                    r.businessType && r.businessType.toUpperCase() === businessTypeFilter
+                );
+            }
+            
+            // Filter by name
+            if (nameFilter) {
+                filtered = filtered.filter(r => 
+                    r.name && r.name.toLowerCase().includes(nameFilter)
+                );
+            }
+            
+            // Filter by email
+            if (emailFilter) {
+                filtered = filtered.filter(r => 
+                    r.email && r.email.toLowerCase().includes(emailFilter)
+                );
+            }
+            
+            // Filter by phone
+            if (phoneFilter) {
+                filtered = filtered.filter(r => 
+                    r.phoneNumber && r.phoneNumber.toLowerCase().includes(phoneFilter)
+                );
+            }
+            
+            // Update results text
+            updateFilterResultsText(filtered.length, allReferrals.length);
+            
+            displayReferrals(filtered);
+        }
+        
+        function clearFilters() {
+            // Clear all filter inputs
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterBusinessType').value = '';
+            document.getElementById('filterName').value = '';
+            document.getElementById('filterEmail').value = '';
+            document.getElementById('filterPhone').value = '';
+            
+            // Reset results text
+            updateFilterResultsText(allReferrals.length, allReferrals.length);
+            
+            // Display all referrals
+            displayReferrals(allReferrals);
+        }
+        
+        function updateFilterResultsText(shown, total) {
+            const text = document.getElementById('filterResultsText');
+            if (shown === total) {
+                text.innerHTML = `Showing all <strong>${total}</strong> referrals`;
+            } else {
+                text.innerHTML = `Showing <strong>${shown}</strong> of <strong>${total}</strong> referrals`;
+            }
+        }
+        
+        function copyReferralCode() {
+            const code = document.getElementById('referralCode').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('Referral code copied to clipboard!', 'success');
+            }).catch(() => {
+                showToast('Failed to copy code', 'error');
+            });
+        }
+        
+        // Only load referrals if sellerId exists
+        if (sellerId) {
+            console.log('✅ SellerId found, loading referrals...');
+            loadReferralInfo();
+        } else {
+            console.error('❌ Cannot load referrals - SellerId is missing');
+        }
+    </script>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal" id="editProfileModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-edit"></i> Edit Profile</h2>
+                <button onclick="closeEditProfileModal()" class="close-modal-btn">&times;</button>
+            </div>
+            <form id="editProfileForm" onsubmit="saveProfileChanges(event)">
+                <div class="form-section">
+                    <h3><i class="fas fa-user"></i> Personal Information</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfileName">Full Name *</label><input type="text" id="editProfileName" required></div>
+                        <div class="form-group"><label for="editProfileEmail">Email Address *</label><input type="email" id="editProfileEmail" required></div>
+                    </div>
+                    <div class="form-row"><div class="form-group"><label for="editProfilePhone">Phone Number</label><input type="tel" id="editProfilePhone"></div></div>
+                </div>
+                <div class="form-section">
+                    <h3><i class="fas fa-briefcase"></i> Business Information</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfileBusinessName">Business Name</label><input type="text" id="editProfileBusinessName"></div>
+                        <div class="form-group"><label for="editProfileBusinessType">Seller Type</label>
+                            <select id="editProfileBusinessType" onchange="toggleEditTypeFields()"><option value="">Select Type</option><option value="INDIVIDUAL">Individual</option><option value="AGENCY">Agency</option><option value="CREATOR">Creator</option></select>
+                        </div>
+                    </div>
+                    <!-- Type-specific fields -->
+                    <div class="form-row" id="editIndividualField" style="display: none;"><div class="form-group full-width"><label for="editProfileCurrentOccupation">Current Occupation</label><select id="editProfileCurrentOccupation"><option value="">-- Select Occupation --</option><option value="Student">Student</option><option value="Freelancer">Freelancer</option><option value="Software Developer">Software Developer</option><option value="Designer">Designer</option><option value="Digital Marketer">Digital Marketer</option><option value="Content Writer">Content Writer</option><option value="Sales Professional">Sales Professional</option><option value="Business Owner">Business Owner</option><option value="Consultant">Consultant</option><option value="Other">Other</option></select></div></div>
+                    <div class="form-row" id="editAgencyField" style="display: none;"><div class="form-group full-width"><label for="editProfileNumberOfCreators">Number of Creators</label><select id="editProfileNumberOfCreators"><option value="">-- Select Range --</option><option value="1-5">1-5 creators</option><option value="6-10">6-10 creators</option><option value="11-25">11-25 creators</option><option value="26-50">26-50 creators</option><option value="51-100">51-100 creators</option><option value="100+">100+ creators</option></select></div></div>
+                    <div class="form-row" id="editCreatorField" style="display: none;"><div class="form-group full-width"><label for="editProfileNumberOfFollowers">Number of Followers</label><select id="editProfileNumberOfFollowers"><option value="">-- Select Range --</option><option value="0-1K">0-1K followers</option><option value="1K-10K">1K-10K followers</option><option value="10K-50K">10K-50K followers</option><option value="50K-100K">50K-100K followers</option><option value="100K-500K">100K-500K followers</option><option value="500K-1M">500K-1M followers</option><option value="1M+">1M+ followers</option></select></div></div>
+                    <div class="form-row"><div class="form-group full-width"><label for="editProfileAddress">Business Address</label><textarea id="editProfileAddress" rows="3"></textarea></div></div>
+                </div>
+                <div class="form-section">
+                    <h3><i class="fas fa-wallet"></i> Payment Information</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfilePaymentMethod">Payment Method</label>
+                            <select id="editProfilePaymentMethod"><option value="">Select Method</option><option value="BANK_TRANSFER">Bank Transfer</option><option value="UPI">UPI</option><option value="PAYPAL">PayPal</option><option value="CHEQUE">Cheque</option><option value="OTHER">Other</option></select>
+                        </div>
+                        <div class="form-group"><label for="editProfileBankName">Bank Name</label><input type="text" id="editProfileBankName"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfileAccountHolder">Account Holder Name</label><input type="text" id="editProfileAccountHolder"></div>
+                        <div class="form-group"><label for="editProfileAccountNumber">Account Number</label><input type="text" id="editProfileAccountNumber"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfileIFSC">IFSC Code</label><input type="text" id="editProfileIFSC"></div>
+                        <div class="form-group"><label for="editProfileUPI">UPI ID</label><input type="text" id="editProfileUPI"></div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" onclick="closeEditProfileModal()" class="btn btn-secondary"><i class="fas fa-times"></i> Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard - Seller Hub</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/seller-profile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .dashboard-section {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+        
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .section-title h3 {
+            font-size: 1.5rem;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .section-title .view-all-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .lead-item, .customer-item, .content-item {
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            transition: var(--transition);
+        }
+        
+        .lead-item:hover, .customer-item:hover, .content-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow);
+        }
+        
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.5rem;
+        }
+        
+        .item-title {
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 1.1rem;
+        }
+        
+        .item-details {
+            font-size: 0.9rem;
+            color: #718096;
+            margin: 0.25rem 0;
+        }
+        
+        .rewards-card {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            color: #333;
+            padding: 2rem;
+            border-radius: 16px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .rewards-card::before {
+            content: '🏆';
+            position: absolute;
+            font-size: 10rem;
+            opacity: 0.1;
+            right: -2rem;
+            top: -2rem;
+        }
+        
+        .rewards-points {
+            font-size: 3rem;
+            font-weight: 700;
+            margin: 1rem 0;
+        }
+        
+        .referral-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+        
+        .referral-code-display {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 1rem 0;
+        }
+        
+        .referral-code-display code {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: white;
+        }
+        
+        .referral-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .referral-stat {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+        
+        .referral-stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .content-thumbnail {
+            width: 100%;
+            height: 150px;
+            background: var(--light);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        
+        .content-thumbnail i {
+            font-size: 3rem;
+            color: #a0aec0;
+        }
+        
+        .content-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .content-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .content-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+        
+        .btn-download {
+            background: var(--success-color);
+            color: white;
+        }
+        
+        .btn-share {
+            background: var(--info-color);
+            color: white;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #718096;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        /* ===== NATIVE MOBILE APP STYLES ===== */
+        @media (max-width: 768px) {
+            /* Stats Grid - Native App Cards */
+            .stats-grid {
+                gap: 0.875rem;
+                margin-bottom: 1.25rem;
+            }
+            
+            .stat-card {
+                padding: 1.25rem;
+                border-radius: 16px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+                border: 0.5px solid rgba(0, 0, 0, 0.04);
+                background: white;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .stat-card:active {
+                transform: scale(0.98);
+            }
+            
+            .stat-icon {
+                width: 56px;
+                height: 56px;
+                border-radius: 14px;
+                font-size: 26px;
+                box-shadow: 0 4px 12px rgba(0, 82, 204, 0.2);
+            }
+            
+            .stat-content h3 {
+                font-size: 32px;
+                font-weight: 800;
+                letter-spacing: -0.5px;
+                margin-bottom: 0.25rem;
+            }
+            
+            .stat-content p {
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.3px;
+            }
+            
+            /* Dashboard Grid - Native Sections */
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+            }
+            
+            .dashboard-section {
+                background: white;
+                border-radius: 18px;
+                padding: 1.25rem;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+                border: 0.5px solid rgba(0, 0, 0, 0.04);
+            }
+            
+            .section-title {
+                margin-bottom: 1rem;
+                padding-bottom: 0.875rem;
+                border-bottom: 1.5px solid #f0f0f0;
+            }
+            
+            .section-title h3 {
+                font-size: 1.3rem;
+                font-weight: 700;
+                letter-spacing: -0.3px;
+            }
+            
+            .section-title .view-all-link {
+                font-size: 0.875rem;
+                font-weight: 600;
+                padding: 0.5rem 0.875rem;
+                background: rgba(0, 82, 204, 0.08);
+                border-radius: 8px;
+                transition: all 0.2s ease;
+            }
+            
+            .section-title .view-all-link:active {
+                transform: scale(0.95);
+                background: rgba(0, 82, 204, 0.15);
+            }
+            
+            /* Lead Items - Native Cards */
+            .lead-item, .customer-item, .content-item {
+                padding: 1rem;
+                border: 1px solid #e8e8e8;
+                border-radius: 14px;
+                margin-bottom: 0.875rem;
+                background: #fafafa;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .lead-item:active, .customer-item:active, .content-item:active {
+                transform: scale(0.98);
+                background: #f5f5f5;
+                border-color: var(--primary-color);
+            }
+            
+            .item-title {
+                font-weight: 700;
+                font-size: 1.05rem;
+                letter-spacing: -0.2px;
+            }
+            
+            .item-details {
+                font-size: 0.875rem;
+                color: #666;
+                margin: 0.35rem 0;
+                line-height: 1.5;
+            }
+            
+            /* Rewards Card - Native Premium Feel */
+            .rewards-card {
+                padding: 1.75rem;
+                border-radius: 18px;
+                box-shadow: 0 8px 24px rgba(255, 215, 0, 0.3);
+                margin-bottom: 1rem;
+            }
+            
+            .rewards-card::before {
+                font-size: 8rem;
+                right: -1.5rem;
+                top: -1.5rem;
+            }
+            
+            .rewards-points {
+                font-size: 3.5rem;
+                font-weight: 800;
+                margin: 1rem 0;
+                letter-spacing: -1px;
+            }
+            
+            /* Referral Card - Native Gradient Style */
+            .referral-card {
+                padding: 1.5rem;
+                border-radius: 16px;
+                margin-bottom: 1rem;
+                box-shadow: 0 6px 20px rgba(0, 82, 204, 0.25);
+            }
+            
+            .referral-code-display {
+                background: rgba(255, 255, 255, 0.25);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                padding: 1.25rem;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+            }
+            
+            .referral-code-display code {
+                font-size: 1.75rem;
+                font-weight: 800;
+                letter-spacing: 3px;
+            }
+            
+            .referral-stats {
+                gap: 0.75rem;
+                margin-top: 1rem;
+            }
+            
+            .referral-stat {
+                padding: 1rem;
+                background: rgba(255, 255, 255, 0.15);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+            
+            .referral-stat-value {
+                font-size: 2.25rem;
+                font-weight: 800;
+                letter-spacing: -0.5px;
+            }
+            
+            /* Content Items - Native Card Style */
+            .content-thumbnail {
+                height: 160px;
+                border-radius: 12px;
+                margin-bottom: 1rem;
+                background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+                box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+            }
+            
+            .content-thumbnail i {
+                font-size: 3.5rem;
+                color: #bbb;
+            }
+            
+            .content-actions {
+                gap: 0.625rem;
+                margin-top: 1rem;
+            }
+            
+            .content-actions button {
+                padding: 0.75rem 1rem;
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 14px;
+                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .content-actions button:active {
+                transform: scale(0.96);
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+            }
+            
+            .btn-download {
+                background: linear-gradient(135deg, #00875A 0%, #006644 100%);
+            }
+            
+            .btn-share {
+                background: linear-gradient(135deg, #0065FF 0%, #0052CC 100%);
+            }
+            
+            /* Empty State - Native Friendly */
+            .empty-state {
+                padding: 2.5rem 1.5rem;
+                background: #fafafa;
+                border-radius: 14px;
+                margin: 0.5rem 0;
+            }
+            
+            .empty-state i {
+                font-size: 3.5rem;
+                margin-bottom: 1rem;
+                opacity: 0.4;
+            }
+            
+            .empty-state p {
+                font-size: 0.95rem;
+                color: #888;
+                line-height: 1.5;
+            }
+            
+            /* Action Grid - Native Cards */
+            .action-grid {
+                gap: 1rem;
+            }
+            
+            .action-card {
+                padding: 1.5rem;
+                border-radius: 18px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+                border: 0.5px solid rgba(0, 0, 0, 0.04);
+                background: white;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .action-card:active {
+                transform: scale(0.97);
+            }
+            
+            .action-icon {
+                width: 64px;
+                height: 64px;
+                border-radius: 16px;
+                font-size: 30px;
+                margin: 0 auto 1rem;
+                box-shadow: 0 6px 16px rgba(0, 82, 204, 0.2);
+            }
+            
+            .action-card h3 {
+                font-size: 1.15rem;
+                font-weight: 700;
+                letter-spacing: -0.2px;
+                margin-bottom: 0.5rem;
+            }
+            
+            .action-card p {
+                font-size: 0.9rem;
+                line-height: 1.5;
+                color: #666;
+            }
+            
+            .action-card .btn {
+                margin-top: 1rem;
+                width: 100%;
+                padding: 0.875rem;
+                font-size: 15px;
+                font-weight: 700;
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0, 82, 204, 0.25);
+            }
+            
+            .action-card .btn:active {
+                transform: scale(0.97);
+            }
+            
+            /* Badge Styling - Native Pills */
+            .badge {
+                padding: 6px 12px;
+                border-radius: 8px;
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 0.3px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            /* Extra compact for small phones */
+            .stat-card {
+                padding: 1rem;
+            }
+            
+            .stat-icon {
+                width: 52px;
+                height: 52px;
+                font-size: 24px;
+            }
+            
+            .stat-content h3 {
+                font-size: 28px;
+            }
+            
+            .dashboard-section {
+                padding: 1rem;
+            }
+            
+            .section-title h3 {
+                font-size: 1.2rem;
+            }
+            
+            .rewards-points {
+                font-size: 3rem;
+            }
+            
+            .referral-code-display code {
+                font-size: 1.5rem;
+                letter-spacing: 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-store"></i>
+                <span>Seller Hub</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="seller-dashboard.html" class="active"><i class="fas fa-home"></i> Home</a></li>
+                <li><a href="my-leads.html"><i class="fas fa-users-cog"></i> Leads</a></li>
+                <li><a href="marketing-library.html"><i class="fas fa-images"></i> Marketing</a></li>
+                <li><a href="customers.html"><i class="fas fa-user-friends"></i> Customers</a></li>
+                <li><a href="referrals.html"><i class="fas fa-share-nodes"></i> Referrals</a></li>
+                <li class="nav-item-right">
+                    <div class="profile-dropdown">
+                        <div class="profile-circle" onclick="toggleProfileDropdown()">
+                            <span id="profileInitials">S</span>
+                        </div>
+                        <div class="profile-dropdown-menu" id="profileDropdownMenu">
+                            <div class="profile-dropdown-header">
+                                <div class="profile-dropdown-avatar">
+                                    <span id="dropdownInitials">S</span>
+                                </div>
+                                <div class="profile-dropdown-info">
+                                    <h4 id="dropdownName">Loading...</h4>
+                                    <p id="dropdownEmail">Loading...</p>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <!-- Edit Profile Button -->
+                            <div class="profile-dropdown-section">
+                                <button onclick="openEditProfileModal()" class="profile-edit-btn">
+                                    <i class="fas fa-edit"></i> Edit Profile
+                                </button>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <!-- Business Details -->
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-briefcase"></i> Business Details</h5>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Business Name</span>
+                                    <span class="profile-detail-value" id="dropdownBusinessName">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Business Type</span>
+                                    <span class="profile-detail-value" id="dropdownBusinessType">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Phone</span>
+                                    <span class="profile-detail-value" id="dropdownPhone">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Address</span>
+                                    <span class="profile-detail-value" id="dropdownAddress">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <!-- Account Stats -->
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-chart-line"></i> Account Stats</h5>
+                                <div class="profile-stats-grid">
+                                    <div class="profile-stat-item">
+                                        <span class="profile-stat-value" id="dropdownCustomers">0</span>
+                                        <span class="profile-stat-label">Customers</span>
+                                    </div>
+                                    <div class="profile-stat-item">
+                                        <span class="profile-stat-value" id="dropdownReferrals">0</span>
+                                        <span class="profile-stat-label">Referrals</span>
+                                    </div>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Referral Code</span>
+                                    <span class="profile-detail-value profile-referral-code" id="dropdownReferralCode">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Used Code</span>
+                                    <span class="profile-detail-value" id="dropdownUsedReferralCode">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Status</span>
+                                    <span class="profile-detail-value" id="dropdownStatus">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Member Since</span>
+                                    <span class="profile-detail-value" id="dropdownMemberSince">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Last Updated</span>
+                                    <span class="profile-detail-value" id="dropdownUpdatedAt">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <!-- Payment Information -->
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-wallet"></i> Payment Information</h5>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Payment Method</span>
+                                    <span class="profile-detail-value" id="dropdownPaymentMethod">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Bank Name</span>
+                                    <span class="profile-detail-value" id="dropdownBankName">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Account Holder</span>
+                                    <span class="profile-detail-value" id="dropdownAccountHolder">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Account Number</span>
+                                    <span class="profile-detail-value" id="dropdownAccountNumber">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">IFSC Code</span>
+                                    <span class="profile-detail-value" id="dropdownIFSC">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">UPI ID</span>
+                                    <span class="profile-detail-value" id="dropdownUPI">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <button class="profile-logout-btn" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                            </button>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-chart-line"></i> Home</h1>
+                <p class="subtitle">Welcome back, <span id="welcomeName"></span>! Here's your overview</p>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalLeads">0</h3>
+                    <p>Total Leads</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class="fas fa-user-friends"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalCustomers">0</h3>
+                    <p>My Customers</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <i class="fas fa-share-nodes"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalReferrals">0</h3>
+                    <p>My Referrals</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="wonLeads">0</h3>
+                    <p>Won Leads</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- My Leads Section -->
+            <div class="dashboard-section" style="grid-column: span 2;">
+                <div class="section-title">
+                    <h3><i class="fas fa-users-cog"></i> My Leads</h3>
+                    <a href="my-leads.html" class="view-all-link">View All <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div id="leadsContainer">
+                    <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading leads...</div>
+                </div>
+            </div>
+
+            <!-- Referral & Rewards Section -->
+            <div class="dashboard-section">
+                <div class="section-title">
+                    <h3><i class="fas fa-trophy"></i> Rewards & Referrals</h3>
+                </div>
+                
+                <!-- Rewards Card -->
+                <div class="rewards-card">
+                    <h4>My Rewards Points</h4>
+                    <div class="rewards-points" id="rewardsPoints">0</div>
+                    <p style="opacity: 0.8;">Earn points for referrals and conversions!</p>
+                </div>
+
+                <!-- Referral Card -->
+                <div class="referral-card">
+                    <h4>My Referral Code</h4>
+                    <div class="referral-code-display">
+                        <code id="myReferralCode">LOADING...</code>
+                    </div>
+                    <button onclick="copyReferralCode()" class="btn btn-secondary" style="width: 100%; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5);">
+                        <i class="fas fa-copy"></i> Copy Code
+                    </button>
+                    
+                    <div class="referral-stats">
+                        <div class="referral-stat">
+                            <div class="referral-stat-value" id="referralCount">0</div>
+                            <div>Referrals</div>
+                        </div>
+                        <div class="referral-stat">
+                            <div class="referral-stat-value" id="customerCount">0</div>
+                            <div>Customers</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Marketing Content & Customers Grid -->
+        <div class="dashboard-grid">
+            <!-- Marketing Content Section -->
+            <div class="dashboard-section" style="grid-column: span 2;">
+                <div class="section-title">
+                    <h3><i class="fas fa-images"></i> Marketing Content</h3>
+                    <a href="marketing-library.html" class="view-all-link">Browse All <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div id="contentContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
+                    <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading content...</div>
+                </div>
+            </div>
+
+            <!-- Recent Customers Section -->
+            <div class="dashboard-section">
+                <div class="section-title">
+                    <h3><i class="fas fa-user-friends"></i> Recent Customers</h3>
+                    <a href="customers.html" class="view-all-link">View All <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div id="customersContainer">
+                    <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading customers...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2025 Seller Management System. Built with <i class="fas fa-heart"></i></p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script src="js/seller-profile.js"></script>
+    <script>
+        // Check authentication
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+        
+        const userName = localStorage.getItem('userName');
+        const userEmail = localStorage.getItem('userEmail');
+        const sellerId = localStorage.getItem('sellerId');
+        
+        console.log('Authentication Info:');
+        console.log('Token:', token ? 'Present' : 'Missing');
+        console.log('UserName:', userName);
+        console.log('UserEmail:', userEmail);
+        console.log('SellerId:', sellerId);
+        
+        const userNameEl = document.getElementById('userName');
+        const userEmailEl = document.getElementById('userEmail');
+        if (userNameEl) userNameEl.textContent = userName || 'User';
+        if (userEmailEl) userEmailEl.textContent = userEmail || '';
+
+        
+        function logout() {
+            localStorage.clear();
+            showToast('Logged out successfully', 'success');
+            setTimeout(() => window.location.href = 'login.html', 1000);
+        }
+        
+        // Load all dashboard data
+        async function loadDashboard() {
+            try {
+                await Promise.all([
+                    loadLeads(),
+                    loadCustomers(),
+                    loadReferralInfo(),
+                    loadMarketingContent()
+                ]);
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                if (error.message && (error.message.includes('401') || error.message.includes('403'))) {
+                    showToast('Session expired. Please login again.', 'error');
+                    setTimeout(() => logout(), 2000);
+                }
+            }
+        }
+        
+        // Load leads
+        async function loadLeads() {
+            try {
+                const leads = await apiCall('/leads');
+                document.getElementById('totalLeads').textContent = leads.length;
+                
+                const wonLeads = leads.filter(l => l.status === 'WON').length;
+                document.getElementById('wonLeads').textContent = wonLeads;
+                
+                // Calculate rewards (10 points per lead, 50 per won lead)
+                const rewardPoints = (leads.length * 10) + (wonLeads * 40);
+                document.getElementById('rewardsPoints').textContent = rewardPoints;
+                
+                // Display recent leads
+                const container = document.getElementById('leadsContainer');
+                if (leads.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><i class="fas fa-users-cog"></i><p>No leads yet. Start adding leads to track your sales pipeline!</p></div>';
+                    return;
+                }
+                
+                const recentLeads = leads.slice(0, 5);
+                container.innerHTML = recentLeads.map(lead => `
+                    <div class="lead-item">
+                        <div class="item-header">
+                            <div class="item-title">${lead.name}</div>
+                            ${getStatusBadge(lead.status)}
+                        </div>
+                        <div class="item-details">
+                            <i class="fas fa-envelope"></i> ${lead.email || 'No email'}
+                        </div>
+                        <div class="item-details">
+                            <i class="fas fa-building"></i> ${lead.company || 'No company'}
+                        </div>
+                        <div class="item-details">
+                            <i class="fas fa-rupee-sign"></i> ${lead.estimatedValue ? '₹' + lead.estimatedValue.toLocaleString() : 'Not set'}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('leadsContainer').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load leads</p></div>';
+                throw error;
+            }
+        }
+        
+        // Load customers
+        async function loadCustomers() {
+            try {
+                const seller = await apiCall(`/sellers/${sellerId}`);
+                document.getElementById('totalCustomers').textContent = seller.totalCustomers || 0;
+                document.getElementById('customerCount').textContent = seller.totalCustomers || 0;
+                
+                const customers = await apiCall(`/customers/seller/${sellerId}`);
+                
+                const container = document.getElementById('customersContainer');
+                if (customers.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><i class="fas fa-user-friends"></i><p>No customers yet</p></div>';
+                    return;
+                }
+                
+                const recentCustomers = customers.slice(0, 5);
+                container.innerHTML = recentCustomers.map(customer => `
+                    <div class="customer-item">
+                        <div class="item-title">${customer.name}</div>
+                        <div class="item-details">
+                            <i class="fas fa-envelope"></i> ${customer.email}
+                        </div>
+                        <div class="item-details">
+                            <i class="fas fa-phone"></i> ${customer.phoneNumber}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('customersContainer').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load customers</p></div>';
+                throw error;
+            }
+        }
+        
+        // Load referral info
+        async function loadReferralInfo() {
+            try {
+                console.log('Loading referral info for seller:', sellerId);
+                const referralInfo = await apiCall(`/sellers/${sellerId}/referrals`);
+                console.log('Referral Info loaded successfully:', referralInfo);
+
+                document.getElementById('myReferralCode').textContent = referralInfo.myReferralCode || 'N/A';
+                document.getElementById('totalReferrals').textContent = referralInfo.totalReferrals || 0;
+                document.getElementById('referralCount').textContent = referralInfo.totalReferrals || 0;
+            } catch (error) {
+                console.error('Error loading referral info:', error);
+                // Set default values on error
+                document.getElementById('myReferralCode').textContent = 'N/A';
+                document.getElementById('totalReferrals').textContent = '0';
+                document.getElementById('referralCount').textContent = '0';
+            }
+        }
+        
+        // Load marketing content
+        async function loadMarketingContent() {
+            try {
+                const content = await apiCall('/marketing-content');
+                
+                const container = document.getElementById('contentContainer');
+                if (content.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><i class="fas fa-images"></i><p>No marketing content available yet</p></div>';
+                    return;
+                }
+                
+                const recentContent = content.slice(0, 4);
+                container.innerHTML = recentContent.map(item => `
+                    <div class="content-item">
+                        <div class="content-thumbnail">
+                            ${item.thumbnailUrl ? 
+                                `<img src="${item.thumbnailUrl}" alt="${item.title}">` :
+                                `<i class="fas fa-${getContentIcon(item.contentType)}"></i>`
+                            }
+                        </div>
+                        <div class="item-title">${item.title}</div>
+                        <div class="item-details">${item.category || 'Uncategorized'}</div>
+                        <div class="content-actions">
+                            <button class="btn-download" onclick="downloadContent('${item.id}')">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                            <button class="btn-share" onclick="shareContent('${item.id}')">
+                                <i class="fas fa-share"></i> Share
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('contentContainer').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load content</p></div>';
+                throw error;
+            }
+        }
+        
+        function getContentIcon(type) {
+            const icons = {
+                'TEXT': 'file-text',
+                'IMAGE': 'image',
+                'VIDEO': 'video',
+                'PDF': 'file-pdf',
+                'LINK': 'link'
+            };
+            return icons[type] || 'file';
+        }
+        
+        function copyReferralCode() {
+            const code = document.getElementById('myReferralCode').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('Referral code copied to clipboard!', 'success');
+            });
+        }
+        
+        async function downloadContent(contentId) {
+            try {
+                await apiCall(`/marketing-content/${contentId}/download`, 'POST');
+                showToast('Download tracked! Content downloaded successfully.', 'success');
+                // In a real app, trigger actual download here
+            } catch (error) {
+                showToast('Failed to track download', 'error');
+            }
+        }
+        
+        async function shareContent(contentId) {
+            try {
+                await apiCall(`/marketing-content/${contentId}/share`, 'POST');
+                showToast('Share tracked! Ready to share on social media.', 'success');
+                // In a real app, open share dialog here
+            } catch (error) {
+                showToast('Failed to track share', 'error');
+            }
+        }
+        
+        // Load dashboard on page load
+        loadDashboard();
+    </script>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal" id="editProfileModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-edit"></i> Edit Profile</h2>
+                <button onclick="closeEditProfileModal()" class="close-modal-btn">&times;</button>
+            </div>
+            
+            <form id="editProfileForm" onsubmit="saveProfileChanges(event)">
+                <!-- Personal Information -->
+                <div class="form-section">
+                    <h3><i class="fas fa-user"></i> Personal Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfileName">Full Name *</label>
+                            <input type="text" id="editProfileName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileEmail">Email Address *</label>
+                            <input type="email" id="editProfileEmail" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfilePhone">Phone Number</label>
+                            <input type="tel" id="editProfilePhone">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Business Information -->
+                <div class="form-section">
+                    <h3><i class="fas fa-briefcase"></i> Business Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfileBusinessName">Business Name</label>
+                            <input type="text" id="editProfileBusinessName">
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileBusinessType">Seller Type</label>
+                            <select id="editProfileBusinessType" onchange="toggleEditTypeFields()">
+                                <option value="">Select Type</option>
+                                <option value="INDIVIDUAL">Individual</option>
+                                <option value="AGENCY">Agency</option>
+                                <option value="CREATOR">Creator</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Type-specific fields -->
+                    <div class="form-row" id="editIndividualField" style="display: none;">
+                        <div class="form-group full-width">
+                            <label for="editProfileCurrentOccupation">Current Occupation</label>
+                            <select id="editProfileCurrentOccupation">
+                                <option value="">-- Select Occupation --</option>
+                                <option value="Student">Student</option>
+                                <option value="Freelancer">Freelancer</option>
+                                <option value="Software Developer">Software Developer</option>
+                                <option value="Designer">Designer</option>
+                                <option value="Digital Marketer">Digital Marketer</option>
+                                <option value="Content Writer">Content Writer</option>
+                                <option value="Sales Professional">Sales Professional</option>
+                                <option value="Business Owner">Business Owner</option>
+                                <option value="Consultant">Consultant</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" id="editAgencyField" style="display: none;">
+                        <div class="form-group full-width">
+                            <label for="editProfileNumberOfCreators">Number of Creators</label>
+                            <select id="editProfileNumberOfCreators">
+                                <option value="">-- Select Range --</option>
+                                <option value="1-5">1-5 creators</option>
+                                <option value="6-10">6-10 creators</option>
+                                <option value="11-25">11-25 creators</option>
+                                <option value="26-50">26-50 creators</option>
+                                <option value="51-100">51-100 creators</option>
+                                <option value="100+">100+ creators</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" id="editCreatorField" style="display: none;">
+                        <div class="form-group full-width">
+                            <label for="editProfileNumberOfFollowers">Number of Followers</label>
+                            <select id="editProfileNumberOfFollowers">
+                                <option value="">-- Select Range --</option>
+                                <option value="0-1K">0-1K followers</option>
+                                <option value="1K-10K">1K-10K followers</option>
+                                <option value="10K-50K">10K-50K followers</option>
+                                <option value="50K-100K">50K-100K followers</option>
+                                <option value="100K-500K">100K-500K followers</option>
+                                <option value="500K-1M">500K-1M followers</option>
+                                <option value="1M+">1M+ followers</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="editProfileAddress">Business Address</label>
+                            <textarea id="editProfileAddress" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Payment Information -->
+                <div class="form-section">
+                    <h3><i class="fas fa-wallet"></i> Payment Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfilePaymentMethod">Payment Method</label>
+                            <select id="editProfilePaymentMethod">
+                                <option value="">Select Method</option>
+                                <option value="BANK_TRANSFER">Bank Transfer</option>
+                                <option value="UPI">UPI</option>
+                                <option value="PAYPAL">PayPal</option>
+                                <option value="CHEQUE">Cheque</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileBankName">Bank Name</label>
+                            <input type="text" id="editProfileBankName">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfileAccountHolder">Account Holder Name</label>
+                            <input type="text" id="editProfileAccountHolder">
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileAccountNumber">Account Number</label>
+                            <input type="text" id="editProfileAccountNumber">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfileIFSC">IFSC Code</label>
+                            <input type="text" id="editProfileIFSC">
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileUPI">UPI ID</label>
+                            <input type="text" id="editProfileUPI">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" onclick="closeEditProfileModal()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>
+

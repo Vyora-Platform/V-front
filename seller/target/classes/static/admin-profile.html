@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Profile - Seller Hub</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .profile-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        /* Profile Sidebar */
+        .profile-sidebar {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            height: fit-content;
+            position: sticky;
+            top: 2rem;
+        }
+
+        .profile-avatar {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 4rem;
+            color: white;
+            box-shadow: 0 4px 16px rgba(24, 119, 242, 0.3);
+        }
+
+        .profile-name {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .profile-name h2 {
+            margin: 0;
+            color: #2d3748;
+            font-size: 1.5rem;
+        }
+
+        .profile-email {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .profile-role {
+            display: inline-block;
+            background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0 auto;
+            display: block;
+            width: fit-content;
+        }
+
+        .profile-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #f7fafc;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-item .value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1877F2;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-item .label {
+            font-size: 0.875rem;
+            color: #718096;
+        }
+
+        /* Profile Content */
+        .profile-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .profile-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+
+        .profile-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f7fafc;
+        }
+
+        .profile-card-header h3 {
+            margin: 0;
+            color: #2d3748;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .profile-card-header h3 i {
+            color: #1877F2;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .info-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            color: #2d3748;
+            font-weight: 500;
+            padding: 0.75rem;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 3px solid #1877F2;
+        }
+
+        .info-value i {
+            margin-right: 0.5rem;
+            color: #1877F2;
+        }
+
+        .btn-edit {
+            background: #1877F2;
+            color: white;
+            border: none;
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .btn-edit:hover {
+            background: #1464D0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);
+        }
+
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .activity-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 3px solid #1877F2;
+            transition: all 0.3s;
+        }
+
+        .activity-item:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.25rem;
+        }
+
+        .activity-time {
+            font-size: 0.875rem;
+            color: #718096;
+        }
+
+        /* Employee Management Styles */
+        .employee-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .employee-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 3px solid #1877F2;
+        }
+
+        .employee-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .employee-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .employee-details h4 {
+            margin: 0 0 0.25rem 0;
+            color: #2d3748;
+            font-size: 1rem;
+        }
+
+        .employee-details p {
+            margin: 0;
+            color: #718096;
+            font-size: 0.875rem;
+        }
+
+        .employee-status {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .status-inactive {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .employee-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-employee {
+            padding: 0.5rem 0.75rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            transition: all 0.3s;
+        }
+
+        .btn-edit-employee {
+            background: #1877F2;
+            color: white;
+        }
+
+        .btn-edit-employee:hover {
+            background: #1464D0;
+        }
+
+        .btn-delete-employee {
+            background: #dc2626;
+            color: white;
+        }
+
+        .btn-delete-employee:hover {
+            background: #b91c1c;
+        }
+
+        .btn-toggle-status {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-toggle-status:hover {
+            background: #d97706;
+        }
+
+        /* Module Permissions */
+        .module-permissions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        .module-permission {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: #f1f5f9;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #475569;
+        }
+
+        .module-permission i {
+            color: #1877F2;
+            font-size: 12px;
+        }
+
+        .permission-checkboxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .permission-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .permission-checkbox input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #1877F2;
+        }
+
+        .permission-checkbox label {
+            font-size: 0.9rem;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        .security-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .security-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+
+        .security-item-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .security-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .security-text h4 {
+            margin: 0 0 0.25rem 0;
+            color: #2d3748;
+            font-size: 1rem;
+        }
+
+        .security-text p {
+            margin: 0;
+            font-size: 0.875rem;
+            color: #718096;
+        }
+
+        .btn-security {
+            background: white;
+            border: 2px solid #1877F2;
+            color: #1877F2;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-security:hover {
+            background: #1877F2;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f7fafc;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #718096;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .close-modal:hover {
+            color: #f56565;
+            transform: rotate(90deg);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #1877F2;
+            box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.1);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            background: #e2e8f0;
+            color: #2d3748;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-cancel:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-save {
+            flex: 1;
+            background: #1877F2;
+            color: white;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-save:hover {
+            background: #1464D0;
+            box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);
+        }
+
+        @media (max-width: 1024px) {
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-sidebar {
+                position: static;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .profile-container {
+                padding: 1rem;
+            }
+
+            .profile-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .security-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin Panel</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="admin-sellers.html"><i class="fas fa-users"></i> Sellers</a></li>
+                <li><a href="admin-leads.html"><i class="fas fa-chart-line"></i> Leads</a></li>
+                <li><a href="admin-content.html"><i class="fas fa-images"></i> Content</a></li>
+                <li><a href="admin-payouts.html"><i class="fas fa-money-bill-wave"></i> Payouts</a></li>
+                <li><a href="admin-profile.html" class="active"><i class="fas fa-user-circle"></i> Profile</a></li>
+                <li class="nav-item-right">
+                    <a href="#" onclick="logout()" class="btn btn-danger btn-sm">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="profile-container">
+        <!-- Page Header -->
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-user-circle"></i> Admin Profile</h1>
+                <p class="subtitle">Manage your account settings and preferences</p>
+            </div>
+        </header>
+
+        <!-- Profile Grid -->
+        <div class="profile-grid">
+            <!-- Sidebar -->
+            <div class="profile-sidebar">
+                <div class="profile-avatar">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div class="profile-name">
+                    <h2 id="profileName">Admin User</h2>
+                </div>
+                <div class="profile-email" id="profileEmail">admin@example.com</div>
+                <span class="profile-role">
+                    <i class="fas fa-shield-alt"></i> Administrator
+                </span>
+                
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div class="value" id="totalSellers">0</div>
+                        <div class="label">Sellers</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="value" id="totalLeads">0</div>
+                        <div class="label">Leads</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="value" id="totalContent">0</div>
+                        <div class="label">Content</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="value" id="totalPayouts">0</div>
+                        <div class="label">Payouts</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="profile-content">
+                <!-- Personal Information -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h3><i class="fas fa-user"></i> Personal Information</h3>
+                        <button class="btn-edit" onclick="openEditModal()">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                    </div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Full Name</div>
+                            <div class="info-value" id="infoName">
+                                <i class="fas fa-user"></i> Admin User
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Email Address</div>
+                            <div class="info-value" id="infoEmail">
+                                <i class="fas fa-envelope"></i> admin@example.com
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Role</div>
+                            <div class="info-value">
+                                <i class="fas fa-shield-alt"></i> Administrator
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Account Created</div>
+                            <div class="info-value" id="infoCreated">
+                                <i class="fas fa-calendar"></i> Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Settings -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h3><i class="fas fa-shield-alt"></i> Security Settings</h3>
+                    </div>
+                    <div class="security-list">
+                        <div class="security-item">
+                            <div class="security-item-content">
+                                <div class="security-icon">
+                                    <i class="fas fa-key"></i>
+                                </div>
+                                <div class="security-text">
+                                    <h4>Change Password</h4>
+                                    <p>Update your password to keep your account secure</p>
+                                </div>
+                            </div>
+                            <button class="btn-security" onclick="openPasswordModal()">
+                                Change
+                            </button>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-item-content">
+                                <div class="security-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="security-text">
+                                    <h4>Last Login</h4>
+                                    <p id="lastLogin">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Employee Management -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h3><i class="fas fa-users-cog"></i> Employee Management</h3>
+                        <button class="btn-edit" onclick="openCreateEmployeeModal()">
+                            <i class="fas fa-user-plus"></i> Add Employee
+                        </button>
+                    </div>
+                    <div id="employeesList">
+                        <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading employees...</div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                    </div>
+                    <div class="activity-list" id="activityList">
+                        <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading activity...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-edit"></i> Edit Profile</h2>
+                <button class="close-modal" onclick="closeEditModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form onsubmit="handleEditProfile(event)">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="editName" required placeholder="Enter your name">
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="editEmail" required placeholder="Enter your email">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeEditModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-key"></i> Change Password</h2>
+                <button class="close-modal" onclick="closePasswordModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form onsubmit="handleChangePassword(event)">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" id="currentPassword" required placeholder="Enter current password">
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="newPassword" required minlength="6" placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="confirmPassword" required minlength="6" placeholder="Confirm new password">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closePasswordModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-key"></i> Update Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Employee Modal -->
+    <div id="createEmployeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Create New Employee</h2>
+                <button class="close-modal" onclick="closeCreateEmployeeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form onsubmit="handleCreateEmployee(event)">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="employeeName" required placeholder="Enter employee name">
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="employeeEmail" required placeholder="Enter employee email">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="employeePassword" required minlength="6" placeholder="Enter password">
+                </div>
+                <div class="form-group">
+                    <label>Module Access Permissions</label>
+                    <div class="permission-checkboxes">
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="perm_dashboard" value="DASHBOARD">
+                            <label for="perm_dashboard">
+                                <i class="fas fa-home"></i> Dashboard
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="perm_sellers" value="SELLERS">
+                            <label for="perm_sellers">
+                                <i class="fas fa-users"></i> Sellers
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="perm_leads" value="LEADS">
+                            <label for="perm_leads">
+                                <i class="fas fa-chart-line"></i> Leads
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="perm_content" value="CONTENT">
+                            <label for="perm_content">
+                                <i class="fas fa-images"></i> Content
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="perm_payouts" value="PAYOUTS">
+                            <label for="perm_payouts">
+                                <i class="fas fa-money-bill-wave"></i> Payouts
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="perm_profile" value="PROFILE">
+                            <label for="perm_profile">
+                                <i class="fas fa-user-circle"></i> Profile
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeCreateEmployeeModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-user-plus"></i> Create Employee
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Employee Modal -->
+    <div id="editEmployeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-edit"></i> Edit Employee</h2>
+                <button class="close-modal" onclick="closeEditEmployeeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form onsubmit="handleEditEmployee(event)">
+                <input type="hidden" id="editEmployeeId">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="editEmployeeName" required placeholder="Enter employee name">
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="editEmployeeEmail" required placeholder="Enter employee email">
+                </div>
+                <div class="form-group">
+                    <label>New Password (Optional)</label>
+                    <input type="password" id="editEmployeePassword" minlength="6" placeholder="Leave empty to keep current password">
+                </div>
+                <div class="form-group">
+                    <label>Module Access Permissions</label>
+                    <div class="permission-checkboxes">
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="edit_perm_dashboard" value="DASHBOARD">
+                            <label for="edit_perm_dashboard">
+                                <i class="fas fa-home"></i> Dashboard
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="edit_perm_sellers" value="SELLERS">
+                            <label for="edit_perm_sellers">
+                                <i class="fas fa-users"></i> Sellers
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="edit_perm_leads" value="LEADS">
+                            <label for="edit_perm_leads">
+                                <i class="fas fa-chart-line"></i> Leads
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="edit_perm_content" value="CONTENT">
+                            <label for="edit_perm_content">
+                                <i class="fas fa-images"></i> Content
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="edit_perm_payouts" value="PAYOUTS">
+                            <label for="edit_perm_payouts">
+                                <i class="fas fa-money-bill-wave"></i> Payouts
+                            </label>
+                        </div>
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="edit_perm_profile" value="PROFILE">
+                            <label for="edit_perm_profile">
+                                <i class="fas fa-user-circle"></i> Profile
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeEditEmployeeModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-save"></i> Update Employee
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Load profile data on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProfileData();
+            loadStats();
+            loadRecentActivity();
+            loadEmployees();
+        });
+
+        async function loadProfileData() {
+            try {
+                // Get user info from localStorage
+                const name = localStorage.getItem('userName') || 'Admin User';
+                const email = localStorage.getItem('userEmail') || 'admin@example.com';
+                
+                // Update profile display
+                document.getElementById('profileName').textContent = name;
+                document.getElementById('profileEmail').textContent = email;
+                document.getElementById('infoName').innerHTML = `<i class="fas fa-user"></i> ${name}`;
+                document.getElementById('infoEmail').innerHTML = `<i class="fas fa-envelope"></i> ${email}`;
+                
+                // Set created date (you can get this from backend if available)
+                const createdDate = new Date().toLocaleDateString();
+                document.getElementById('infoCreated').innerHTML = `<i class="fas fa-calendar"></i> ${createdDate}`;
+                
+                // Set last login
+                const lastLogin = new Date().toLocaleString();
+                document.getElementById('lastLogin').textContent = lastLogin;
+                
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                // Load sellers count
+                const sellers = await apiCall('/sellers', 'GET');
+                document.getElementById('totalSellers').textContent = sellers.length || 0;
+                
+                // Load leads count
+                const leads = await apiCall('/leads/all', 'GET');
+                document.getElementById('totalLeads').textContent = leads.length || 0;
+                
+                // Load content count
+                const content = await apiCall('/marketing-content', 'GET');
+                document.getElementById('totalContent').textContent = content.length || 0;
+                
+                // Load payouts count
+                const payouts = await apiCall('/payouts', 'GET');
+                document.getElementById('totalPayouts').textContent = payouts.length || 0;
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function loadRecentActivity() {
+            try {
+                // This is a mock - you can implement actual activity logging in backend
+                const activities = [
+                    { icon: 'fa-user-plus', title: 'New seller registered', time: '2 hours ago' },
+                    { icon: 'fa-chart-line', title: 'Lead assigned to seller', time: '5 hours ago' },
+                    { icon: 'fa-images', title: 'Marketing content uploaded', time: '1 day ago' },
+                    { icon: 'fa-money-bill-wave', title: 'Payout approved', time: '2 days ago' },
+                    { icon: 'fa-edit', title: 'Seller information updated', time: '3 days ago' }
+                ];
+                
+                const container = document.getElementById('activityList');
+                container.innerHTML = activities.map(activity => `
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas ${activity.icon}"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">${activity.title}</div>
+                            <div class="activity-time">${activity.time}</div>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                document.getElementById('activityList').innerHTML = 
+                    '<div style="text-align: center; color: #718096;">No recent activity</div>';
+            }
+        }
+
+        // Modal functions
+        function openEditModal() {
+            const name = localStorage.getItem('userName') || '';
+            const email = localStorage.getItem('userEmail') || '';
+            
+            document.getElementById('editName').value = name;
+            document.getElementById('editEmail').value = email;
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        function openPasswordModal() {
+            document.getElementById('passwordModal').classList.add('active');
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.remove('active');
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+        }
+
+        async function handleEditProfile(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('editName').value;
+            const email = document.getElementById('editEmail').value;
+            
+            try {
+                // Update localStorage
+                localStorage.setItem('userName', name);
+                localStorage.setItem('userEmail', email);
+                
+                // Reload profile data
+                loadProfileData();
+                closeEditModal();
+                
+                showToast('✅ Profile updated successfully!', 'success');
+            } catch (error) {
+                showToast('❌ Failed to update profile', 'error');
+            }
+        }
+
+        async function handleChangePassword(event) {
+            event.preventDefault();
+            
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (newPassword !== confirmPassword) {
+                showToast('❌ New passwords do not match!', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showToast('❌ Password must be at least 6 characters!', 'error');
+                return;
+            }
+            
+            try {
+                // In a real app, you'd call the backend API here
+                // await apiCall('/auth/change-password', 'POST', { currentPassword, newPassword });
+                
+                closePasswordModal();
+                showToast('✅ Password changed successfully!', 'success');
+            } catch (error) {
+                showToast('❌ Failed to change password: ' + error.message, 'error');
+            }
+        }
+
+        // Employee Management Functions
+        async function loadEmployees() {
+            try {
+                const employees = await apiCall('/employees', 'GET');
+                displayEmployees(employees);
+            } catch (error) {
+                console.error('Error loading employees:', error);
+                document.getElementById('employeesList').innerHTML =
+                    '<div style="text-align: center; color: #718096; padding: 2rem;">Unable to load employees</div>';
+            }
+        }
+
+        function displayEmployees(employees) {
+            const container = document.getElementById('employeesList');
+
+            if (employees.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #718096; padding: 2rem;">No employees found</div>';
+                return;
+            }
+
+            container.innerHTML = employees.map(employee => `
+                <div class="employee-item">
+                    <div class="employee-info">
+                        <div class="employee-avatar">${employee.name.charAt(0).toUpperCase()}</div>
+                        <div class="employee-details">
+                            <h4>${employee.name}</h4>
+                            <p>${employee.email}</p>
+                            <div class="module-permissions">
+                                ${employee.modulePermissions ? employee.modulePermissions.map(perm =>
+                                    `<span class="module-permission">
+                                        <i class="fas fa-${getModuleIcon(perm)}"></i>
+                                        ${formatPermissionName(perm)}
+                                    </span>`
+                                ).join('') : '<span class="module-permission">No permissions</span>'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="employee-actions">
+                        <span class="employee-status ${employee.enabled ? 'status-active' : 'status-inactive'}">
+                            ${employee.enabled ? 'Active' : 'Inactive'}
+                        </span>
+                        <button class="btn-employee btn-edit-employee" onclick="editEmployee('${employee.id}')" title="Edit Employee">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-employee btn-toggle-status" onclick="toggleEmployeeStatus('${employee.id}')" title="${employee.enabled ? 'Disable' : 'Enable'} Employee">
+                            <i class="fas fa-${employee.enabled ? 'ban' : 'check'}"></i>
+                        </button>
+                        <button class="btn-employee btn-delete-employee" onclick="deleteEmployee('${employee.id}')" title="Delete Employee">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getModuleIcon(permission) {
+            const icons = {
+                'DASHBOARD': 'home',
+                'SELLERS': 'users',
+                'LEADS': 'chart-line',
+                'CONTENT': 'images',
+                'PAYOUTS': 'money-bill-wave',
+                'PROFILE': 'user-circle'
+            };
+            return icons[permission] || 'circle';
+        }
+
+        function formatPermissionName(permission) {
+            return permission.charAt(0) + permission.slice(1).toLowerCase();
+        }
+
+        function openCreateEmployeeModal() {
+            document.getElementById('createEmployeeModal').classList.add('active');
+        }
+
+        function closeCreateEmployeeModal() {
+            document.getElementById('createEmployeeModal').classList.remove('active');
+            document.getElementById('employeeName').value = '';
+            document.getElementById('employeeEmail').value = '';
+            document.getElementById('employeePassword').value = '';
+            // Reset checkboxes
+            const checkboxes = document.querySelectorAll('#createEmployeeModal input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+        }
+
+        async function handleCreateEmployee(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('employeeName').value;
+            const email = document.getElementById('employeeEmail').value;
+            const password = document.getElementById('employeePassword').value;
+
+            // Get selected permissions
+            const permissions = [];
+            const checkboxes = document.querySelectorAll('#createEmployeeModal input[type="checkbox"]:checked');
+            checkboxes.forEach(cb => permissions.push(cb.value));
+
+            try {
+                await apiCall('/employees', 'POST', {
+                    name: name,
+                    email: email,
+                    password: password,
+                    modulePermissions: permissions
+                });
+
+                showToast('✅ Employee created successfully!', 'success');
+                closeCreateEmployeeModal();
+                await loadEmployees();
+            } catch (error) {
+                showToast('❌ Failed to create employee: ' + error.message, 'error');
+            }
+        }
+
+        function openEditEmployeeModal() {
+            document.getElementById('editEmployeeModal').classList.add('active');
+        }
+
+        function closeEditEmployeeModal() {
+            document.getElementById('editEmployeeModal').classList.remove('active');
+            document.getElementById('editEmployeeId').value = '';
+            document.getElementById('editEmployeeName').value = '';
+            document.getElementById('editEmployeeEmail').value = '';
+            document.getElementById('editEmployeePassword').value = '';
+            // Reset checkboxes
+            const checkboxes = document.querySelectorAll('#editEmployeeModal input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+        }
+
+        async function editEmployee(employeeId) {
+            try {
+                const employee = await apiCall(`/employees/${employeeId}`, 'GET');
+
+                document.getElementById('editEmployeeId').value = employee.id;
+                document.getElementById('editEmployeeName').value = employee.name;
+                document.getElementById('editEmployeeEmail').value = employee.email;
+
+                // Set permissions
+                const checkboxes = document.querySelectorAll('#editEmployeeModal input[type="checkbox"]');
+                checkboxes.forEach(cb => {
+                    cb.checked = employee.modulePermissions && employee.modulePermissions.includes(cb.value);
+                });
+
+                openEditEmployeeModal();
+            } catch (error) {
+                showToast('❌ Failed to load employee: ' + error.message, 'error');
+            }
+        }
+
+        async function handleEditEmployee(event) {
+            event.preventDefault();
+
+            const employeeId = document.getElementById('editEmployeeId').value;
+            const name = document.getElementById('editEmployeeName').value;
+            const email = document.getElementById('editEmployeeEmail').value;
+            const password = document.getElementById('editEmployeePassword').value;
+
+            // Get selected permissions
+            const permissions = [];
+            const checkboxes = document.querySelectorAll('#editEmployeeModal input[type="checkbox"]:checked');
+            checkboxes.forEach(cb => permissions.push(cb.value));
+
+            try {
+                await apiCall(`/employees/${employeeId}`, 'PUT', {
+                    name: name,
+                    email: email,
+                    password: password,
+                    modulePermissions: permissions
+                });
+
+                showToast('✅ Employee updated successfully!', 'success');
+                closeEditEmployeeModal();
+                await loadEmployees();
+            } catch (error) {
+                showToast('❌ Failed to update employee: ' + error.message, 'error');
+            }
+        }
+
+        async function toggleEmployeeStatus(employeeId) {
+            if (!confirm('Are you sure you want to change this employee\'s status?')) {
+                return;
+            }
+
+            try {
+                await apiCall(`/employees/${employeeId}/status`, 'PATCH');
+                showToast('✅ Employee status updated!', 'success');
+                await loadEmployees();
+            } catch (error) {
+                showToast('❌ Failed to update employee status: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteEmployee(employeeId) {
+            if (!confirm('Are you sure you want to delete this employee? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                await apiCall(`/employees/${employeeId}`, 'DELETE');
+                showToast('✅ Employee deleted successfully!', 'success');
+                await loadEmployees();
+            } catch (error) {
+                showToast('❌ Failed to delete employee: ' + error.message, 'error');
+            }
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.clear();
+                window.location.href = 'login.html';
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                top: 2rem;
+                right: 2rem;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                z-index: 2000;
+                animation: slideIn 0.3s ease-out;
+                background: ${type === 'success' ? '#42B72A' : '#f56565'};
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            `;
+            document.body.appendChild(toast);
+
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // Close modals on outside click
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+</html>
+

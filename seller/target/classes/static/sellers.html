@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sellers - Seller Management System</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-store"></i>
+                <span>Seller Hub</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="seller-dashboard.html"><i class="fas fa-home"></i> Home</a></li>
+                <li><a href="my-leads.html"><i class="fas fa-users-cog"></i> Leads</a></li>
+                <li><a href="marketing-library.html"><i class="fas fa-images"></i> Marketing</a></li>
+                <li><a href="customers.html"><i class="fas fa-user-friends"></i> Customers</a></li>
+                <li><a href="referrals.html"><i class="fas fa-share-nodes"></i> Referrals</a></li>
+                <li class="nav-item-right">
+                    <a href="#" onclick="logout()" class="btn btn-danger btn-sm">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-users"></i> Sellers Management</h1>
+                <p class="subtitle">Manage and view all sellers</p>
+            </div>
+            <button class="btn btn-primary" onclick="showRegisterModal()">
+                <i class="fas fa-plus"></i> Register New Seller
+            </button>
+        </header>
+
+        <div class="filters-section">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search by name or email..." onkeyup="filterSellers()">
+            </div>
+            <select id="statusFilter" onchange="filterSellers()">
+                <option value="">All Status</option>
+                <option value="ACTIVE">Active</option>
+                <option value="PENDING">Pending</option>
+                <option value="SUSPENDED">Suspended</option>
+                <option value="INACTIVE">Inactive</option>
+            </select>
+        </div>
+
+        <div id="sellersContainer" class="table-container">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Loading sellers...
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Seller Modal -->
+    <div id="registerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Register New Seller</h2>
+                <span class="close" onclick="closeRegisterModal()">&times;</span>
+            </div>
+            <form id="registerForm" onsubmit="registerSeller(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="name"><i class="fas fa-user"></i> Full Name *</label>
+                        <input type="text" id="name" required placeholder="John Doe">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email"><i class="fas fa-envelope"></i> Email *</label>
+                        <input type="email" id="email" required placeholder="john@example.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phoneNumber"><i class="fas fa-phone"></i> Phone Number *</label>
+                        <input type="tel" id="phoneNumber" required placeholder="+1234567890">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="businessName"><i class="fas fa-briefcase"></i> Business Name</label>
+                        <input type="text" id="businessName" placeholder="John's Electronics">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="businessType"><i class="fas fa-tag"></i> Business Type</label>
+                        <input type="text" id="businessType" placeholder="Electronics">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="usedReferralCode"><i class="fas fa-ticket"></i> Referral Code (Optional)</label>
+                        <input type="text" id="usedReferralCode" placeholder="REFABC12345">
+                        <small>Leave empty if registering without a referral</small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="address"><i class="fas fa-map-marker-alt"></i> Address</label>
+                    <textarea id="address" rows="3" placeholder="123 Main St, City, State, ZIP"></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeRegisterModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Register Seller
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Seller Details Modal -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-circle"></i> Seller Details</h2>
+                <span class="close" onclick="closeDetailsModal()">&times;</span>
+            </div>
+            <div id="sellerDetailsContent">
+                <!-- Details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2025 Seller Management System. Built with <i class="fas fa-heart"></i> using Spring Boot</p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script src="js/sellers.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('userName');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
+

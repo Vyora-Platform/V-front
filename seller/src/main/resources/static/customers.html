@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Customers - Seller Hub</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/seller-profile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .filter-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        .filter-group label i {
+            color: #1877F2;
+            margin-right: 0.25rem;
+        }
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: #1877F2;
+            box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.1);
+        }
+        .status-badge {
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .status-ACTIVE { background: #dcfce7; color: #16a34a; }
+        .status-INACTIVE { background: #fee2e2; color: #dc2626; }
+        
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);
+            color: white;
+        }
+        
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        tbody tr:hover {
+            background: #f7fafc;
+        }
+        
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+        }
+        
+        .btn-view {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+        
+        .btn-view:hover {
+            background: #0369a1;
+            color: white;
+        }
+        
+        .btn-edit {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        .btn-edit:hover {
+            background: #d97706;
+            color: white;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.5rem;
+            color: #1877F2;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+        
+        .close-btn:hover {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .detail-item {
+            display: flex;
+            padding: 1rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #64748b;
+            width: 140px;
+            flex-shrink: 0;
+        }
+        
+        .detail-value {
+            color: #1e293b;
+            flex: 1;
+        }
+        
+        .customer-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1877F2, #42B72A);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 auto 1rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-store"></i>
+                <span>Seller Hub</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="seller-dashboard.html"><i class="fas fa-home"></i> Home</a></li>
+                <li><a href="my-leads.html"><i class="fas fa-users-cog"></i> Leads</a></li>
+                <li><a href="marketing-library.html"><i class="fas fa-images"></i> Marketing</a></li>
+                <li><a href="customers.html" class="active"><i class="fas fa-user-friends"></i> Customers</a></li>
+                <li><a href="referrals.html"><i class="fas fa-share-nodes"></i> Referrals</a></li>
+                <li class="nav-item-right">
+                    <div class="profile-dropdown">
+                        <div class="profile-circle" onclick="toggleProfileDropdown()">
+                            <span id="profileInitials">S</span>
+                        </div>
+                        <div class="profile-dropdown-menu" id="profileDropdownMenu">
+                            <div class="profile-dropdown-header">
+                                <div class="profile-dropdown-avatar">
+                                    <span id="dropdownInitials">S</span>
+                                </div>
+                                <div class="profile-dropdown-info">
+                                    <h4 id="dropdownName">Loading...</h4>
+                                    <p id="dropdownEmail">Loading...</p>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <div class="profile-dropdown-section">
+                                <button onclick="openEditProfileModal()" class="profile-edit-btn">
+                                    <i class="fas fa-edit"></i> Edit Profile
+                                </button>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-briefcase"></i> Business Details</h5>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Business Name</span>
+                                    <span class="profile-detail-value" id="dropdownBusinessName">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Business Type</span>
+                                    <span class="profile-detail-value" id="dropdownBusinessType">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Phone</span>
+                                    <span class="profile-detail-value" id="dropdownPhone">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Address</span>
+                                    <span class="profile-detail-value" id="dropdownAddress">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-chart-line"></i> Account Stats</h5>
+                                <div class="profile-stats-grid">
+                                    <div class="profile-stat-item">
+                                        <span class="profile-stat-value" id="dropdownCustomers">0</span>
+                                        <span class="profile-stat-label">Customers</span>
+                                    </div>
+                                    <div class="profile-stat-item">
+                                        <span class="profile-stat-value" id="dropdownReferrals">0</span>
+                                        <span class="profile-stat-label">Referrals</span>
+                                    </div>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Referral Code</span>
+                                    <span class="profile-detail-value profile-referral-code" id="dropdownReferralCode">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Used Code</span>
+                                    <span class="profile-detail-value" id="dropdownUsedReferralCode">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Status</span>
+                                    <span class="profile-detail-value" id="dropdownStatus">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Member Since</span>
+                                    <span class="profile-detail-value" id="dropdownMemberSince">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Last Updated</span>
+                                    <span class="profile-detail-value" id="dropdownUpdatedAt">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-wallet"></i> Payment Information</h5>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Payment Method</span>
+                                    <span class="profile-detail-value" id="dropdownPaymentMethod">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Bank Name</span>
+                                    <span class="profile-detail-value" id="dropdownBankName">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Account Holder</span>
+                                    <span class="profile-detail-value" id="dropdownAccountHolder">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Account Number</span>
+                                    <span class="profile-detail-value" id="dropdownAccountNumber">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">IFSC Code</span>
+                                    <span class="profile-detail-value" id="dropdownIFSC">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">UPI ID</span>
+                                    <span class="profile-detail-value" id="dropdownUPI">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <button class="profile-logout-btn" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                            </button>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-user-friends"></i> My Customers</h1>
+                <p class="subtitle">Manage your customer base</p>
+            </div>
+            <button onclick="openAddCustomerModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add New Customer
+            </button>
+        </header>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalCustomers">0</h3>
+                    <p>Total Customers</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="activeCustomers">0</h3>
+                    <p>Active</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="inactiveCustomers">0</h3>
+                    <p>Inactive</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <i class="fas fa-calendar-plus"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="thisMonthCustomers">0</h3>
+                    <p>This Month</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label><i class="fas fa-filter"></i> Status</label>
+                    <select id="filterStatus" onchange="applyFilters()">
+                        <option value="">All Statuses</option>
+                        <option value="ACTIVE">Active</option>
+                        <option value="INACTIVE">Inactive</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label><i class="fas fa-user"></i> Name</label>
+                    <input type="text" id="filterName" placeholder="Search by name..." onkeyup="applyFilters()">
+                </div>
+
+                <div class="filter-group">
+                    <label><i class="fas fa-envelope"></i> Email</label>
+                    <input type="text" id="filterEmail" placeholder="Search by email..." onkeyup="applyFilters()">
+                </div>
+
+                <div class="filter-group">
+                    <label><i class="fas fa-phone"></i> Phone</label>
+                    <input type="text" id="filterPhone" placeholder="Search by phone..." onkeyup="applyFilters()">
+                </div>
+            </div>
+            
+            <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                <div style="color: #64748b; font-size: 0.875rem;">
+                    <i class="fas fa-info-circle"></i> 
+                    <span id="filterResultsText">Showing all customers</span>
+                </div>
+                <button onclick="clearFilters()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
+                    <i class="fas fa-times"></i> Clear Filters
+                </button>
+            </div>
+        </div>
+
+        <!-- Customers Table -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Added Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="customersTable">
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 3rem;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #1877F2;"></i>
+                            <p style="margin-top: 1rem; color: #64748b;">Loading customers...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add Customer Modal -->
+    <div id="customerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Add New Customer</h2>
+                <button onclick="closeCustomerModal()" class="close-btn">&times;</button>
+            </div>
+            <form id="customerForm" onsubmit="handleCustomerSubmit(event)">
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="customerName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="customerEmail" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Phone Number *</label>
+                    <input type="tel" id="customerPhone" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea id="customerAddress" rows="3"></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        <i class="fas fa-save"></i> Save Customer
+                    </button>
+                    <button type="button" onclick="closeCustomerModal()" class="btn btn-secondary" style="flex: 1;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Customer Modal -->
+    <div id="viewCustomerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-circle"></i> Customer Details</h2>
+                <button onclick="closeViewCustomerModal()" class="close-btn">&times;</button>
+            </div>
+            <div id="customerDetailsContent"></div>
+        </div>
+    </div>
+
+    <!-- Edit Customer Modal -->
+    <div id="editCustomerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-edit"></i> Edit Customer</h2>
+                <button onclick="closeEditCustomerModal()" class="close-btn">&times;</button>
+            </div>
+            <form id="editCustomerForm" onsubmit="handleEditCustomerSubmit(event)">
+                <input type="hidden" id="editCustomerId">
+                
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="editCustomerName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="editCustomerEmail" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Phone Number *</label>
+                    <input type="tel" id="editCustomerPhone" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea id="editCustomerAddress" rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="editCustomerStatus">
+                        <option value="ACTIVE">Active</option>
+                        <option value="INACTIVE">Inactive</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        <i class="fas fa-save"></i> Update Customer
+                    </button>
+                    <button type="button" onclick="closeEditCustomerModal()" class="btn btn-secondary" style="flex: 1;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2025 Seller Management System. Built with <i class="fas fa-heart"></i></p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script src="js/seller-profile.js"></script>
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+        
+        const userName = localStorage.getItem('userName');
+        const userEmail = localStorage.getItem('userEmail');
+        const sellerId = localStorage.getItem('sellerId');
+        
+        let allCustomers = [];
+        
+        function logout() {
+            localStorage.clear();
+            showToast('Logged out successfully', 'success');
+            setTimeout(() => window.location.href = 'login.html', 1000);
+        }
+        
+        async function loadCustomers() {
+            try {
+                const customers = await apiCall(`/customers/seller/${sellerId}`);
+                allCustomers = customers;
+                displayCustomers(customers);
+                updateStats(customers);
+                updateFilterResultsText(customers.length, customers.length);
+            } catch (error) {
+                console.error('Error loading customers:', error);
+                document.getElementById('customersTable').innerHTML = 
+                    '<tr><td colspan="6" style="text-align: center; padding: 3rem;"><i class="fas fa-exclamation-circle" style="font-size: 2rem; color: #dc2626;"></i><p style="margin-top: 1rem; color: #dc2626;">Failed to load customers</p></td></tr>';
+            }
+        }
+        
+        function displayCustomers(customers) {
+            const tbody = document.getElementById('customersTable');
+            
+            if (customers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem;"><i class="fas fa-user-friends" style="font-size: 2rem; color: #94a3b8;"></i><p style="margin-top: 1rem; color: #64748b;">No customers yet. Click "Add New Customer" to get started!</p></td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = customers.map(customer => `
+                <tr>
+                    <td><strong>${customer.name}</strong></td>
+                    <td>${customer.email}</td>
+                    <td>${customer.phoneNumber}</td>
+                    <td>${getStatusBadge(customer.status || 'ACTIVE')}</td>
+                    <td>${new Date(customer.createdAt).toLocaleDateString()}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-icon btn-view" onclick="viewCustomer('${customer.id}')" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn-icon btn-edit" onclick="editCustomer('${customer.id}')" title="Edit Customer">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        function getStatusBadge(status) {
+            return `<span class="status-badge status-${status}">${status}</span>`;
+        }
+        
+        function applyFilters() {
+            const statusFilter = document.getElementById('filterStatus').value;
+            const nameFilter = document.getElementById('filterName').value.toLowerCase();
+            const emailFilter = document.getElementById('filterEmail').value.toLowerCase();
+            const phoneFilter = document.getElementById('filterPhone').value.toLowerCase();
+            
+            let filtered = allCustomers;
+            
+            // Filter by status
+            if (statusFilter) {
+                filtered = filtered.filter(c => (c.status || 'ACTIVE') === statusFilter);
+            }
+            
+            // Filter by name
+            if (nameFilter) {
+                filtered = filtered.filter(c => 
+                    c.name.toLowerCase().includes(nameFilter)
+                );
+            }
+            
+            // Filter by email
+            if (emailFilter) {
+                filtered = filtered.filter(c => 
+                    c.email.toLowerCase().includes(emailFilter)
+                );
+            }
+            
+            // Filter by phone
+            if (phoneFilter) {
+                filtered = filtered.filter(c => 
+                    c.phoneNumber.toLowerCase().includes(phoneFilter)
+                );
+            }
+            
+            // Update results text
+            updateFilterResultsText(filtered.length, allCustomers.length);
+            
+            displayCustomers(filtered);
+        }
+        
+        function clearFilters() {
+            // Clear all filter inputs
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterName').value = '';
+            document.getElementById('filterEmail').value = '';
+            document.getElementById('filterPhone').value = '';
+            
+            // Reset results text
+            updateFilterResultsText(allCustomers.length, allCustomers.length);
+            
+            // Display all customers
+            displayCustomers(allCustomers);
+        }
+        
+        function updateFilterResultsText(shown, total) {
+            const text = document.getElementById('filterResultsText');
+            if (shown === total) {
+                text.innerHTML = `Showing all <strong>${total}</strong> customers`;
+            } else {
+                text.innerHTML = `Showing <strong>${shown}</strong> of <strong>${total}</strong> customers`;
+            }
+        }
+        
+        function updateStats(customers) {
+            document.getElementById('totalCustomers').textContent = customers.length;
+            
+            const active = customers.filter(c => !c.status || c.status === 'ACTIVE').length;
+            const inactive = customers.filter(c => c.status === 'INACTIVE').length;
+            
+            document.getElementById('activeCustomers').textContent = active;
+            document.getElementById('inactiveCustomers').textContent = inactive;
+            
+            // Calculate this month's customers
+            const thisMonth = new Date();
+            thisMonth.setDate(1);
+            thisMonth.setHours(0, 0, 0, 0);
+            
+            const thisMonthCount = customers.filter(c => new Date(c.createdAt) >= thisMonth).length;
+            document.getElementById('thisMonthCustomers').textContent = thisMonthCount;
+        }
+        
+        // Add Customer Functions
+        function openAddCustomerModal() {
+            document.getElementById('customerForm').reset();
+            document.getElementById('customerModal').classList.add('active');
+        }
+        
+        function closeCustomerModal() {
+            document.getElementById('customerModal').classList.remove('active');
+        }
+        
+        async function handleCustomerSubmit(event) {
+            event.preventDefault();
+            
+            const customerData = {
+                name: document.getElementById('customerName').value,
+                email: document.getElementById('customerEmail').value,
+                phoneNumber: document.getElementById('customerPhone').value,
+                address: document.getElementById('customerAddress').value || null
+            };
+            
+            try {
+                await apiCall(`/customers/seller/${sellerId}`, 'POST', customerData);
+                showToast('✅ Customer added successfully!', 'success');
+                closeCustomerModal();
+                loadCustomers();
+            } catch (error) {
+                showToast('❌ Failed to add customer: ' + error.message, 'error');
+            }
+        }
+        
+        // View Customer Functions
+        function viewCustomer(customerId) {
+            const customer = allCustomers.find(c => c.id === customerId);
+            if (!customer) return;
+            
+            const content = `
+                <div class="customer-avatar" style="margin: 2rem auto;">
+                    ${customer.name.charAt(0).toUpperCase()}
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Name:</div>
+                    <div class="detail-value"><strong>${customer.name}</strong></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Email:</div>
+                    <div class="detail-value">${customer.email}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Phone:</div>
+                    <div class="detail-value">${customer.phoneNumber}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Address:</div>
+                    <div class="detail-value">${customer.address || 'Not provided'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Status:</div>
+                    <div class="detail-value">${getStatusBadge(customer.status || 'ACTIVE')}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Added Date:</div>
+                    <div class="detail-value">${new Date(customer.createdAt).toLocaleDateString()}</div>
+                </div>
+            `;
+            
+            document.getElementById('customerDetailsContent').innerHTML = content;
+            document.getElementById('viewCustomerModal').classList.add('active');
+        }
+        
+        function closeViewCustomerModal() {
+            document.getElementById('viewCustomerModal').classList.remove('active');
+        }
+        
+        // Edit Customer Functions
+        function editCustomer(customerId) {
+            const customer = allCustomers.find(c => c.id === customerId);
+            if (!customer) return;
+            
+            document.getElementById('editCustomerId').value = customer.id;
+            document.getElementById('editCustomerName').value = customer.name;
+            document.getElementById('editCustomerEmail').value = customer.email;
+            document.getElementById('editCustomerPhone').value = customer.phoneNumber;
+            document.getElementById('editCustomerAddress').value = customer.address || '';
+            document.getElementById('editCustomerStatus').value = customer.status || 'ACTIVE';
+            
+            document.getElementById('editCustomerModal').classList.add('active');
+        }
+        
+        function closeEditCustomerModal() {
+            document.getElementById('editCustomerModal').classList.remove('active');
+        }
+        
+        async function handleEditCustomerSubmit(event) {
+            event.preventDefault();
+            
+            const customerId = document.getElementById('editCustomerId').value;
+            const customerData = {
+                name: document.getElementById('editCustomerName').value,
+                email: document.getElementById('editCustomerEmail').value,
+                phoneNumber: document.getElementById('editCustomerPhone').value,
+                address: document.getElementById('editCustomerAddress').value || null,
+                status: document.getElementById('editCustomerStatus').value
+            };
+            
+            try {
+                await apiCall(`/customers/${customerId}`, 'PUT', customerData);
+                showToast('✅ Customer updated successfully!', 'success');
+                closeEditCustomerModal();
+                loadCustomers();
+            } catch (error) {
+                showToast('❌ Failed to update customer: ' + error.message, 'error');
+            }
+        }
+        
+        // Load customers on page load
+        loadCustomers();
+    </script>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal" id="editProfileModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-edit"></i> Edit Profile</h2>
+                <button onclick="closeEditProfileModal()" class="close-modal-btn">&times;</button>
+            </div>
+            <form id="editProfileForm" onsubmit="saveProfileChanges(event)">
+                <div class="form-section">
+                    <h3><i class="fas fa-user"></i> Personal Information</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfileName">Full Name *</label><input type="text" id="editProfileName" required></div>
+                        <div class="form-group"><label for="editProfileEmail">Email Address *</label><input type="email" id="editProfileEmail" required></div>
+                    </div>
+                    <div class="form-row"><div class="form-group"><label for="editProfilePhone">Phone Number</label><input type="tel" id="editProfilePhone"></div></div>
+                </div>
+                <div class="form-section">
+                    <h3><i class="fas fa-briefcase"></i> Business Information</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfileBusinessName">Business Name</label><input type="text" id="editProfileBusinessName"></div>
+                        <div class="form-group"><label for="editProfileBusinessType">Seller Type</label>
+                            <select id="editProfileBusinessType" onchange="toggleEditTypeFields()"><option value="">Select Type</option><option value="INDIVIDUAL">Individual</option><option value="AGENCY">Agency</option><option value="CREATOR">Creator</option></select>
+                        </div>
+                    </div>
+                    <!-- Type-specific fields -->
+                    <div class="form-row" id="editIndividualField" style="display: none;"><div class="form-group full-width"><label for="editProfileCurrentOccupation">Current Occupation</label><select id="editProfileCurrentOccupation"><option value="">-- Select Occupation --</option><option value="Student">Student</option><option value="Freelancer">Freelancer</option><option value="Software Developer">Software Developer</option><option value="Designer">Designer</option><option value="Digital Marketer">Digital Marketer</option><option value="Content Writer">Content Writer</option><option value="Sales Professional">Sales Professional</option><option value="Business Owner">Business Owner</option><option value="Consultant">Consultant</option><option value="Other">Other</option></select></div></div>
+                    <div class="form-row" id="editAgencyField" style="display: none;"><div class="form-group full-width"><label for="editProfileNumberOfCreators">Number of Creators</label><select id="editProfileNumberOfCreators"><option value="">-- Select Range --</option><option value="1-5">1-5 creators</option><option value="6-10">6-10 creators</option><option value="11-25">11-25 creators</option><option value="26-50">26-50 creators</option><option value="51-100">51-100 creators</option><option value="100+">100+ creators</option></select></div></div>
+                    <div class="form-row" id="editCreatorField" style="display: none;"><div class="form-group full-width"><label for="editProfileNumberOfFollowers">Number of Followers</label><select id="editProfileNumberOfFollowers"><option value="">-- Select Range --</option><option value="0-1K">0-1K followers</option><option value="1K-10K">1K-10K followers</option><option value="10K-50K">10K-50K followers</option><option value="50K-100K">50K-100K followers</option><option value="100K-500K">100K-500K followers</option><option value="500K-1M">500K-1M followers</option><option value="1M+">1M+ followers</option></select></div></div>
+                    <div class="form-row"><div class="form-group full-width"><label for="editProfileAddress">Business Address</label><textarea id="editProfileAddress" rows="3"></textarea></div></div>
+                </div>
+                <div class="form-section">
+                    <h3><i class="fas fa-wallet"></i> Payment Information</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfilePaymentMethod">Payment Method</label>
+                            <select id="editProfilePaymentMethod"><option value="">Select Method</option><option value="BANK_TRANSFER">Bank Transfer</option><option value="UPI">UPI</option><option value="PAYPAL">PayPal</option><option value="CHEQUE">Cheque</option><option value="OTHER">Other</option></select>
+                        </div>
+                        <div class="form-group"><label for="editProfileBankName">Bank Name</label><input type="text" id="editProfileBankName"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfileAccountHolder">Account Holder Name</label><input type="text" id="editProfileAccountHolder"></div>
+                        <div class="form-group"><label for="editProfileAccountNumber">Account Number</label><input type="text" id="editProfileAccountNumber"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editProfileIFSC">IFSC Code</label><input type="text" id="editProfileIFSC"></div>
+                        <div class="form-group"><label for="editProfileUPI">UPI ID</label><input type="text" id="editProfileUPI"></div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" onclick="closeEditProfileModal()" class="btn btn-secondary"><i class="fas fa-times"></i> Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!-- COMPLETE SELLER PROFILE DROPDOWN WITH ALL FIELDS -->
+<!-- Place this inside <li class="nav-item-right"> in the navbar -->
+
+<div class="profile-dropdown">
+    <div class="profile-circle" onclick="toggleProfileDropdown()">
+        <span id="profileInitials">S</span>
+    </div>
+    <div class="profile-dropdown-menu" id="profileDropdownMenu">
+        <!-- Header with Avatar & Name -->
+        <div class="profile-dropdown-header">
+            <div class="profile-dropdown-avatar">
+                <span id="dropdownInitials">S</span>
+            </div>
+            <div class="profile-dropdown-info">
+                <h4 id="dropdownName">Loading...</h4>
+                <p id="dropdownEmail">Loading...</p>
+            </div>
+        </div>
+        
+        <div class="profile-dropdown-divider"></div>
+        
+        <!-- Edit Profile Button -->
+        <div class="profile-dropdown-section">
+            <button onclick="openEditProfileModal()" class="profile-edit-btn">
+                <i class="fas fa-edit"></i> Edit Profile
+            </button>
+        </div>
+        
+        <div class="profile-dropdown-divider"></div>
+        
+        <!-- Business Details -->
+        <div class="profile-dropdown-section">
+            <h5><i class="fas fa-briefcase"></i> Business Details</h5>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Business Name</span>
+                <span class="profile-detail-value" id="dropdownBusinessName">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Business Type</span>
+                <span class="profile-detail-value" id="dropdownBusinessType">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Phone</span>
+                <span class="profile-detail-value" id="dropdownPhone">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Address</span>
+                <span class="profile-detail-value" id="dropdownAddress">-</span>
+            </div>
+        </div>
+        
+        <div class="profile-dropdown-divider"></div>
+        
+        <!-- Account Stats -->
+        <div class="profile-dropdown-section">
+            <h5><i class="fas fa-chart-line"></i> Account Stats</h5>
+            <div class="profile-stats-grid">
+                <div class="profile-stat-item">
+                    <span class="profile-stat-value" id="dropdownCustomers">0</span>
+                    <span class="profile-stat-label">Customers</span>
+                </div>
+                <div class="profile-stat-item">
+                    <span class="profile-stat-value" id="dropdownReferrals">0</span>
+                    <span class="profile-stat-label">Referrals</span>
+                </div>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Referral Code</span>
+                <span class="profile-detail-value profile-referral-code" id="dropdownReferralCode">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Used Code</span>
+                <span class="profile-detail-value" id="dropdownUsedReferralCode">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Status</span>
+                <span class="profile-detail-value" id="dropdownStatus">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Member Since</span>
+                <span class="profile-detail-value" id="dropdownMemberSince">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Last Updated</span>
+                <span class="profile-detail-value" id="dropdownUpdatedAt">-</span>
+            </div>
+        </div>
+        
+        <div class="profile-dropdown-divider"></div>
+        
+        <!-- Payment Information -->
+        <div class="profile-dropdown-section">
+            <h5><i class="fas fa-wallet"></i> Payment Information</h5>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Payment Method</span>
+                <span class="profile-detail-value" id="dropdownPaymentMethod">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Bank Name</span>
+                <span class="profile-detail-value" id="dropdownBankName">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Account Holder</span>
+                <span class="profile-detail-value" id="dropdownAccountHolder">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">Account Number</span>
+                <span class="profile-detail-value" id="dropdownAccountNumber">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">IFSC Code</span>
+                <span class="profile-detail-value" id="dropdownIFSC">-</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="profile-detail-label">UPI ID</span>
+                <span class="profile-detail-value" id="dropdownUPI">-</span>
+            </div>
+        </div>
+        
+        <div class="profile-dropdown-divider"></div>
+        
+        <button class="profile-logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </div>
+</div>
+
+<!-- EDIT PROFILE MODAL -->
+<!-- Place this before </body> tag -->
+
+<div class="modal" id="editProfileModal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2><i class="fas fa-user-edit"></i> Edit Profile</h2>
+            <button onclick="closeEditProfileModal()" class="close-modal-btn">&times;</button>
+        </div>
+        
+        <form id="editProfileForm" onsubmit="saveProfileChanges(event)">
+            <!-- Personal Information -->
+            <div class="form-section">
+                <h3><i class="fas fa-user"></i> Personal Information</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editProfileName">Full Name *</label>
+                        <input type="text" id="editProfileName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editProfileEmail">Email Address *</label>
+                        <input type="email" id="editProfileEmail" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editProfilePhone">Phone Number</label>
+                        <input type="tel" id="editProfilePhone">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Business Information -->
+            <div class="form-section">
+                <h3><i class="fas fa-briefcase"></i> Business Information</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editProfileBusinessName">Business Name</label>
+                        <input type="text" id="editProfileBusinessName">
+                    </div>
+                    <div class="form-group">
+                        <label for="editProfileBusinessType">Business Type</label>
+                        <select id="editProfileBusinessType">
+                            <option value="">Select Type</option>
+                            <option value="AGENCY">Agency</option>
+                            <option value="INDIVIDUAL">Individual</option>
+                            <option value="CORPORATION">Corporation</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="editProfileAddress">Business Address</label>
+                        <textarea id="editProfileAddress" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Payment Information -->
+            <div class="form-section">
+                <h3><i class="fas fa-wallet"></i> Payment Information</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editProfilePaymentMethod">Payment Method</label>
+                        <select id="editProfilePaymentMethod">
+                            <option value="">Select Method</option>
+                            <option value="BANK_TRANSFER">Bank Transfer</option>
+                            <option value="UPI">UPI</option>
+                            <option value="PAYPAL">PayPal</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="OTHER">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editProfileBankName">Bank Name</label>
+                        <input type="text" id="editProfileBankName">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editProfileAccountHolder">Account Holder Name</label>
+                        <input type="text" id="editProfileAccountHolder">
+                    </div>
+                    <div class="form-group">
+                        <label for="editProfileAccountNumber">Account Number</label>
+                        <input type="text" id="editProfileAccountNumber">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editProfileIFSC">IFSC Code</label>
+                        <input type="text" id="editProfileIFSC">
+                    </div>
+                    <div class="form-group">
+                        <label for="editProfileUPI">UPI ID</label>
+                        <input type="text" id="editProfileUPI">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" onclick="closeEditProfileModal()" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+

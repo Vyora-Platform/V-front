@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Standalone Test - NO External Resources</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            max-width: 600px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .status {
+            font-size: 1.2rem;
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
+        .success { background: rgba(76,175,80,0.3); }
+        .error { background: rgba(244,67,54,0.3); }
+        button {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: all 0.3s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .log {
+            background: rgba(0,0,0,0.3);
+            padding: 1rem;
+            border-radius: 10px;
+            margin-top: 1.5rem;
+            text-align: left;
+            font-family: monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log div { margin: 0.3rem 0; }
+        .emoji { font-size: 1.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><span class="emoji">🔥</span> Standalone Test</h1>
+        <p>This page has ZERO external dependencies</p>
+        <p style="margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.8;">No CSS files • No JS files • Just pure HTML</p>
+        
+        <div id="status" class="status">
+            <div class="emoji">⏳</div>
+            <div>Ready to test...</div>
+        </div>
+        
+        <button onclick="testAuth()">1. Check Auth</button>
+        <button onclick="testAPI()">2. Test API</button>
+        <button onclick="goToLogin()">Go to Login</button>
+        
+        <div id="log" class="log" style="display: none;"></div>
+    </div>
+    
+    <script>
+        // All JavaScript is inline - no external files!
+        const API_URL = 'http://localhost:8181/api/v1';
+        
+        function log(msg, emoji = '📝') {
+            const logDiv = document.getElementById('log');
+            logDiv.style.display = 'block';
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>${emoji} [${time}] ${msg}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function setStatus(emoji, msg, type = '') {
+            const status = document.getElementById('status');
+            status.className = 'status ' + type;
+            status.innerHTML = `<div class="emoji">${emoji}</div><div>${msg}</div>`;
+        }
+        
+        function testAuth() {
+            log('Testing authentication...', '🔐');
+            
+            const token = localStorage.getItem('token');
+            const role = localStorage.getItem('userRole');
+            const name = localStorage.getItem('userName');
+            
+            if (!token) {
+                setStatus('❌', 'NOT LOGGED IN', 'error');
+                log('No token found', '❌');
+                log('Solution: Click "Go to Login" button', '💡');
+                return false;
+            }
+            
+            setStatus('✅', `Logged in as ${role}`, 'success');
+            log(`Token: ${token.substring(0, 30)}...`, '✅');
+            log(`Role: ${role}`, '✅');
+            log(`Name: ${name || 'Not set'}`, '✅');
+            
+            if (role !== 'ADMIN') {
+                setStatus('⚠️', `Wrong role: ${role} (need ADMIN)`, 'error');
+                log('You are not logged in as ADMIN', '⚠️');
+                return false;
+            }
+            
+            return true;
+        }
+        
+        async function testAPI() {
+            document.getElementById('log').innerHTML = '';
+            log('Starting API test...', '🚀');
+            
+            if (!testAuth()) {
+                return;
+            }
+            
+            setStatus('⏳', 'Fetching sellers from API...');
+            log('Fetching: ' + API_URL + '/sellers', '📡');
+            
+            const token = localStorage.getItem('token');
+            
+            try {
+                const response = await fetch(API_URL + '/sellers', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log(`Response: ${response.status} ${response.statusText}`, response.ok ? '✅' : '❌');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    setStatus('❌', `API Error: ${response.status}`, 'error');
+                    log('Error response: ' + errorText, '❌');
+                    return;
+                }
+                
+                const sellers = await response.json();
+                setStatus('🎉', `SUCCESS! Found ${sellers.length} sellers`, 'success');
+                log(`Received ${sellers.length} sellers`, '✅');
+                
+                if (sellers.length > 0) {
+                    log('First seller: ' + sellers[0].name + ' (' + sellers[0].email + ')', '👤');
+                }
+                
+                log('API is working perfectly!', '🎊');
+                log('If admin-sellers.html still not working, clear browser cache', '💡');
+                
+            } catch (error) {
+                setStatus('❌', 'Network Error', 'error');
+                log('Fetch failed: ' + error.message, '❌');
+                log('', '');
+                log('Possible causes:', '⚠️');
+                log('• Server not running on port 8181', '  ');
+                log('• Network connection issue', '  ');
+                log('• Firewall blocking request', '  ');
+            }
+        }
+        
+        function goToLogin() {
+            window.location.href = 'login.html';
+        }
+        
+        // Show page loaded successfully
+        window.onload = function() {
+            setStatus('✅', 'Page loaded successfully!', 'success');
+            setTimeout(() => {
+                setStatus('🎯', 'Click buttons above to test');
+            }, 2000);
+        };
+    </script>
+</body>
+</html>
+

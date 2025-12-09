@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing Library - Seller Hub</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/seller-profile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+        
+        .content-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .content-thumbnail {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .content-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .content-thumbnail i {
+            font-size: 4rem;
+            color: white;
+            opacity: 0.8;
+        }
+        
+        .content-type-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255,255,255,0.9);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .content-body {
+            padding: 1.5rem;
+        }
+        
+        .content-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+        
+        .content-description {
+            color: #718096;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+        
+        .content-meta {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: #a0aec0;
+        }
+        
+        .content-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .content-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .tag {
+            background: var(--light);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: var(--dark);
+        }
+        
+        .content-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .content-actions button {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .btn-download {
+            background: var(--success-color);
+            color: white;
+        }
+        
+        .btn-download:hover {
+            background: #38a169;
+        }
+        
+        .btn-share {
+            background: var(--info-color);
+            color: white;
+        }
+        
+        .btn-share:hover {
+            background: #2980b9;
+        }
+        
+        .btn-view {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-view:hover {
+            background: var(--secondary-color);
+        }
+        
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filter-select {
+            padding: 0.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 1rem;
+            min-width: 150px;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 3rem;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+        
+        .search-box i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+        }
+        
+        .share-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .share-modal.active {
+            display: flex;
+        }
+        
+        .share-modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .share-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .share-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .share-option:hover {
+            border-color: var(--primary-color);
+            background: var(--light);
+        }
+        
+        .share-option i {
+            font-size: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-store"></i>
+                <span>Seller Hub</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="seller-dashboard.html"><i class="fas fa-home"></i> Home</a></li>
+                <li><a href="my-leads.html"><i class="fas fa-users-cog"></i> Leads</a></li>
+                <li><a href="marketing-library.html" class="active"><i class="fas fa-images"></i> Marketing</a></li>
+                <li><a href="customers.html"><i class="fas fa-user-friends"></i> Customers</a></li>
+                <li><a href="referrals.html"><i class="fas fa-share-nodes"></i> Referrals</a></li>
+                <li class="nav-item-right">
+                    <div class="profile-dropdown">
+                        <div class="profile-circle" onclick="toggleProfileDropdown()">
+                            <span id="profileInitials">S</span>
+                        </div>
+                        <div class="profile-dropdown-menu" id="profileDropdownMenu">
+                            <div class="profile-dropdown-header">
+                                <div class="profile-dropdown-avatar">
+                                    <span id="dropdownInitials">S</span>
+                                </div>
+                                <div class="profile-dropdown-info">
+                                    <h4 id="dropdownName">Loading...</h4>
+                                    <p id="dropdownEmail">Loading...</p>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <!-- Edit Profile Button -->
+                            <div class="profile-dropdown-section">
+                                <button onclick="openEditProfileModal()" class="profile-edit-btn">
+                                    <i class="fas fa-edit"></i> Edit Profile
+                                </button>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <!-- Business Details -->
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-briefcase"></i> Business Details</h5>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Business Name</span>
+                                    <span class="profile-detail-value" id="dropdownBusinessName">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Business Type</span>
+                                    <span class="profile-detail-value" id="dropdownBusinessType">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Phone</span>
+                                    <span class="profile-detail-value" id="dropdownPhone">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Address</span>
+                                    <span class="profile-detail-value" id="dropdownAddress">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <!-- Account Stats -->
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-chart-line"></i> Account Stats</h5>
+                                <div class="profile-stats-grid">
+                                    <div class="profile-stat-item">
+                                        <span class="profile-stat-value" id="dropdownCustomers">0</span>
+                                        <span class="profile-stat-label">Customers</span>
+                                    </div>
+                                    <div class="profile-stat-item">
+                                        <span class="profile-stat-value" id="dropdownReferrals">0</span>
+                                        <span class="profile-stat-label">Referrals</span>
+                                    </div>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Referral Code</span>
+                                    <span class="profile-detail-value profile-referral-code" id="dropdownReferralCode">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Used Code</span>
+                                    <span class="profile-detail-value" id="dropdownUsedReferralCode">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Status</span>
+                                    <span class="profile-detail-value" id="dropdownStatus">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Member Since</span>
+                                    <span class="profile-detail-value" id="dropdownMemberSince">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Last Updated</span>
+                                    <span class="profile-detail-value" id="dropdownUpdatedAt">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <!-- Payment Information -->
+                            <div class="profile-dropdown-section">
+                                <h5><i class="fas fa-wallet"></i> Payment Information</h5>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Payment Method</span>
+                                    <span class="profile-detail-value" id="dropdownPaymentMethod">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Bank Name</span>
+                                    <span class="profile-detail-value" id="dropdownBankName">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Account Holder</span>
+                                    <span class="profile-detail-value" id="dropdownAccountHolder">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">Account Number</span>
+                                    <span class="profile-detail-value" id="dropdownAccountNumber">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">IFSC Code</span>
+                                    <span class="profile-detail-value" id="dropdownIFSC">-</span>
+                                </div>
+                                <div class="profile-detail-item">
+                                    <span class="profile-detail-label">UPI ID</span>
+                                    <span class="profile-detail-value" id="dropdownUPI">-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-dropdown-divider"></div>
+                            
+                            <button class="profile-logout-btn" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                            </button>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <div>
+                <h1><i class="fas fa-images"></i> Marketing Library</h1>
+                <p class="subtitle">Download and share marketing materials</p>
+            </div>
+        </header>
+
+        <div class="filter-bar">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search content..." onkeyup="filterContent()">
+            </div>
+            
+            <select id="categoryFilter" class="filter-select" onchange="filterContent()">
+                <option value="">All Categories</option>
+                <option value="PROMOTIONS">Promotions</option>
+                <option value="TRANSACTIONAL">Transactional</option>
+                <option value="OFFERS">Offers</option>
+                <option value="SEASONAL">Seasonal</option>
+                <option value="PRODUCT">Product</option>
+                <option value="SERVICE">Service</option>
+                <option value="BRAND">Brand</option>
+                <option value="EDUCATIONAL">Educational</option>
+                <option value="ANNOUNCEMENT">Announcement</option>
+                <option value="OTHER">Other</option>
+            </select>
+            
+            <select id="typeFilter" class="filter-select" onchange="filterContent()">
+                <option value="">All Types</option>
+                <option value="TEXT">Text</option>
+                <option value="IMAGE">Image</option>
+                <option value="VIDEO">Video</option>
+                <option value="PDF">PDF</option>
+                <option value="LINK">Link</option>
+            </select>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #1877F2 0%, #42B72A 100%);">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalContent">0</h3>
+                    <p>Total Content</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <i class="fas fa-download"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="myDownloads">0</h3>
+                    <p>My Downloads</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class="fas fa-share-alt"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="myShares">0</h3>
+                    <p>My Shares</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <i class="fas fa-eye"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="myViews">0</h3>
+                    <p>My Views</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="contentContainer" class="content-grid">
+            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading content...</div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="share-modal">
+        <div class="share-modal-content">
+            <h2>Share Content</h2>
+            <p id="shareContentTitle" style="color: #718096; margin-top: 0.5rem;"></p>
+            
+            <div class="form-group" style="margin-top: 1.5rem;">
+                <label><strong>Custom Message</strong></label>
+                <textarea id="customMessage" rows="3" placeholder="Write your message here..." style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;"></textarea>
+                <small style="color: #718096;">Your referral code and link will be automatically added</small>
+            </div>
+            
+            <div style="background: #f7fafc; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                <strong style="display: block; margin-bottom: 0.5rem;">Preview:</strong>
+                <div id="messagePreview" style="color: #4a5568; font-size: 0.9rem; white-space: pre-wrap;"></div>
+            </div>
+            
+            <div class="share-options">
+                <div class="share-option" onclick="shareToWhatsApp()">
+                    <i class="fab fa-whatsapp" style="color: #25d366;"></i>
+                    <span>WhatsApp</span>
+                </div>
+                <div class="share-option" onclick="shareToFacebook()">
+                    <i class="fab fa-facebook" style="color: #1877f2;"></i>
+                    <span>Facebook</span>
+                </div>
+                <div class="share-option" onclick="shareToInstagram()">
+                    <i class="fab fa-instagram" style="color: #e4405f;"></i>
+                    <span>Instagram</span>
+                </div>
+                <div class="share-option" onclick="shareToTelegram()">
+                    <i class="fab fa-telegram" style="color: #0088cc;"></i>
+                    <span>Telegram</span>
+                </div>
+                <div class="share-option" onclick="shareToTwitter()">
+                    <i class="fab fa-twitter" style="color: #1da1f2;"></i>
+                    <span>Twitter</span>
+                </div>
+                <div class="share-option" onclick="copyShareLink()">
+                    <i class="fas fa-link" style="color: #1877F2;"></i>
+                    <span>Copy Link</span>
+                </div>
+            </div>
+            
+            <button onclick="closeShareModal()" class="btn btn-secondary" style="width: 100%; margin-top: 1.5rem;">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2025 Seller Management System. Built with <i class="fas fa-heart"></i></p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script src="js/seller-profile.js"></script>
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+        
+        const userName = localStorage.getItem('userName');
+        const userEmail = localStorage.getItem('userEmail');
+        
+        const userNameEl = document.getElementById('userName');
+        const userEmailEl = document.getElementById('userEmail');
+        if (userNameEl) userNameEl.textContent = userName || 'Admin';
+        if (userEmailEl) userEmailEl.textContent = userEmail || '';
+        
+        let allContent = [];
+        let currentShareContent = null;
+        let myReferralCode = '';
+        
+        function logout() {
+            localStorage.clear();
+            showToast('Logged out successfully', 'success');
+            setTimeout(() => window.location.href = 'login.html', 1000);
+        }
+        
+        async function loadContent() {
+            try {
+                // Load referral code first
+                try {
+                    const sellerId = localStorage.getItem('sellerId');
+                    const referralInfo = await apiCall(`/sellers/${sellerId}/referrals`);
+                    myReferralCode = referralInfo.myReferralCode || '';
+                } catch (e) {
+                    console.error('Error loading referral code:', e);
+                }
+                
+                const content = await apiCall('/marketing-content');
+                allContent = content;
+                displayContent(content);
+                updateStats(content);
+            } catch (error) {
+                console.error('Error loading content:', error);
+                document.getElementById('contentContainer').innerHTML = 
+                    '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load content</p></div>';
+            }
+        }
+        
+        function displayContent(content) {
+            const container = document.getElementById('contentContainer');
+            
+            if (content.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-images"></i><p>No marketing content available yet. Check back soon!</p></div>';
+                return;
+            }
+            
+            container.innerHTML = content.map(item => `
+                <div class="content-card">
+                    <div class="content-thumbnail">
+                        ${item.thumbnailUrl ? 
+                            `<img src="${item.thumbnailUrl}" alt="${item.title}">` :
+                            `<i class="fas fa-${getContentIcon(item.contentType)}"></i>`
+                        }
+                        <div class="content-type-badge">${item.contentType}</div>
+                    </div>
+                    <div class="content-body">
+                        <div class="content-title">${item.title}</div>
+                        <div class="content-description">${item.description || 'No description available'}</div>
+                        <div class="content-meta">
+                            <div class="content-meta-item">
+                                <i class="fas fa-tag"></i>
+                                <span>${item.category || 'Uncategorized'}</span>
+                            </div>
+                            <div class="content-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>${item.downloadCount || 0}</span>
+                            </div>
+                            <div class="content-meta-item">
+                                <i class="fas fa-share-alt"></i>
+                                <span>${item.shareCount || 0}</span>
+                            </div>
+                        </div>
+                        ${item.tags && item.tags.length > 0 ? `
+                            <div class="content-tags">
+                                ${item.tags.slice(0, 3).map(tag => `<span class="tag">${tag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="content-actions">
+                            <button class="btn-download" onclick="downloadContent('${item.id}', '${item.url}')">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                            <button class="btn-share" onclick="openShareModal('${item.id}', '${item.title.replace(/'/g, "\\'")}', '${item.url}')">
+                                <i class="fas fa-share-alt"></i> Share
+                            </button>
+                            ${item.url ? `
+                                <button class="btn-view" onclick="viewContent('${item.id}', '${item.url}')">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateStats(content) {
+            document.getElementById('totalContent').textContent = content.length;
+            
+            // In a real app, these would come from the backend
+            const totalDownloads = content.reduce((sum, item) => sum + (item.downloadCount || 0), 0);
+            const totalShares = content.reduce((sum, item) => sum + (item.shareCount || 0), 0);
+            const totalViews = content.reduce((sum, item) => sum + (item.viewCount || 0), 0);
+            
+            document.getElementById('myDownloads').textContent = totalDownloads;
+            document.getElementById('myShares').textContent = totalShares;
+            document.getElementById('myViews').textContent = totalViews;
+        }
+        
+        function filterContent() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            
+            let filtered = allContent;
+            
+            if (searchTerm) {
+                filtered = filtered.filter(item => 
+                    item.title.toLowerCase().includes(searchTerm) ||
+                    (item.description && item.description.toLowerCase().includes(searchTerm)) ||
+                    (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm)))
+                );
+            }
+            
+            if (category) {
+                filtered = filtered.filter(item => item.category === category);
+            }
+            
+            if (type) {
+                filtered = filtered.filter(item => item.contentType === type);
+            }
+            
+            displayContent(filtered);
+        }
+        
+        function getContentIcon(type) {
+            const icons = {
+                'TEXT': 'file-text',
+                'IMAGE': 'image',
+                'VIDEO': 'video',
+                'PDF': 'file-pdf',
+                'LINK': 'link'
+            };
+            return icons[type] || 'file';
+        }
+        
+        async function downloadContent(contentId, url) {
+            try {
+                await apiCall(`/marketing-content/${contentId}/download`, 'POST');
+                showToast('Download tracked! Opening content...', 'success');
+                
+                // Open the content URL in a new tab
+                if (url) {
+                    window.open(url, '_blank');
+                }
+                
+                // Reload to update stats
+                loadContent();
+            } catch (error) {
+                showToast('Failed to track download', 'error');
+            }
+        }
+        
+        async function viewContent(contentId, url) {
+            try {
+                await apiCall(`/marketing-content/${contentId}/view`, 'POST');
+                
+                // Open the content URL in a new tab
+                if (url) {
+                    window.open(url, '_blank');
+                }
+                
+                // Reload to update stats
+                loadContent();
+            } catch (error) {
+                console.error('Failed to track view:', error);
+                // Still open the content even if tracking fails
+                if (url) {
+                    window.open(url, '_blank');
+                }
+            }
+        }
+        
+        function openShareModal(contentId, title, url) {
+            currentShareContent = { id: contentId, title: title, url: url };
+            document.getElementById('shareContentTitle').textContent = title;
+            document.getElementById('customMessage').value = '';
+            updateMessagePreview();
+            document.getElementById('shareModal').classList.add('active');
+            
+            // Add event listener for message preview
+            document.getElementById('customMessage').addEventListener('input', updateMessagePreview);
+        }
+        
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.remove('active');
+            currentShareContent = null;
+            document.getElementById('customMessage').removeEventListener('input', updateMessagePreview);
+        }
+        
+        function updateMessagePreview() {
+            const customMessage = document.getElementById('customMessage').value;
+            const referralText = `\n\n✨ Use my referral code and get 20% off!\nCode: ${myReferralCode}\n${currentShareContent ? currentShareContent.url : ''}`;
+            const fullMessage = (customMessage || 'Check out this amazing content!') + referralText;
+            document.getElementById('messagePreview').textContent = fullMessage;
+        }
+        
+        function getShareMessage() {
+            const customMessage = document.getElementById('customMessage').value || 'Check out this amazing content!';
+            return `${customMessage}\n\n✨ Use my referral code and get 20% off!\nCode: ${myReferralCode}\n${currentShareContent.url}`;
+        }
+        
+        async function trackShare() {
+            if (!currentShareContent) return;
+            
+            try {
+                await apiCall(`/marketing-content/${currentShareContent.id}/share`, 'POST');
+                loadContent(); // Reload to update stats
+            } catch (error) {
+                console.error('Failed to track share:', error);
+            }
+        }
+        
+        function shareToWhatsApp() {
+            if (!currentShareContent) return;
+            trackShare();
+            const message = getShareMessage();
+            const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+            window.open(url, '_blank');
+            closeShareModal();
+            showToast('✅ Opening WhatsApp...', 'success');
+        }
+        
+        function shareToFacebook() {
+            if (!currentShareContent) return;
+            trackShare();
+            const message = getShareMessage();
+            const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentShareContent.url)}&quote=${encodeURIComponent(message)}`;
+            window.open(url, '_blank', 'width=600,height=400');
+            closeShareModal();
+            showToast('✅ Opening Facebook...', 'success');
+        }
+        
+        function shareToInstagram() {
+            trackShare();
+            const message = getShareMessage();
+            navigator.clipboard.writeText(message).then(() => {
+                showToast('✅ Message copied! Paste it in your Instagram post', 'success');
+                closeShareModal();
+            });
+        }
+        
+        function shareToTelegram() {
+            if (!currentShareContent) return;
+            trackShare();
+            const message = getShareMessage();
+            const url = `https://t.me/share/url?url=${encodeURIComponent(currentShareContent.url)}&text=${encodeURIComponent(message)}`;
+            window.open(url, '_blank');
+            closeShareModal();
+            showToast('✅ Opening Telegram...', 'success');
+        }
+        
+        function shareToTwitter() {
+            if (!currentShareContent) return;
+            trackShare();
+            const message = getShareMessage();
+            const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`;
+            window.open(url, '_blank', 'width=600,height=400');
+            closeShareModal();
+            showToast('✅ Opening Twitter...', 'success');
+        }
+        
+        function copyShareLink() {
+            if (!currentShareContent) return;
+            trackShare();
+            const message = getShareMessage();
+            navigator.clipboard.writeText(message).then(() => {
+                showToast('✅ Message with referral code copied to clipboard!', 'success');
+                closeShareModal();
+            });
+        }
+        
+        loadContent();
+    </script>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal" id="editProfileModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-edit"></i> Edit Profile</h2>
+                <button onclick="closeEditProfileModal()" class="close-modal-btn">&times;</button>
+            </div>
+            
+            <form id="editProfileForm" onsubmit="saveProfileChanges(event)">
+                <div class="form-section">
+                    <h3><i class="fas fa-user"></i> Personal Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfileName">Full Name *</label>
+                            <input type="text" id="editProfileName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileEmail">Email Address *</label>
+                            <input type="email" id="editProfileEmail" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfilePhone">Phone Number</label>
+                            <input type="tel" id="editProfilePhone">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-section">
+                    <h3><i class="fas fa-briefcase"></i> Business Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfileBusinessName">Business Name</label>
+                            <input type="text" id="editProfileBusinessName">
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileBusinessType">Seller Type</label>
+                            <select id="editProfileBusinessType" onchange="toggleEditTypeFields()">
+                                <option value="">Select Type</option>
+                                <option value="INDIVIDUAL">Individual</option>
+                                <option value="AGENCY">Agency</option>
+                                <option value="CREATOR">Creator</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Type-specific fields -->
+                    <div class="form-row" id="editIndividualField" style="display: none;">
+                        <div class="form-group full-width">
+                            <label for="editProfileCurrentOccupation">Current Occupation</label>
+                            <select id="editProfileCurrentOccupation">
+                                <option value="">-- Select Occupation --</option>
+                                <option value="Student">Student</option>
+                                <option value="Freelancer">Freelancer</option>
+                                <option value="Software Developer">Software Developer</option>
+                                <option value="Designer">Designer</option>
+                                <option value="Digital Marketer">Digital Marketer</option>
+                                <option value="Content Writer">Content Writer</option>
+                                <option value="Sales Professional">Sales Professional</option>
+                                <option value="Business Owner">Business Owner</option>
+                                <option value="Consultant">Consultant</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" id="editAgencyField" style="display: none;">
+                        <div class="form-group full-width">
+                            <label for="editProfileNumberOfCreators">Number of Creators</label>
+                            <select id="editProfileNumberOfCreators">
+                                <option value="">-- Select Range --</option>
+                                <option value="1-5">1-5 creators</option>
+                                <option value="6-10">6-10 creators</option>
+                                <option value="11-25">11-25 creators</option>
+                                <option value="26-50">26-50 creators</option>
+                                <option value="51-100">51-100 creators</option>
+                                <option value="100+">100+ creators</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" id="editCreatorField" style="display: none;">
+                        <div class="form-group full-width">
+                            <label for="editProfileNumberOfFollowers">Number of Followers</label>
+                            <select id="editProfileNumberOfFollowers">
+                                <option value="">-- Select Range --</option>
+                                <option value="0-1K">0-1K followers</option>
+                                <option value="1K-10K">1K-10K followers</option>
+                                <option value="10K-50K">10K-50K followers</option>
+                                <option value="50K-100K">50K-100K followers</option>
+                                <option value="100K-500K">100K-500K followers</option>
+                                <option value="500K-1M">500K-1M followers</option>
+                                <option value="1M+">1M+ followers</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="editProfileAddress">Business Address</label>
+                            <textarea id="editProfileAddress" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-section">
+                    <h3><i class="fas fa-wallet"></i> Payment Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfilePaymentMethod">Payment Method</label>
+                            <select id="editProfilePaymentMethod">
+                                <option value="">Select Method</option>
+                                <option value="BANK_TRANSFER">Bank Transfer</option>
+                                <option value="UPI">UPI</option>
+                                <option value="PAYPAL">PayPal</option>
+                                <option value="CHEQUE">Cheque</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileBankName">Bank Name</label>
+                            <input type="text" id="editProfileBankName">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfileAccountHolder">Account Holder Name</label>
+                            <input type="text" id="editProfileAccountHolder">
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileAccountNumber">Account Number</label>
+                            <input type="text" id="editProfileAccountNumber">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editProfileIFSC">IFSC Code</label>
+                            <input type="text" id="editProfileIFSC">
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileUPI">UPI ID</label>
+                            <input type="text" id="editProfileUPI">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" onclick="closeEditProfileModal()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>
+
