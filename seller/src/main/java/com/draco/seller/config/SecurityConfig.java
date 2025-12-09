@@ -41,10 +41,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
-                        ..requestMatchers(
+                       .requestMatchers(
         "/",
+        "/index.html",
         "/login",
-        "/auth/**",
         "/api/v1/auth/**",
         "/api/v1/sellers/register",
         "/api/v1/webhook/**",
@@ -57,11 +57,11 @@ public class SecurityConfig {
         "/images/**",
         "/uploads/**",
         "/favicon.ico",
-        "/*.html",
-        "/index.html",
         "/static/**",
         "/assets/**"
 ).permitAll()
+.anyRequest().authenticated()
+
 
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
