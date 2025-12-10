@@ -40,24 +40,23 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
-                      .requestMatchers(
-    "/",
-    "/login.html",
-    "/index.html",
-    "/css/**",
-    "/js/**",
-    "/images/**",
-    "/uploads/**",
-    "/favicon.ico",
-    "/static/**",
-    "/assets/**",
-    "/api/v1/auth/**",
-    "/api/v1/sellers/register",
-    "/api/v1/webhook/**"
-).permitAll()
+    .requestMatchers(
+        "/", "/index.html", "/login.html", "/register.html", "/forgot-password.html",
+        "/**/*.html",                 // allow all UI pages
+        "/**/*.css", "/**/*.js",     // allow static frontend
+        "/images/**", "/static/**", "/assets/**", "/uploads/**",
+        "/favicon.ico",
 
-.anyRequest().authenticated()
+        // Allow auth & public API endpoints
+        "/api/v1/auth/**",
+        "/api/v1/sellers/register",
+        "/api/v1/webhook/**"
+    ).permitAll()
+
+    // Everything else requires token
+    .anyRequest().authenticated()
+)
+
 
 
                         // All other endpoints require authentication
