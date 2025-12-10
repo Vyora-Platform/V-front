@@ -51,6 +51,10 @@ public class User implements UserDetails {
     
     private LocalDateTime lastLoginAt;
     
+    // OTP fields for password reset
+    private String otp;
+    private LocalDateTime otpExpiry;
+    
     private LocalDateTime createdAt;
     
     private LocalDateTime updatedAt;

@@ -11,6 +11,7 @@
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/controller/SellerController.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/controller/SellerRewardController.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/controller/WebhookController.java
+/Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/ApiResponse.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/CustomerRequest.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/CustomerResponse.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/EmployeeRequest.java
@@ -22,9 +23,11 @@
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/SellerRewardResponse.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/SellerTotalEarnedResponse.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/UpdateSellerRequest.java
+/Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/auth/ForgotPasswordRequest.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/auth/LoginRequest.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/auth/LoginResponse.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/auth/RegisterRequest.java
+/Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/auth/ResetPasswordRequest.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/content/MarketingContentRequest.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/content/MarketingContentResponse.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/dto/lead/BulkLeadAssignRequest.java
@@ -57,6 +60,7 @@
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/service/AuthService.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/service/CustomUserDetailsService.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/service/CustomerService.java
+/Users/aman/Downloads/seller/src/main/java/com/draco/seller/service/EmailService.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/service/EmployeeService.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/service/FileStorageService.java
 /Users/aman/Downloads/seller/src/main/java/com/draco/seller/service/LeadService.java

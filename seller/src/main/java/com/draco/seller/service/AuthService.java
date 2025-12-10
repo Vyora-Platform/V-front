@@ -1,8 +1,11 @@
 package com.draco.seller.service;
 
+import com.draco.seller.dto.ApiResponse;
+import com.draco.seller.dto.auth.ForgotPasswordRequest;
 import com.draco.seller.dto.auth.LoginRequest;
 import com.draco.seller.dto.auth.LoginResponse;
 import com.draco.seller.dto.auth.RegisterRequest;
+import com.draco.seller.dto.auth.ResetPasswordRequest;
 import com.draco.seller.entity.Seller;
 import com.draco.seller.entity.User;
 import com.draco.seller.exception.DuplicateResourceException;
@@ -21,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +36,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
+    private final EmailService emailService;
+    
+    private static final int OTP_EXPIRATION_MINUTES = 10;
     
     @Transactional
     public LoginResponse register(RegisterRequest request) {
@@ -107,6 +114,129 @@ public class AuthService {
                 .role(user.getRole().name())
                 .sellerId(user.getSellerId())
                 .build();
+    }
+    
+    @Transactional
+    public ApiResponse forgotPassword(ForgotPasswordRequest request) {
+        log.info("Forgot password request for email: {}", request.getEmail());
+        
+        try {
+            // Find user by email
+            User user = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> {
+                        log.warn("User not found with email: {}", request.getEmail());
+                        return new ResourceNotFoundException("User not found with email: " + request.getEmail());
+                    });
+            
+            // Generate 6-digit OTP
+            String otp = String.format("%06d", new Random().nextInt(999999));
+            
+            // Set OTP expiry time
+            LocalDateTime otpExpiry = LocalDateTime.now().plusMinutes(OTP_EXPIRATION_MINUTES);
+            
+            // Save OTP and expiry to user
+            user.setOtp(otp);
+            user.setOtpExpiry(otpExpiry);
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+            
+            log.info("OTP generated for user: {}", request.getEmail());
+            
+            // Send OTP via email
+            emailService.sendOtpEmail(request.getEmail(), otp);
+            
+            log.info("OTP sent successfully to: {}", request.getEmail());
+            
+            return ApiResponse.builder()
+                    .success(true)
+                    .message("OTP sent successfully to your email. Please check your inbox.")
+                    .build();
+                    
+        } catch (ResourceNotFoundException e) {
+            log.error("User not found: {}", request.getEmail());
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("User not found with email: " + request.getEmail())
+                    .build();
+        } catch (Exception e) {
+            log.error("Failed to send OTP email to: {}", request.getEmail(), e);
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Failed to send OTP email. Please try again later.")
+                    .build();
+        }
+    }
+    
+    @Transactional
+    public ApiResponse resetPassword(ResetPasswordRequest request) {
+        log.info("Reset password request for email: {}", request.getEmail());
+        
+        try {
+            // Find user by email
+            User user = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> {
+                        log.warn("User not found with email: {}", request.getEmail());
+                        return new ResourceNotFoundException("User not found with email: " + request.getEmail());
+                    });
+            
+            // Validate OTP
+            if (user.getOtp() == null || user.getOtp().isEmpty()) {
+                log.warn("No OTP found for user: {}", request.getEmail());
+                return ApiResponse.builder()
+                        .success(false)
+                        .message("No OTP found. Please request a new OTP.")
+                        .build();
+            }
+            
+            if (!user.getOtp().equals(request.getOtp())) {
+                log.warn("Invalid OTP provided for user: {}", request.getEmail());
+                return ApiResponse.builder()
+                        .success(false)
+                        .message("Invalid OTP. Please check and try again.")
+                        .build();
+            }
+            
+            // Check if OTP is expired
+            if (user.getOtpExpiry() == null || LocalDateTime.now().isAfter(user.getOtpExpiry())) {
+                log.warn("OTP expired for user: {}", request.getEmail());
+                // Clear expired OTP
+                user.setOtp(null);
+                user.setOtpExpiry(null);
+                userRepository.save(user);
+                
+                return ApiResponse.builder()
+                        .success(false)
+                        .message("OTP has expired. Please request a new OTP.")
+                        .build();
+            }
+            
+            // Reset password
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            user.setOtp(null);
+            user.setOtpExpiry(null);
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+            
+            log.info("Password reset successfully for user: {}", request.getEmail());
+            
+            return ApiResponse.builder()
+                    .success(true)
+                    .message("Password reset successfully. You can now login with your new password.")
+                    .build();
+                    
+        } catch (ResourceNotFoundException e) {
+            log.error("User not found: {}", request.getEmail());
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("User not found with email: " + request.getEmail())
+                    .build();
+        } catch (Exception e) {
+            log.error("Failed to reset password for user: {}", request.getEmail(), e);
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Failed to reset password. Please try again later.")
+                    .build();
+        }
     }
 }
 
