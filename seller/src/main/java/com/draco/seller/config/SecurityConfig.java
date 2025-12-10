@@ -57,11 +57,6 @@ public class SecurityConfig {
     .anyRequest().authenticated()
 )
 
-
-
-                        // All other endpoints require authentication
-                        .anyRequest().authenticated()
-                )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
