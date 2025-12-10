@@ -30,42 +30,47 @@ import java.util.List;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-    
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
-    
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-    .requestMatchers(
-        "/", "/index.html", "/login.html", "/register.html", "/forgot-password.html",
-        "/**/*.html",                 // allow all UI pages
-        "/**/*.css", "/**/*.js",     // allow static frontend
-        "/images/**", "/static/**", "/assets/**", "/uploads/**",
-        "/favicon.ico",
 
-        // Allow auth & public API endpoints
-        "/api/v1/auth/**",
-        "/api/v1/sellers/register",
-        "/api/v1/webhook/**"
-    ).permitAll()
+                        // 🔥 IMPORTANT: Root explicitly placed before wildcard/static matchers
+                        .requestMatchers("/").permitAll()                 // <-- added
+                        .requestMatchers("/index.html").permitAll()       // <-- explicit allow
 
-    // Everything else requires token
-    .anyRequest().authenticated()
-)
+                        // Your existing allowed static + UI files (unchanged)
+                        .requestMatchers(
+                                "/login.html", "/register.html", "/forgot-password.html",
+                                "/**/*.html",
+                                "/**/*.css", "/**/*.js",
+                                "/images/**", "/static/**", "/assets/**", "/uploads/**",
+                                "/favicon.ico",
 
+                                // existing public endpoints (unchanged)
+                                "/api/v1/auth/**",
+                                "/api/v1/sellers/register",
+                                "/api/v1/webhook/**"
+                        ).permitAll()
+
+                        // Everything else requires JWT
+                        .anyRequest().authenticated()
+                )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-        
+
         return http.build();
     }
-    
+
     @Bean
     @SuppressWarnings("deprecation")
     public AuthenticationProvider authenticationProvider() {
@@ -74,17 +79,17 @@ public class SecurityConfig {
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }
-    
+
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
-    
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-    
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -92,10 +97,9 @@ public class SecurityConfig {
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 }
-
