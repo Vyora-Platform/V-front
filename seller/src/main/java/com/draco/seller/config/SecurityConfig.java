@@ -17,6 +17,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.WebSecurityCustomizer;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -41,11 +42,11 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
 
-                        // 🔥 IMPORTANT: Root explicitly placed before wildcard/static matchers
-                        .requestMatchers("/").permitAll()                 // <-- added
-                        .requestMatchers("/index.html").permitAll()       // <-- explicit allow
+                        // ⬇️ Root and index explicitly allowed
+                        .requestMatchers("/").permitAll()
+                        .requestMatchers("/index.html").permitAll()
 
-                        // Your existing allowed static + UI files (unchanged)
+                        // Existing static/public
                         .requestMatchers(
                                 "/login.html", "/register.html", "/forgot-password.html",
                                 "/**/*.html",
@@ -53,13 +54,13 @@ public class SecurityConfig {
                                 "/images/**", "/static/**", "/assets/**", "/uploads/**",
                                 "/favicon.ico",
 
-                                // existing public endpoints (unchanged)
+                                // Your existing public endpoints
                                 "/api/v1/auth/**",
                                 "/api/v1/sellers/register",
                                 "/api/v1/webhook/**"
                         ).permitAll()
 
-                        // Everything else requires JWT
+                        // 🔥 Everything else secured
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
@@ -102,4 +103,25 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
+    // ⬇️ FINAL FIX — ignores root/static from Spring entirely
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return web -> web.ignoring().requestMatchers(
+                "/",
+                "/index.html",
+                "/login.html",
+                "/register.html",
+                "/forgot-password.html",
+                "/**/*.html",
+                "/**/*.css",
+                "/**/*.js",
+                "/static/**",
+                "/images/**",
+                "/assets/**",
+                "/uploads/**",
+                "/favicon.ico"
+        );
+    }
 }
+
