@@ -41,25 +41,22 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
-                       .requestMatchers(
-        "/",
-        "/index.html",
-        "/login",
-        "/api/v1/auth/**",
-        "/api/v1/sellers/register",
-        "/api/v1/webhook/**",
-        "/swagger-ui/**",
-        "/swagger-ui.html",
-        "/v3/api-docs/**",
-        "/api-docs/**",
-        "/css/**",
-        "/js/**",
-        "/images/**",
-        "/uploads/**",
-        "/favicon.ico",
-        "/static/**",
-        "/assets/**"
+                      .requestMatchers(
+    "/",
+    "/login.html",
+    "/index.html",
+    "/css/**",
+    "/js/**",
+    "/images/**",
+    "/uploads/**",
+    "/favicon.ico",
+    "/static/**",
+    "/assets/**",
+    "/api/v1/auth/**",
+    "/api/v1/sellers/register",
+    "/api/v1/webhook/**"
 ).permitAll()
+
 .anyRequest().authenticated()
 
 
