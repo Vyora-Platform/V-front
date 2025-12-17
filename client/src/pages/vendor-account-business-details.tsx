@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, Save, Loader2, X } from "lucide-react";
 import type { Vendor } from "@shared/schema";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +38,7 @@ type BusinessDetailsFormValues = z.infer<typeof businessDetailsSchema>;
 export default function VendorAccountBusinessDetails() {
   const { vendorId } = useAuth();
   const { toast } = useToast();
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const { data: vendor, isLoading } = useQuery<Vendor>({
     queryKey: ["/api/vendors", vendorId],
@@ -107,6 +108,97 @@ export default function VendorAccountBusinessDetails() {
     updateMutation.mutate(data);
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file (JPEG, PNG, WebP, or GIF)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (5MB for logo)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLogoUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`/api/upload/logo`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      
+      // Update vendor with new logo URL
+      await apiRequest("PATCH", `/api/vendors/${vendorId}`, {
+        logo: data.url,
+      });
+      
+      // Invalidate and refetch vendor data
+      queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId] });
+      
+      toast({
+        title: "Logo uploaded",
+        description: "Your business logo has been updated",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload logo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLogoUploading(false);
+      // Reset file input
+      e.target.value = '';
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!vendor?.logo) return;
+
+    try {
+      // Update vendor to remove logo
+      await apiRequest("PATCH", `/api/vendors/${vendorId}`, {
+        logo: null,
+      });
+      
+      // Invalidate and refetch vendor data
+      queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId] });
+      
+      toast({
+        title: "Logo removed",
+        description: "Your business logo has been removed",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove logo. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -149,19 +241,67 @@ export default function VendorAccountBusinessDetails() {
             <CardDescription>Update your business profile and contact details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Logo Info Banner */}
-            <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-              <Avatar className="h-12 w-12 border-2 border-blue-500">
-                {(vendor?.logo || localStorage.getItem(`vendor_logo_${vendorId}`)) ? (
-                  <AvatarImage src={localStorage.getItem(`vendor_logo_${vendorId}`) || vendor?.logo || ""} alt={vendor?.businessName} />
+            {/* Business Logo */}
+            <div className="flex items-center gap-4 pb-6 border-b">
+              <div className="relative">
+                <Avatar className="h-20 w-20">
+                  {vendor?.logo ? (
+                    <AvatarImage src={vendor.logo} alt={vendor.businessName} />
                   ) : null}
-                <AvatarFallback className="text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                  <AvatarFallback className="text-xl bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
                     {vendor?.businessName ? getInitials(vendor.businessName) : "VH"}
                   </AvatarFallback>
                 </Avatar>
+                {vendor?.logo && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-1 -right-1 h-6 w-6 rounded-full"
+                    onClick={handleLogoRemove}
+                    disabled={logoUploading || updateMutation.isPending}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Business Logo</p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">Tap the camera icon on your Profile page to change logo</p>
+                <h3 className="font-medium mb-1">Business Logo</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Upload a square logo (recommended: 512x512px, max 5MB)
+                </p>
+                <label>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    disabled={logoUploading || updateMutation.isPending}
+                    data-testid="input-logo-upload"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={logoUploading || updateMutation.isPending}
+                    data-testid="button-upload-logo"
+                    asChild
+                  >
+                    <span>
+                      {logoUploading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          {vendor?.logo ? "Change Logo" : "Upload Logo"}
+                        </>
+                      )}
+                    </span>
+                  </Button>
+                </label>
               </div>
             </div>
 

@@ -13,9 +13,7 @@ import {
   Phone, Mail, MapPin, Globe, Star, Send, Package, 
   CheckCircle, Clock, ExternalLink, Users, Tag, HelpCircle,
   ChevronDown, ChevronUp, Navigation, ChevronLeft, ChevronRight,
-  ShoppingCart, Calendar, Info, Plus, Minus, X, Trash2, Home, User, LogOut,
-  DollarSign, FileText, CheckCircle2, Sparkles, Zap, Award, Gift, Percent, Settings, CalendarDays,
-  Image as ImageIcon, Eye
+  ShoppingCart, Calendar, Info, Plus, Minus, X, Trash2, Home, User, LogOut
 } from "lucide-react";
 import {
   Accordion,
@@ -49,7 +47,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { MiniWebsite, MiniWebsiteReview, VendorCatalogue, VendorProduct } from "@shared/schema";
-import { websiteLayouts } from "@/components/LayoutSelector";
 
 interface CartItem {
   type: 'product' | 'service';
@@ -120,10 +117,6 @@ export default function MiniWebsitePublic() {
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quotationOpen, setQuotationOpen] = useState(false);
-
-  // Service detail dialog state
-  const [selectedService, setSelectedService] = useState<VendorCatalogue | null>(null);
-  const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
 
   // Fetch mini-website data
   const { data, isLoading, error } = useQuery<MiniWebsite & { 
@@ -568,55 +561,11 @@ export default function MiniWebsitePublic() {
   
   const primaryColor = branding?.primaryColor || "#0f766e";
   const secondaryColor = branding?.secondaryColor || "#14b8a6";
-  const accentColor = branding?.accentColor || "#0d9488";
-  
-  // Get selected layout configuration
-  const layoutId = branding?.layoutId || "general-modern";
-  const selectedLayout = websiteLayouts.find(l => l.id === layoutId) || websiteLayouts.find(l => l.id === "general-modern")!;
-  const layoutConfig = selectedLayout.layout;
-  
-  // Determine header style based on layout
-  const getHeaderStyle = () => {
-    switch (layoutConfig.navPosition) {
-      case 'transparent-overlay':
-        return 'absolute w-full bg-transparent text-white z-50';
-      case 'dark-sticky':
-        return 'sticky top-0 z-50 bg-gray-900 text-white';
-      default:
-        return 'sticky top-0 z-50 bg-white/95 backdrop-blur border-b';
-    }
-  };
-
-  // Determine CTA button text based on layout
-  const getCtaText = () => {
-    if (layoutConfig.ctaStyle?.includes('booking')) return '📅 Book Now';
-    if (layoutConfig.ctaStyle?.includes('order')) return '🛒 Order Now';
-    if (layoutConfig.ctaStyle?.includes('join')) return '💪 Join Now';
-    if (layoutConfig.ctaStyle?.includes('cart')) return '🛒 Cart';
-    if (layoutConfig.ctaStyle?.includes('call')) return '📞 Call Now';
-    return '✨ Get Started';
-  };
-
-  // Section title based on business type
-  const getServicesTitle = () => {
-    if (selectedLayout.businessType === 'Food & Dining') return 'Our Menu';
-    if (selectedLayout.businessType === 'Medical & Healthcare') return 'Our Treatments';
-    if (selectedLayout.businessType === 'Education & Training') return 'Our Courses';
-    return 'Our Services';
-  };
 
   return (
-    <div 
-      className="min-h-screen bg-background scroll-smooth"
-      style={{
-        // Inject CSS variables for theme colors
-        '--primary': primaryColor,
-        '--secondary': secondaryColor,
-        '--accent': accentColor,
-      } as React.CSSProperties}
-    >
-      {/* Header with Logo and Contact Info - Layout Aware */}
-      <header className={getHeaderStyle()}>
+    <div className="min-h-screen bg-background scroll-smooth">
+      {/* Header with Logo and Contact Info */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b">
         {/* Main Header */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -637,9 +586,7 @@ export default function MiniWebsitePublic() {
                   >
                     {businessInfo?.businessName?.charAt(0) || "B"}
                   </div>
-                  <span className={`text-xl font-bold ${layoutConfig.navPosition === 'dark-sticky' || layoutConfig.navPosition === 'transparent-overlay' ? 'text-white' : 'text-gray-900'}`}>
-                    {businessInfo?.businessName}
-                  </span>
+                  <span className="text-xl font-bold">{businessInfo?.businessName}</span>
                 </div>
               )}
             </div>
@@ -1202,9 +1149,9 @@ export default function MiniWebsitePublic() {
         </div>
       </header>
 
-      {/* Hero Section with Auto-Scrolling Carousel - Layout Aware */}
-      <div id="home" className={`relative overflow-hidden ${layoutConfig.heroStyle === 'fullscreen-gallery' ? 'h-[70vh]' : 'h-[500px] md:h-[650px]'} bg-gradient-to-br from-slate-50 to-slate-100`}>
-        {/* Carousel Images or Gradient Background */}
+      {/* Hero Section with Auto-Scrolling Carousel */}
+      <div id="home" className="relative overflow-hidden h-[500px] md:h-[650px] bg-gradient-to-br from-slate-50 to-slate-100">
+        {/* Carousel Images */}
         {heroMedia.length > 0 ? (
           <div className="absolute inset-0">
             {heroMedia.map((image: string, index: number) => (
@@ -1224,7 +1171,7 @@ export default function MiniWebsitePublic() {
           <div 
             className="absolute inset-0"
             style={{
-              background: `linear-gradient(135deg, ${primaryColor} 0%, ${accentColor} 100%)`,
+              background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
             }}
           />
         )}
@@ -1232,126 +1179,75 @@ export default function MiniWebsitePublic() {
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent"></div>
         
-        {/* Hero Content - Layout Aware */}
+        {/* Hero Content */}
         <div className="relative h-full flex items-center">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            {/* Layout-aware hero content */}
-            <div className={`${layoutConfig.heroStyle === 'modern-split' ? 'grid md:grid-cols-2 gap-8 items-center' : 'max-w-2xl'}`}>
-              {layoutConfig.heroStyle === 'modern-split' ? (
-                // Modern split layout - text directly on gradient
-                <div className="text-white">
-                  <Badge className="mb-4 bg-white/20 text-white border-0">
-                    {selectedLayout.businessType}
-                  </Badge>
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight text-white" 
+            {/* Elevated Card Container */}
+            <div className="max-w-2xl">
+              <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-2xl" data-testid="card-hero-content">
+                <CardContent className="p-8 md:p-12">
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight" 
+                      style={{ color: primaryColor }}
                       data-testid="text-business-name">
                     {businessInfo?.businessName}
                   </h1>
                   {businessInfo?.tagline && (
-                    <p className="text-lg md:text-xl text-white/90 mb-6 leading-relaxed" 
+                    <p className="text-lg md:text-xl text-muted-foreground mb-6 leading-relaxed" 
                        data-testid="text-tagline">
                       {businessInfo.tagline}
-                    </p>
-                  )}
-                  {businessInfo?.description && (
-                    <p className="text-white/80 mb-6 max-w-lg">
-                      {businessInfo.description?.substring(0, 150)}...
                     </p>
                   )}
                   <div className="flex flex-wrap gap-3">
                     <Button
                       size="lg"
                       className="font-semibold shadow-lg"
-                      style={{ backgroundColor: secondaryColor, color: '#000' }}
+                      style={{ backgroundColor: primaryColor, color: "white" }}
                       onClick={() => document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' })}
                       data-testid="button-get-quote"
                     >
-                      {getCtaText()}
+                      <Send className="h-5 w-5 mr-2" />
+                      Get Quote
                     </Button>
                     {contactInfo?.phone && (
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="font-semibold border-white text-white hover:bg-white/20"
-                        onClick={() => window.location.href = `tel:${contactInfo.phone}`}
-                        data-testid="button-call"
-                      >
-                        <Phone className="h-5 w-5 mr-2" />
-                        Call
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                // Card-based layout (default)
-                <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-2xl" data-testid="card-hero-content">
-                  <CardContent className="p-8 md:p-12">
-                    <Badge className="mb-4" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>
-                      {selectedLayout.businessType}
-                    </Badge>
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight" 
-                        style={{ color: primaryColor }}
-                        data-testid="text-business-name">
-                      {businessInfo?.businessName}
-                    </h1>
-                    {businessInfo?.tagline && (
-                      <p className="text-lg md:text-xl text-muted-foreground mb-6 leading-relaxed" 
-                         data-testid="text-tagline">
-                        {businessInfo.tagline}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-3">
-                      <Button
-                        size="lg"
-                        className="font-semibold shadow-lg"
-                        style={{ backgroundColor: primaryColor, color: "white" }}
-                        onClick={() => document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' })}
-                        data-testid="button-get-quote"
-                      >
-                        <Send className="h-5 w-5 mr-2" />
-                        {getCtaText()}
-                      </Button>
-                      {contactInfo?.phone && (
-                        <>
-                          <Button
-                            size="lg"
-                            variant="outline"
-                            className="font-semibold"
-                            onClick={() => window.location.href = `tel:${contactInfo.phone}`}
-                            style={{ borderColor: primaryColor, color: primaryColor }}
-                            data-testid="button-call"
-                          >
-                            <Phone className="h-5 w-5 mr-2" />
-                            Call
-                          </Button>
-                          <Button
-                            size="lg"
-                            className="font-semibold"
-                            onClick={() => window.location.href = `https://wa.me/${contactInfo.phone.replace(/[^0-9]/g, '')}`}
-                            style={{ backgroundColor: secondaryColor, color: "white" }}
-                            data-testid="button-whatsapp"
-                          >
-                            WhatsApp
-                          </Button>
-                        </>
-                      )}
-                      {contactInfo?.googleMapsUrl && (
+                      <>
                         <Button
                           size="lg"
                           variant="outline"
                           className="font-semibold"
-                          style={{ borderColor: secondaryColor, color: secondaryColor }}
-                          onClick={() => window.open(contactInfo.googleMapsUrl, '_blank')}
-                          data-testid="button-directions"
+                          onClick={() => window.location.href = `tel:${contactInfo.phone}`}
+                          style={{ borderColor: primaryColor, color: primaryColor }}
+                          data-testid="button-call"
                         >
-                          <Navigation className="h-5 w-5 mr-2" />
-                          Get Directions
+                          <Phone className="h-5 w-5 mr-2" />
+                          Call
                         </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                        <Button
+                          size="lg"
+                          className="font-semibold"
+                          onClick={() => window.location.href = `https://wa.me/${contactInfo.phone.replace(/[^0-9]/g, '')}`}
+                          style={{ backgroundColor: secondaryColor, color: "white" }}
+                          data-testid="button-whatsapp"
+                        >
+                          WhatsApp
+                        </Button>
+                      </>
+                    )}
+                    {contactInfo?.googleMapsUrl && (
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="font-semibold"
+                        style={{ borderColor: secondaryColor, color: secondaryColor }}
+                        onClick={() => window.open(contactInfo.googleMapsUrl, '_blank')}
+                        data-testid="button-directions"
+                      >
+                        <Navigation className="h-5 w-5 mr-2" />
+                        Get Directions
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -1402,128 +1298,39 @@ export default function MiniWebsitePublic() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
-        {/* About Section - MNC Level */}
-        <section className="mb-24" id="about">
+        {/* About Section */}
+        <section className="mb-24">
           <div className="text-center mb-10">
-            <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>About Us</Badge>
             <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: primaryColor }}>
-              Why Choose {businessInfo?.businessName || 'Us'}?
+              About Us
             </h2>
             <p className="text-muted-foreground text-lg">
-              Get to know our story and what makes us different
+              Get to know our story and mission
             </p>
           </div>
-          
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            {/* Description and Features */}
-            <div>
-              <Card className="shadow-lg border-0 mb-6">
-                <CardContent className="p-8">
-                  <p className="text-lg text-muted-foreground leading-relaxed">
-                    {businessInfo?.about || businessInfo?.description || "We are committed to providing exceptional service and quality to all our valued customers. Our team of dedicated professionals ensures that every interaction exceeds expectations."}
-                  </p>
-                </CardContent>
-              </Card>
-              
-              {/* Why Choose Us Features */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm border">
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    ✓
-                  </div>
-                  <span className="font-medium">Quality Assured</span>
-                </div>
-                <div className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm border">
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    ✓
-                  </div>
-                  <span className="font-medium">Expert Team</span>
-                </div>
-                <div className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm border">
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    ✓
-                  </div>
-                  <span className="font-medium">Fair Pricing</span>
-                </div>
-                <div className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm border">
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    ✓
-                  </div>
-                  <span className="font-medium">Customer First</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-6">
-              <Card className="shadow-lg border-0 text-center p-6 hover:shadow-xl transition-shadow">
-                <div className="text-4xl md:text-5xl font-bold mb-2" style={{ color: primaryColor }}>10+</div>
-                <p className="text-muted-foreground">Years of Experience</p>
-              </Card>
-              <Card className="shadow-lg border-0 text-center p-6 hover:shadow-xl transition-shadow">
-                <div className="text-4xl md:text-5xl font-bold mb-2" style={{ color: secondaryColor }}>500+</div>
-                <p className="text-muted-foreground">Happy Customers</p>
-              </Card>
-              <Card className="shadow-lg border-0 text-center p-6 hover:shadow-xl transition-shadow">
-                <div className="text-4xl md:text-5xl font-bold mb-2" style={{ color: accentColor }}>50+</div>
-                <p className="text-muted-foreground">Expert Team</p>
-              </Card>
-              <Card className="shadow-lg border-0 text-center p-6 hover:shadow-xl transition-shadow">
-                <div className="text-4xl md:text-5xl font-bold mb-2" style={{ color: primaryColor }}>100%</div>
-                <p className="text-muted-foreground">Satisfaction</p>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* Gallery Section - MNC Level */}
-        {heroMedia && heroMedia.length > 1 && (
-          <section id="gallery" className="mb-24 py-12 md:py-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-slate-100">
-            <div className="max-w-7xl mx-auto">
-              <div className="text-center mb-10">
-                <Badge className="mb-3" style={{ backgroundColor: `${accentColor}20`, color: accentColor }}>📸 Our Work</Badge>
-                <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: primaryColor }}>
-                  Gallery
-                </h2>
-                <p className="text-muted-foreground text-lg">
-                  A glimpse of our work and facilities
+          {businessInfo?.about ? (
+            <Card className="shadow-lg border-0">
+              <CardContent className="p-8 md:p-12">
+                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed text-center">
+                  {businessInfo.about}
                 </p>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-                {heroMedia.slice(0, 8).map((img: string, idx: number) => (
-                  <div 
-                    key={idx} 
-                    className={`rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all cursor-pointer group ${idx === 0 ? 'col-span-2 row-span-2' : ''}`}
-                  >
-                    <img 
-                      src={img} 
-                      alt={`Gallery ${idx + 1}`} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      style={{ minHeight: idx === 0 ? '400px' : '200px' }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="shadow-lg border-0 text-center py-12" data-testid="empty-state-about">
+              <CardContent>
+                <Info className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                <p className="text-lg text-muted-foreground">
+                  About section coming soon
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </section>
 
         {/* Business Hours */}
         <section className="mb-24">
           <div className="text-center mb-10">
-            <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>⏰ Hours</Badge>
             <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: primaryColor }}>
               Business Hours
             </h2>
@@ -1591,10 +1398,9 @@ export default function MiniWebsitePublic() {
         </section>
 
         {/* Active Coupons */}
-        <section className="mb-24 py-12 md:py-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-amber-50 to-orange-50">
+        <section className="mb-24 py-12 md:py-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-slate-100">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: `${secondaryColor}20`, color: secondaryColor }}>🎉 Limited Time Offers</Badge>
               <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: primaryColor }}>
                 Special Offers & Coupons
               </h2>
@@ -1692,7 +1498,7 @@ export default function MiniWebsitePublic() {
                       style={{ backgroundColor: primaryColor, color: "white" }}
                       data-testid="button-view-services"
                     >
-                      View {getServicesTitle()}
+                      View Our Services
                     </Button>
                   )}
                 </CardContent>
@@ -1702,9 +1508,8 @@ export default function MiniWebsitePublic() {
         </section>
 
         {/* Services & Products */}
-        <section id="services" className="mb-24">
+        <section className="mb-24">
           <div className="text-center mb-10">
-            <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>What We Offer</Badge>
             <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: primaryColor }}>
               Our Offerings
             </h2>
@@ -1714,18 +1519,14 @@ export default function MiniWebsitePublic() {
           </div>
           
           <div className="mb-16" id="services-section">
-            <h3 className="text-2xl md:text-3xl font-bold mb-8 text-center" style={{ color: primaryColor }}>{getServicesTitle()}</h3>
+            <h3 className="text-2xl md:text-3xl font-bold mb-8 text-center">Our Services</h3>
             {data.services.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                 {data.services.map((service) => (
                     <Card 
                       key={service.id} 
-                      className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 overflow-hidden border-0 shadow-lg h-full flex flex-col cursor-pointer"
+                      className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 overflow-hidden border-0 shadow-lg h-full flex flex-col"
                       data-testid={`service-card-${service.id}`}
-                      onClick={() => {
-                        setSelectedService(service);
-                        setServiceDetailOpen(true);
-                      }}
                     >
                       <CardHeader className="text-center pb-4">
                         {/* Icon Circle */}
@@ -1743,45 +1544,18 @@ export default function MiniWebsitePublic() {
                           </div>
                         )}
                         <CardTitle className="text-xl mb-2">{service.name}</CardTitle>
-                        <CardDescription className="text-base line-clamp-2">{service.shortDescription || service.description}</CardDescription>
+                        <CardDescription className="text-base">{service.description}</CardDescription>
                       </CardHeader>
                       <CardContent className="flex-grow flex flex-col justify-end space-y-4">
                         {ecommerce.showPrices && (
                           <div className="text-center">
                             <div className="text-sm text-muted-foreground mb-1">Starting from</div>
-                            {service.offerPrice && service.offerPrice < service.price ? (
-                              <div className="flex items-center justify-center gap-2">
-                                <p className="text-3xl md:text-4xl font-black" style={{ color: primaryColor }}>
-                                  ₹{service.offerPrice.toLocaleString()}
-                                </p>
-                                <p className="text-lg text-muted-foreground line-through">
-                                  ₹{service.price.toLocaleString()}
-                                </p>
-                              </div>
-                            ) : (
-                              <p className="text-3xl md:text-4xl font-black" style={{ color: primaryColor }}>
-                                ₹{service.price.toLocaleString()}
-                              </p>
-                            )}
+                            <p className="text-3xl md:text-4xl font-black" style={{ color: primaryColor }}>
+                              ₹{service.price.toLocaleString()}
+                            </p>
                           </div>
                         )}
                         
-                        {/* View Details Button */}
-                        <Button 
-                          variant="outline"
-                          className="w-full font-semibold"
-                          style={{ borderColor: primaryColor, color: primaryColor }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedService(service);
-                            setServiceDetailOpen(true);
-                          }}
-                          data-testid={`button-view-${service.id}`}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </Button>
-
                         {/* E-commerce buttons or Book Now */}
                         {ecommerce.enabled ? (
                           <div className="flex gap-2">
@@ -1789,8 +1563,7 @@ export default function MiniWebsitePublic() {
                               <Button 
                                 className="flex-1 font-semibold"
                                 style={{ backgroundColor: primaryColor, color: "white" }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
+                                onClick={() => {
                                   if (!customerToken) {
                                     toast({
                                       title: "Login Required",
@@ -1819,8 +1592,7 @@ export default function MiniWebsitePublic() {
                                 variant={ecommerce.mode === 'both' ? "outline" : "default"}
                                 className="flex-1 font-semibold"
                                 style={ecommerce.mode === 'quotation' ? { backgroundColor: primaryColor, color: "white" } : {}}
-                                onClick={(e) => {
-                                  e.stopPropagation();
+                                onClick={() => {
                                   // For quotation mode, no login required - allow guest users
                                   setCart([{
                                     type: 'service',
@@ -1843,10 +1615,7 @@ export default function MiniWebsitePublic() {
                           <Button 
                             className="w-full font-semibold"
                             style={{ backgroundColor: primaryColor, color: "white" }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' });
-                            }}
+                            onClick={() => document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' })}
                             data-testid={`button-book-${service.id}`}
                           >
                             <Calendar className="h-4 w-4 mr-2" />
@@ -2079,12 +1848,11 @@ export default function MiniWebsitePublic() {
           <section id="team" className="mb-24 py-12 md:py-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-slate-100">
             <div className="max-w-7xl mx-auto">
               <div className="text-center mb-10">
-                <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>Meet The Experts</Badge>
                 <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: primaryColor }}>
-                  Our Team
+                  Meet Our Team
                 </h2>
                 <p className="text-muted-foreground text-lg">
-                  The dedicated professionals behind our success
+                  The talented people behind our success
                 </p>
               </div>
               {team.length > 0 ? (
@@ -2135,14 +1903,13 @@ export default function MiniWebsitePublic() {
 
         {/* Testimonials - Only show if testimonials data exists */}
         {testimonials && testimonials.length > 0 && (
-          <section id="testimonials" className="mb-24">
+          <section className="mb-24">
             <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: `${secondaryColor}20`, color: secondaryColor }}>Customer Love</Badge>
               <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: primaryColor }}>
                 What Our Customers Say
               </h2>
               <p className="text-muted-foreground text-lg">
-                Real reviews from real customers
+                Hear from our satisfied customers
               </p>
             </div>
             {testimonials.length > 0 ? (
@@ -2205,12 +1972,11 @@ export default function MiniWebsitePublic() {
         {faqs && faqs.length > 0 && (
           <section id="faqs" className="mb-24">
             <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: `${accentColor}20`, color: accentColor }}>Got Questions?</Badge>
               <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: primaryColor }}>
                 Frequently Asked Questions
               </h2>
               <p className="text-muted-foreground text-lg">
-                Find answers to common questions
+                Find answers to common questions about our services
               </p>
             </div>
             {faqs.length > 0 ? (
@@ -2430,539 +2196,6 @@ export default function MiniWebsitePublic() {
         </section>
 
       </div>
-
-      {/* Service Detail Dialog */}
-      <Dialog open={serviceDetailOpen} onOpenChange={setServiceDetailOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          {selectedService && (
-            <>
-              <DialogHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <DialogTitle className="text-2xl">{selectedService.name}</DialogTitle>
-                    {(selectedService as any).tagline && (
-                      <p className="text-muted-foreground mt-1 text-base">{(selectedService as any).tagline}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <Badge variant="outline" className="font-normal">
-                        {selectedService.category}
-                      </Badge>
-                      {selectedService.subcategory && (
-                        <Badge variant="outline" className="font-normal">
-                          {selectedService.subcategory}
-                        </Badge>
-                      )}
-                      {(selectedService as any).serviceType && (
-                        <Badge variant="secondary" className="capitalize">
-                          {(selectedService as any).serviceType.replace('-', ' ')}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </DialogHeader>
-
-              <div className="space-y-6 mt-4">
-                {/* Image Gallery */}
-                <div className="space-y-3">
-                  <div className="relative w-full h-64 md:h-80 bg-muted rounded-lg overflow-hidden">
-                    {(selectedService as any).images && (selectedService as any).images.length > 0 ? (
-                      <img
-                        src={(selectedService as any).images[0]}
-                        alt={selectedService.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : selectedService.icon ? (
-                      <div className="flex w-full h-full items-center justify-center">
-                        <div className="text-8xl">{selectedService.icon}</div>
-                      </div>
-                    ) : (
-                      <div className="flex w-full h-full items-center justify-center">
-                        <ImageIcon className="h-16 w-16 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Promotional Caption */}
-                {(selectedService as any).promotionalCaption && (
-                  <Card className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-900">
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100 text-center">
-                      {(selectedService as any).promotionalCaption}
-                    </p>
-                  </Card>
-                )}
-
-                {/* Pricing Card */}
-                <Card className="p-5" style={{ background: `linear-gradient(135deg, ${primaryColor}10, ${primaryColor}20)`, borderColor: `${primaryColor}30` }}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <DollarSign className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h3 className="font-semibold text-lg">Pricing</h3>
-                      </div>
-                      
-                      <div className="flex items-baseline gap-3">
-                        {selectedService.offerPrice && selectedService.offerPrice < selectedService.price ? (
-                          <>
-                            <span className="text-3xl font-bold" style={{ color: primaryColor }}>
-                              ₹{selectedService.offerPrice}
-                            </span>
-                            <span className="text-xl text-muted-foreground line-through">
-                              ₹{selectedService.price}
-                            </span>
-                            <Badge variant="destructive" className="text-sm">
-                              {Math.round(((selectedService.price - selectedService.offerPrice) / selectedService.price) * 100)}% OFF
-                            </Badge>
-                          </>
-                        ) : (
-                          <span className="text-3xl font-bold" style={{ color: primaryColor }}>
-                            ₹{selectedService.price || 0}
-                          </span>
-                        )}
-                      </div>
-
-                      {(selectedService as any).customUnit && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {(selectedService as any).customUnit}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* GST Information */}
-                    {((selectedService as any).taxPercentage !== undefined && (selectedService as any).taxPercentage !== null) && (
-                      <div className="text-right">
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-1">
-                          <Percent className="h-4 w-4" />
-                          <span>GST: {(selectedService as any).taxPercentage}%</span>
-                        </div>
-                        {(selectedService as any).gstIncluded && (
-                          <Badge variant="outline" className="text-xs">
-                            GST Included
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </Card>
-
-                {/* Descriptions */}
-                <div className="grid grid-cols-1 gap-4">
-                  {selectedService.shortDescription && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Sparkles className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h3 className="font-semibold">Quick Overview</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground leading-relaxed bg-muted/50 p-3 rounded-lg">
-                        {selectedService.shortDescription}
-                      </p>
-                    </div>
-                  )}
-
-                  {(selectedService as any).detailedDescription && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h3 className="font-semibold">Detailed Description</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                        {(selectedService as any).detailedDescription}
-                      </p>
-                    </div>
-                  )}
-
-                  {!selectedService.shortDescription && !(selectedService as any).detailedDescription && selectedService.description && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h3 className="font-semibold">Description</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {selectedService.description}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <Separator />
-
-                {/* Benefits, Features, and Highlights */}
-                {(((selectedService as any).benefits && (selectedService as any).benefits.length > 0) || 
-                  ((selectedService as any).features && (selectedService as any).features.length > 0) || 
-                  ((selectedService as any).highlights && (selectedService as any).highlights.length > 0)) && (
-                  <>
-                    <div className="grid md:grid-cols-3 gap-4">
-                      {/* Benefits */}
-                      {(selectedService as any).benefits && (selectedService as any).benefits.length > 0 && (
-                        <Card className="p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Star className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                            <h3 className="font-semibold text-blue-900 dark:text-blue-100">Benefits</h3>
-                          </div>
-                          <ul className="space-y-2">
-                            {(selectedService as any).benefits.map((item: string, idx: number) => (
-                              <li key={idx} className="text-sm flex items-start gap-2">
-                                <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                                <span className="text-blue-800 dark:text-blue-200">{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </Card>
-                      )}
-
-                      {/* Features */}
-                      {(selectedService as any).features && (selectedService as any).features.length > 0 && (
-                        <Card className="p-4 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                            <h3 className="font-semibold text-purple-900 dark:text-purple-100">Features</h3>
-                          </div>
-                          <ul className="space-y-2">
-                            {(selectedService as any).features.map((item: string, idx: number) => (
-                              <li key={idx} className="text-sm flex items-start gap-2">
-                                <CheckCircle2 className="h-4 w-4 text-purple-600 dark:text-purple-400 mt-0.5 shrink-0" />
-                                <span className="text-purple-800 dark:text-purple-200">{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </Card>
-                      )}
-
-                      {/* Highlights */}
-                      {(selectedService as any).highlights && (selectedService as any).highlights.length > 0 && (
-                        <Card className="p-4 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Award className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                            <h3 className="font-semibold text-amber-900 dark:text-amber-100">Highlights</h3>
-                          </div>
-                          <ul className="space-y-2">
-                            {(selectedService as any).highlights.map((item: string, idx: number) => (
-                              <li key={idx} className="text-sm flex items-start gap-2">
-                                <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                                <span className="text-amber-800 dark:text-amber-200">{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </Card>
-                      )}
-                    </div>
-                    <Separator />
-                  </>
-                )}
-
-                {/* Inclusions & Exclusions */}
-                {(((selectedService as any).inclusions && (selectedService as any).inclusions.length > 0) || 
-                  ((selectedService as any).exclusions && (selectedService as any).exclusions.length > 0)) && (
-                  <>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {/* Inclusions */}
-                      {(selectedService as any).inclusions && (selectedService as any).inclusions.length > 0 && (
-                        <Card className="p-4 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900">
-                          <div className="flex items-center gap-2 mb-3">
-                            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                            <h3 className="font-semibold text-green-900 dark:text-green-100">What's Included</h3>
-                          </div>
-                          <ul className="space-y-2">
-                            {(selectedService as any).inclusions.map((item: string, idx: number) => (
-                              <li key={idx} className="text-sm flex items-start gap-2">
-                                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                                <span className="text-green-800 dark:text-green-200">{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </Card>
-                      )}
-
-                      {/* Exclusions */}
-                      {(selectedService as any).exclusions && (selectedService as any).exclusions.length > 0 && (
-                        <Card className="p-4 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900">
-                          <div className="flex items-center gap-2 mb-3">
-                            <X className="h-5 w-5 text-red-600 dark:text-red-400" />
-                            <h3 className="font-semibold text-red-900 dark:text-red-100">Not Included</h3>
-                          </div>
-                          <ul className="space-y-2">
-                            {(selectedService as any).exclusions.map((item: string, idx: number) => (
-                              <li key={idx} className="text-sm flex items-start gap-2">
-                                <X className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
-                                <span className="text-red-800 dark:text-red-200">{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </Card>
-                      )}
-                    </div>
-                    <Separator />
-                  </>
-                )}
-
-                {/* Package Details */}
-                {(selectedService as any).serviceType === 'package' && (
-                  <>
-                    <Card className="p-4 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                        <h3 className="font-semibold text-purple-900 dark:text-purple-100">Package Details</h3>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {(selectedService as any).packageName && (
-                          <div>
-                            <p className="text-xs text-purple-600 dark:text-purple-400 mb-1">Package Name</p>
-                            <p className="font-medium text-purple-900 dark:text-purple-100">{(selectedService as any).packageName}</p>
-                          </div>
-                        )}
-                        {(selectedService as any).packageType && (
-                          <div>
-                            <p className="text-xs text-purple-600 dark:text-purple-400 mb-1">Package Type</p>
-                            <p className="font-medium text-purple-900 dark:text-purple-100 capitalize">
-                              {(selectedService as any).packageType.replace('-', ' ')}
-                            </p>
-                          </div>
-                        )}
-                        {(selectedService as any).packageDuration && (
-                          <div>
-                            <p className="text-xs text-purple-600 dark:text-purple-400 mb-1">Duration</p>
-                            <p className="font-medium text-purple-900 dark:text-purple-100">{(selectedService as any).packageDuration}</p>
-                          </div>
-                        )}
-                        {(selectedService as any).packageSessions && (
-                          <div>
-                            <p className="text-xs text-purple-600 dark:text-purple-400 mb-1">Sessions</p>
-                            <p className="font-medium text-purple-900 dark:text-purple-100">{(selectedService as any).packageSessions} sessions</p>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                    <Separator />
-                  </>
-                )}
-
-                {/* Availability & Schedule */}
-                {(((selectedService as any).availableDays && (selectedService as any).availableDays.length > 0) || 
-                  ((selectedService as any).availableTimeSlots && (selectedService as any).availableTimeSlots.length > 0)) && (
-                  <>
-                    <div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <CalendarDays className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h3 className="font-semibold">Availability</h3>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        {(selectedService as any).availableDays && (selectedService as any).availableDays.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium mb-2">Available Days</p>
-                            <div className="flex flex-wrap gap-2">
-                              {(selectedService as any).availableDays.map((day: string, idx: number) => (
-                                <Badge key={idx} variant="outline" className="font-normal">
-                                  {day}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {(selectedService as any).availableTimeSlots && (selectedService as any).availableTimeSlots.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium mb-2">Time Slots</p>
-                            <div className="flex flex-wrap gap-2">
-                              {(selectedService as any).availableTimeSlots.map((slot: string, idx: number) => (
-                                <Badge key={idx} variant="secondary" className="font-normal">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  {slot}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <Separator />
-                  </>
-                )}
-
-                {/* Service Features */}
-                {((selectedService as any).bookingRequired || (selectedService as any).homeCollectionAvailable || (selectedService as any).freeTrialAvailable) && (
-                  <>
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Settings className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h3 className="font-semibold">Service Features</h3>
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        {(selectedService as any).bookingRequired && (
-                          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
-                            <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                            <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                              Booking Required
-                            </span>
-                          </div>
-                        )}
-                        {(selectedService as any).homeCollectionAvailable && (
-                          <div className="flex items-center gap-2 px-3 py-2 bg-teal-50 dark:bg-teal-950/20 rounded-lg border border-teal-200 dark:border-teal-900">
-                            <Home className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-                            <span className="text-sm font-medium text-teal-900 dark:text-teal-100">
-                              Home Collection Available
-                            </span>
-                          </div>
-                        )}
-                        {(selectedService as any).freeTrialAvailable && (
-                          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900">
-                            <Gift className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                            <span className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                              Free Trial Available
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <Separator />
-                  </>
-                )}
-
-                {/* Tags */}
-                {selectedService.tags && selectedService.tags.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Tag className="h-5 w-5" style={{ color: primaryColor }} />
-                      <h3 className="font-semibold">Tags</h3>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedService.tags.map((tag, idx) => (
-                        <Badge key={idx} variant="secondary">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Legacy Packages Display */}
-                {(selectedService as any).packages && (selectedService as any).packages.length > 0 && (
-                  <>
-                    <Separator />
-                    <div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <Package className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h3 className="font-semibold">Available Packages</h3>
-                      </div>
-                      <div className="grid gap-3">
-                        {(selectedService as any).packages.map((pkg: any, idx: number) => (
-                          <Card key={idx} className="p-4">
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-medium text-lg">{pkg.name}</h4>
-                              <Badge variant="default" className="text-base">
-                                ₹{pkg.price}
-                              </Badge>
-                            </div>
-                            {pkg.description && (
-                              <p className="text-sm text-muted-foreground mb-3">
-                                {pkg.description}
-                              </p>
-                            )}
-                            {pkg.features && pkg.features.length > 0 && (
-                              <ul className="space-y-1.5">
-                                {pkg.features.map((feature: string, fIdx: number) => (
-                                  <li key={fIdx} className="text-sm flex items-start gap-2">
-                                    <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" style={{ color: primaryColor }} />
-                                    <span>{feature}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Terms & Conditions */}
-                {(selectedService as any).termsAndConditions && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h3 className="font-semibold mb-2">Terms & Conditions</h3>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted/50 p-4 rounded-lg">
-                        {(selectedService as any).termsAndConditions}
-                      </p>
-                    </div>
-                  </>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                  {ecommerce.enabled ? (
-                    <>
-                      {(ecommerce.mode === 'cart' || ecommerce.mode === 'both') && (
-                        <Button 
-                          className="flex-1 font-semibold"
-                          style={{ backgroundColor: primaryColor, color: "white" }}
-                          onClick={() => {
-                            if (!customerToken) {
-                              toast({
-                                title: "Login Required",
-                                description: "Please login to add items to cart",
-                                variant: "destructive",
-                              });
-                              setLocation(`/site/${subdomain}/login`);
-                            } else {
-                              addToCart({
-                                type: 'service',
-                                id: selectedService.id,
-                                name: selectedService.name,
-                                price: selectedService.price,
-                                vendorCatalogueId: selectedService.id,
-                              });
-                              setServiceDetailOpen(false);
-                            }
-                          }}
-                        >
-                          <ShoppingCart className="h-4 w-4 mr-2" />
-                          Add to Cart
-                        </Button>
-                      )}
-                      {(ecommerce.mode === 'quotation' || ecommerce.mode === 'both') && (
-                        <Button 
-                          variant={ecommerce.mode === 'both' ? "outline" : "default"}
-                          className="flex-1 font-semibold"
-                          style={ecommerce.mode === 'quotation' ? { backgroundColor: primaryColor, color: "white" } : {}}
-                          onClick={() => {
-                            setCart([{
-                              type: 'service',
-                              id: selectedService.id,
-                              name: selectedService.name,
-                              price: selectedService.price,
-                              vendorCatalogueId: selectedService.id,
-                              quantity: 1,
-                            }]);
-                            setServiceDetailOpen(false);
-                            setQuotationOpen(true);
-                          }}
-                        >
-                          <Tag className="h-4 w-4 mr-2" />
-                          Request Quote
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <Button 
-                      className="flex-1 font-semibold"
-                      style={{ backgroundColor: primaryColor, color: "white" }}
-                      onClick={() => {
-                        setServiceDetailOpen(false);
-                        document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Book Now
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Footer with Vyora Branding */}
       <footer className="bg-muted py-12 border-t">

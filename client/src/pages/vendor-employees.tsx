@@ -1,13 +1,24 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { getApiUrl } from "@/lib/config";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Users, Phone, Mail, MapPin, Briefcase, Calendar, 
+  IndianRupee, Plus, Edit, Trash2, UserCheck, UserX, Upload, Wallet, ArrowLeft
+} from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import type { UploadResult } from "@uppy/core";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -25,34 +36,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertEmployeeSchema, insertPayrollSchema, type Employee, type Payroll } from "@shared/schema";
 import { z } from "zod";
-import {
-  Users, Phone, Mail, MapPin, Briefcase, Calendar, Plus, Edit2, Trash2,
-  UserCheck, UserX, Wallet, ArrowLeft, Search, RefreshCw, Eye,
-  MoreHorizontal, Clock, Building2, Award, FileText, Timer, Activity,
-  CalendarDays, DollarSign, AlertTriangle, CheckCircle2, Crown, Target
-} from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
-import { format, formatDistanceToNow, differenceInDays, isPast } from "date-fns";
+import { Link, useLocation } from "wouter";
+
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
@@ -66,56 +57,27 @@ export default function VendorEmployees() {
   const { vendorId } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
-  const [employmentTypeFilter, setEmploymentTypeFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("recent");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [payingSalaryEmployee, setPayingSalaryEmployee] = useState<Employee | null>(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState<string[]>([]);
 
-  // Fetch employees
-  const { data: employees = [], isLoading, refetch } = useQuery<Employee[]>({
+  // Fetch vendor's employees
+  const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: [`/api/vendors/${vendorId}/employees`],
     enabled: !!vendorId,
   });
 
-  // Fetch attendance for all employees
-  const { data: allAttendance = [] } = useQuery<any[]>({
-    queryKey: ['/api/vendors', vendorId, 'attendance'],
-    queryFn: async () => {
-      const response = await fetch(getApiUrl(`/api/vendors/${vendorId}/attendance`), {
-        credentials: "include",
-      });
-      if (!response.ok) return [];
-      return response.json();
-    },
-    enabled: !!vendorId,
-  });
-
-  // Fetch leads to check assigned leads
-  const { data: allLeads = [] } = useQuery<any[]>({
-    queryKey: ['/api/vendors', vendorId, 'leads'],
-    queryFn: async () => {
-      const response = await fetch(getApiUrl(`/api/vendors/${vendorId}/leads`), {
-        credentials: "include",
-      });
-      if (!response.ok) return [];
-      return response.json();
-    },
-    enabled: !!vendorId,
-  });
-
-  // Create employee mutation
-  const createMutation = useMutation({
+  // Create employee
+  const createEmployeeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insertEmployeeSchema>) => {
       const response = await apiRequest("POST", `/api/vendors/${vendorId}/employees`, data);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/employees`] });
-      toast({ title: "✅ Employee added" });
+      toast({ title: "Employee added successfully" });
       setIsAddDialogOpen(false);
     },
     onError: () => {
@@ -123,58 +85,50 @@ export default function VendorEmployees() {
     },
   });
 
-  // Update employee mutation
-  const updateMutation = useMutation({
+  // Update employee
+  const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
       const response = await apiRequest("PATCH", `/api/employees/${id}`, updates);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/employees`] });
-      toast({ title: "✅ Employee updated" });
+      toast({ title: "Employee updated successfully" });
       setEditingEmployee(null);
-      setIsAddDialogOpen(false);
     },
     onError: () => {
       toast({ title: "Failed to update employee", variant: "destructive" });
     },
   });
 
-  // Delete employee mutation
-  const deleteMutation = useMutation({
+  // Delete employee
+  const deleteEmployeeMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await apiRequest("DELETE", `/api/employees/${id}`);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/employees`] });
-      toast({ title: "Employee removed" });
+      toast({ title: "Employee removed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to remove employee", variant: "destructive" });
     },
   });
 
-  // Pay salary mutation
+  // Pay salary (create payroll)
   const paySalaryMutation = useMutation({
-    mutationFn: async ({ employeeId, data }: { employeeId: string; data: any }) => {
+    mutationFn: async ({ employeeId, data }: { employeeId: string; data: z.infer<typeof payrollFormSchema> }) => {
       const response = await apiRequest("POST", `/api/employees/${employeeId}/payroll`, data);
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "✅ Salary payment recorded" });
+      toast({ title: "Salary payment recorded successfully" });
       setPayingSalaryEmployee(null);
       payrollForm.reset();
     },
     onError: () => {
-      toast({ title: "Failed to record salary", variant: "destructive" });
-    },
-  });
-
-  // Update status mutation
-  const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiRequest("PATCH", `/api/employees/${id}`, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/employees`] });
-      toast({ title: "Status updated" });
+      toast({ title: "Failed to record salary payment", variant: "destructive" });
     },
   });
 
@@ -220,102 +174,43 @@ export default function VendorEmployees() {
     },
   });
 
-  // Get unique departments
-  const departments = useMemo(() => {
-    const depts = new Set<string>();
-    employees.forEach(emp => {
-      if (emp.department) depts.add(emp.department);
-    });
-    return Array.from(depts);
-  }, [employees]);
+  const filteredEmployees = statusFilter === "all" 
+    ? employees 
+    : employees.filter(emp => emp.status === statusFilter);
 
-  // Attendance map by employee
-  const attendanceMap = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    allAttendance.forEach((record: any) => {
-      if (record.employeeId) {
-        if (!map[record.employeeId]) {
-          map[record.employeeId] = [];
-        }
-        map[record.employeeId].push(record);
-      }
-    });
-    return map;
-  }, [allAttendance]);
+  const stats = {
+    total: employees.length,
+    active: employees.filter(e => e.status === "active").length,
+    inactive: employees.filter(e => e.status === "inactive").length,
+    fullTime: employees.filter(e => e.employmentType === "full-time").length,
+    partTime: employees.filter(e => e.employmentType === "part-time").length,
+  };
 
-  // Leads assigned map by employee
-  const leadsMap = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    allLeads.forEach((lead: any) => {
-      if (lead.assignedEmployeeId) {
-        if (!map[lead.assignedEmployeeId]) {
-          map[lead.assignedEmployeeId] = [];
-        }
-        map[lead.assignedEmployeeId].push(lead);
-      }
-    });
-    return map;
-  }, [allLeads]);
-
-  // Filter and sort employees
-  const filteredEmployees = useMemo(() => {
-    let result = [...employees];
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(emp =>
-        emp.name.toLowerCase().includes(query) ||
-        emp.phone.includes(query) ||
-        emp.email.toLowerCase().includes(query) ||
-        emp.role.toLowerCase().includes(query)
-      );
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active": return "bg-green-500/10 text-green-700 dark:text-green-400";
+      case "inactive": return "bg-gray-500/10 text-gray-700 dark:text-gray-400";
+      case "terminated": return "bg-red-500/10 text-red-700 dark:text-red-400";
+      default: return "bg-muted text-muted-foreground";
     }
+  };
 
-    // Status filter
-    if (statusFilter !== "all") {
-      result = result.filter(emp => emp.status === statusFilter);
+  const getEmploymentTypeColor = (type: string) => {
+    switch (type) {
+      case "full-time": return "bg-blue-500/10 text-blue-700 dark:text-blue-400";
+      case "part-time": return "bg-purple-500/10 text-purple-700 dark:text-purple-400";
+      case "contract": return "bg-orange-500/10 text-orange-700 dark:text-orange-400";
+      default: return "bg-muted text-muted-foreground";
     }
+  };
 
-    // Department filter
-    if (departmentFilter !== "all") {
-      result = result.filter(emp => emp.department === departmentFilter);
+  const onSubmit = (data: z.infer<typeof insertEmployeeSchema>) => {
+    if (editingEmployee) {
+      updateEmployeeMutation.mutate({ id: editingEmployee.id, updates: data });
+    } else {
+      createEmployeeMutation.mutate(data);
     }
-
-    // Employment type filter
-    if (employmentTypeFilter !== "all") {
-      result = result.filter(emp => emp.employmentType === employmentTypeFilter);
-    }
-
-    // Sort
-    if (sortBy === "recent") {
-      result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    } else if (sortBy === "name") {
-      result.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortBy === "salary") {
-      result.sort((a, b) => (b.basicSalary || 0) - (a.basicSalary || 0));
-    } else if (sortBy === "joining") {
-      result.sort((a, b) => new Date(a.joiningDate).getTime() - new Date(b.joiningDate).getTime());
-    }
-
-    return result;
-  }, [employees, searchQuery, statusFilter, departmentFilter, employmentTypeFilter, sortBy]);
-
-  // Stats calculations
-  const stats = useMemo(() => {
-    const total = employees.length;
-    const active = employees.filter(e => e.status === "active").length;
-    const inactive = employees.filter(e => e.status === "inactive").length;
-    const onboarding = employees.filter(e => e.status === "onboarding").length;
-    const fullTime = employees.filter(e => e.employmentType === "full-time").length;
-    const partTime = employees.filter(e => e.employmentType === "part-time").length;
-    const contract = employees.filter(e => e.employmentType === "contract").length;
-    const totalSalary = employees.reduce((sum, e) => sum + (e.basicSalary || 0), 0);
-
-    return { total, active, inactive, onboarding, fullTime, partTime, contract, totalSalary };
-  }, [employees]);
-
-  if (!vendorId) { return <LoadingSpinner />; }
+  };
 
   const handleEdit = (employee: Employee) => {
     setEditingEmployee(employee);
@@ -341,322 +236,522 @@ export default function VendorEmployees() {
     setIsAddDialogOpen(true);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (confirm(`Delete ${name}?`)) {
-      deleteMutation.mutate(id);
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to remove this employee? This action cannot be undone.")) {
+      deleteEmployeeMutation.mutate(id);
     }
   };
 
-  const handleViewDetails = (employee: Employee) => {
-    setLocation(`/vendor/employees/${employee.id}`);
+  const toggleStatus = (employee: Employee) => {
+    const newStatus = employee.status === "active" ? "inactive" : "active";
+    updateEmployeeMutation.mutate({
+      id: employee.id,
+      updates: { status: newStatus }
+    });
   };
 
-  const onSubmit = (data: z.infer<typeof insertEmployeeSchema>) => {
-    if (editingEmployee) {
-      updateMutation.mutate({ id: editingEmployee.id, updates: data });
-    } else {
-      createMutation.mutate(data);
-    }
+  // File upload handlers (simplified - to be implemented)
+  const handleGetUploadURL = async () => {
+    // Placeholder for file upload functionality
+    toast({ title: "File upload feature coming soon", variant: "default" });
+    return { method: "PUT" as const, url: "" };
   };
 
-  // Avatar component
-  const Avatar = ({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) => {
-    const sizeClasses = {
-      sm: "h-8 w-8 text-xs",
-      md: "h-10 w-10 text-sm",
-      lg: "h-12 w-12 text-base"
-    };
-    const initial = name.charAt(0).toUpperCase();
-    const colors = [
-      "bg-blue-500", "bg-emerald-500", "bg-purple-500",
-      "bg-amber-500", "bg-rose-500", "bg-cyan-500", "bg-indigo-500"
-    ];
-    const colorIndex = name.charCodeAt(0) % colors.length;
+  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    // Placeholder for upload completion
+    console.log("Upload complete:", result);
+  };
+
+  if (isLoading) {
+
+    // Show loading while vendor ID initializes
+    if (!vendorId) { return <LoadingSpinner />; }
 
     return (
-      <div className={`${sizeClasses[size]} ${colors[colorIndex]} rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0`}>
-        {initial}
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-24 bg-muted rounded"></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
-  };
-
-  // Status badge component
-  const StatusBadge = ({ status }: { status: string }) => {
-    const config: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
-      active: { bg: "bg-emerald-100", text: "text-emerald-700", icon: <UserCheck className="h-3 w-3" /> },
-      inactive: { bg: "bg-gray-100", text: "text-gray-600", icon: <UserX className="h-3 w-3" /> },
-      onboarding: { bg: "bg-blue-100", text: "text-blue-700", icon: <Clock className="h-3 w-3" /> },
-      "ex-employee": { bg: "bg-orange-100", text: "text-orange-700", icon: <UserX className="h-3 w-3" /> },
-      terminated: { bg: "bg-red-100", text: "text-red-700", icon: <UserX className="h-3 w-3" /> },
-    };
-    const c = config[status] || config.active;
-    const displayStatus = status === "ex-employee" ? "Ex-Employee" : status.charAt(0).toUpperCase() + status.slice(1);
-    return (
-      <Badge className={`${c.bg} ${c.text} border-0 gap-1 font-medium text-xs`}>
-        {c.icon}
-        {displayStatus}
-      </Badge>
-    );
-  };
-
-  // Employment type badge
-  const TypeBadge = ({ type }: { type: string }) => {
-    const config: Record<string, { bg: string; text: string }> = {
-      "full-time": { bg: "bg-blue-100", text: "text-blue-700" },
-      "part-time": { bg: "bg-purple-100", text: "text-purple-700" },
-      "contract": { bg: "bg-orange-100", text: "text-orange-700" },
-    };
-    const c = config[type] || config["full-time"];
-    return (
-      <Badge className={`${c.bg} ${c.text} border-0 text-xs`}>
-        {type.replace("-", " ")}
-      </Badge>
-    );
-  };
+  }
 
   return (
-    <div className="flex h-full w-full flex-col bg-gray-50/50 overflow-hidden">
-      {/* Header - Fixed */}
-      <div className="px-3 sm:px-4 py-3 bg-white border-b shadow-sm flex-shrink-0">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setLocation("/vendor/dashboard")}
-              className="h-9 w-9 flex-shrink-0"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-600 hidden sm:block" />
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Employees</h1>
-            </div>
+    <div className="flex h-full w-full flex-col">
+      {/* Header */}
+      <div className="px-4 py-3 border-b flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLocation("/vendor/dashboard")}
+            className="md:hidden flex-shrink-0"
+            data-testid="button-back-to-dashboard"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Employees</h1>
+            <p className="text-xs text-muted-foreground">Manage your team</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => refetch()} className="h-9 w-9">
-              <RefreshCw className="h-4 w-4" />
+        </div>
+        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) {
+            setEditingEmployee(null);
+            form.reset();
+          }
+        }}>
+          <DialogTrigger asChild>
+            <Button size="sm" data-testid="button-add-employee">
+              <Plus className="w-4 h-4" />
             </Button>
-            <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-              setIsAddDialogOpen(open);
-              if (!open) {
-                setEditingEmployee(null);
-                form.reset();
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-9">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-1">Add</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    {editingEmployee ? <Edit2 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-                    {editingEmployee ? "Edit Employee" : "Add Employee"}
-                  </DialogTitle>
-                </DialogHeader>
-                <EmployeeForm
-                  form={form}
-                  onSubmit={onSubmit}
-                  isPending={createMutation.isPending || updateMutation.isPending}
-                  isEditing={!!editingEmployee}
-                  onCancel={() => setIsAddDialogOpen(false)}
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingEmployee ? "Edit Employee" : "Add New Employee"}</DialogTitle>
+              <DialogDescription>
+                {editingEmployee ? "Update employee information" : "Add a new team member to your business"}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name *</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-employee-name" placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Role/Position *</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-employee-role" placeholder="Trainer, Coach, Manager, etc." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-employee-email" type="email" placeholder="employee@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone *</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-employee-phone" placeholder="+91 9876543210" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Textarea data-testid="input-employee-address" placeholder="Street address" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </DialogContent>
-            </Dialog>
-          </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-employee-city" placeholder="Mumbai" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-employee-state" placeholder="Maharashtra" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pincode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pincode</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-employee-pincode" placeholder="400001" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="department"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Department</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-employee-department" placeholder="Sales, Operations, etc." {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="employmentType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Employment Type *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-employment-type">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="full-time">Full-Time</SelectItem>
+                            <SelectItem value="part-time">Part-Time</SelectItem>
+                            <SelectItem value="contract">Contract</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="shiftStartTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Shift Start Time</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-shift-start" placeholder="09:00 AM" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="shiftEndTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Shift End Time</FormLabel>
+                        <FormControl>
+                          <Input data-testid="input-shift-end" placeholder="06:00 PM" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="basicSalary"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Monthly Salary (₹)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            data-testid="input-employee-salary" 
+                            type="number" 
+                            placeholder="30000" 
+                            {...field}
+                            value={field.value || 0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-employee-status">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                          <SelectItem value="terminated">Terminated</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* File upload feature to be implemented */}
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} data-testid="button-cancel">
+                    Cancel
+                  </Button>
+                  <Button type="submit" data-testid="button-submit-employee" disabled={createEmployeeMutation.isPending || updateEmployeeMutation.isPending}>
+                    {createEmployeeMutation.isPending || updateEmployeeMutation.isPending ? "Saving..." : (editingEmployee ? "Update Employee" : "Add Employee")}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Stats - Responsive Grid */}
+      <div className="px-4 py-3 border-b">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          <Card className="p-3">
+            <p className="text-xs text-muted-foreground mb-1">Total</p>
+            <p className="text-lg font-bold">{stats.total}</p>
+          </Card>
+          <Card className="p-3">
+            <p className="text-xs text-muted-foreground mb-1">Active</p>
+            <p className="text-lg font-bold text-green-600">{stats.active}</p>
+          </Card>
+          <Card className="p-3">
+            <p className="text-xs text-muted-foreground mb-1">Inactive</p>
+            <p className="text-lg font-bold text-gray-600">{stats.inactive}</p>
+          </Card>
+          <Card className="p-3">
+            <p className="text-xs text-muted-foreground mb-1">Full-Time</p>
+            <p className="text-lg font-bold text-blue-600">{stats.fullTime}</p>
+          </Card>
+          <Card className="p-3">
+            <p className="text-xs text-muted-foreground mb-1">Part-Time</p>
+            <p className="text-lg font-bold text-purple-600">{stats.partTime}</p>
+          </Card>
         </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Stats Dashboard - Horizontal Scroll on Mobile */}
-        <div className="px-3 sm:px-4 md:px-6 py-3 md:py-4 bg-white border-b">
-          <div className="flex gap-2 md:gap-3 overflow-x-auto pb-2 md:pb-0 md:grid md:grid-cols-8">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-blue-600 font-medium">Total</p>
-              <p className="text-xl md:text-3xl font-bold text-blue-700">{stats.total}</p>
-            </div>
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-emerald-600 font-medium">Active</p>
-              <p className="text-xl md:text-3xl font-bold text-emerald-700">{stats.active}</p>
-            </div>
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-gray-600 font-medium">Inactive</p>
-              <p className="text-xl md:text-3xl font-bold text-gray-700">{stats.inactive}</p>
-            </div>
-            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-cyan-600 font-medium">Onboarding</p>
-              <p className="text-xl md:text-3xl font-bold text-cyan-700">{stats.onboarding}</p>
-            </div>
-            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-indigo-600 font-medium">Full-Time</p>
-              <p className="text-xl md:text-3xl font-bold text-indigo-700">{stats.fullTime}</p>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-purple-600 font-medium">Part-Time</p>
-              <p className="text-xl md:text-3xl font-bold text-purple-700">{stats.partTime}</p>
-            </div>
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-orange-600 font-medium">Contract</p>
-              <p className="text-xl md:text-3xl font-bold text-orange-700">{stats.contract}</p>
-            </div>
-            <div className="bg-gradient-to-br from-rose-50 to-rose-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-rose-600 font-medium">Payroll</p>
-              <p className="text-xl md:text-3xl font-bold text-rose-700">₹{(stats.totalSalary / 1000).toFixed(0)}k</p>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="mt-3 md:mt-4 p-3 md:p-4 bg-gray-50 rounded-lg">
-            <div className="flex gap-1 h-2 md:h-3 rounded-full overflow-hidden bg-gray-200">
-              <div className="bg-emerald-500 transition-all" style={{ width: `${stats.total > 0 ? (stats.active / stats.total) * 100 : 0}%` }} />
-              <div className="bg-gray-400 transition-all" style={{ width: `${stats.total > 0 ? (stats.inactive / stats.total) * 100 : 0}%` }} />
-              <div className="bg-cyan-500 transition-all" style={{ width: `${stats.total > 0 ? (stats.onboarding / stats.total) * 100 : 0}%` }} />
-            </div>
-          </div>
+      {/* Filter - Horizontal Scroll */}
+      <div className="px-4 py-3 border-b">
+        <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[160px] flex-shrink-0 snap-start" data-testid="select-status-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Employees</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="terminated">Terminated</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+      </div>
 
-        {/* Search and Filters */}
-        <div className="px-3 sm:px-4 md:px-6 py-2 md:py-3 bg-white border-b sticky top-0 z-10 space-y-2">
-          {/* Search Bar */}
-          <div className="relative w-full">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Search by name, phone, email, role..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9 md:h-10 text-sm bg-gray-50 w-full"
-            />
-          </div>
-
-          {/* Filters Row */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[100px] md:w-[120px] h-9 text-xs bg-gray-50 flex-shrink-0">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="onboarding">Onboarding</SelectItem>
-                <SelectItem value="ex-employee">Ex-Employee</SelectItem>
-                <SelectItem value="terminated">Terminated</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={employmentTypeFilter} onValueChange={setEmploymentTypeFilter}>
-              <SelectTrigger className="w-[100px] md:w-[120px] h-9 text-xs bg-gray-50 flex-shrink-0">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="full-time">Full-Time</SelectItem>
-                <SelectItem value="part-time">Part-Time</SelectItem>
-                <SelectItem value="contract">Contract</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {departments.length > 0 && (
-              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                <SelectTrigger className="w-[110px] md:w-[130px] h-9 text-xs bg-gray-50 flex-shrink-0">
-                  <SelectValue placeholder="Department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Depts</SelectItem>
-                  {departments.map(dept => (
-                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      {/* Employee List */}
+      <div className="p-4">
+        <h2 className="text-sm font-semibold mb-3 text-muted-foreground">Team Members ({filteredEmployees.length})</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {filteredEmployees.length === 0 ? (
+            <div className="p-8 text-center border rounded-lg lg:col-span-2">
+            <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">No employees found</h3>
+            <p className="text-muted-foreground mb-4">
+              {statusFilter === "all" 
+                ? "Add your first employee to get started" 
+                : `No ${statusFilter} employees`}
+            </p>
+            {statusFilter === "all" && (
+              <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-first-employee">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Employee
+              </Button>
             )}
-
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[100px] md:w-[120px] h-9 text-xs bg-gray-50 flex-shrink-0">
-                <SelectValue placeholder="Sort" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recent">Recent</SelectItem>
-                <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="salary">Salary</SelectItem>
-                <SelectItem value="joining">Joining</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
-        </div>
+        ) : (
+          filteredEmployees.map((employee) => (
+            <div key={employee.id} data-testid={`card-employee-${employee.id}`} className="p-3 sm:p-4 border rounded-lg hover-elevate">
+              <div className="flex flex-row items-start justify-between space-y-0 pb-2 mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold text-lg" data-testid={`text-employee-name-${employee.id}`}>{employee.name}</h3>
+                    <Badge className={getStatusColor(employee.status)} data-testid={`badge-status-${employee.id}`}>
+                      {employee.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Briefcase className="h-4 w-4" />
+                    <span data-testid={`text-employee-role-${employee.id}`}>{employee.role}</span>
+                    {employee.department && (
+                      <>
+                        <span>•</span>
+                        <span>{employee.department}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <Badge className={getEmploymentTypeColor(employee.employmentType)}>
+                  {employee.employmentType}
+                </Badge>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Mail className="h-4 w-4" />
+                    <span data-testid={`text-employee-email-${employee.id}`}>{employee.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    <span data-testid={`text-employee-phone-${employee.id}`}>{employee.phone}</span>
+                  </div>
+                  {(employee.city || employee.state) && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      <span>{[employee.city, employee.state].filter(Boolean).join(", ")}</span>
+                    </div>
+                  )}
+                  {employee.joiningDate && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>Joined {format(new Date(employee.joiningDate), "MMM d, yyyy")}</span>
+                    </div>
+                  )}
+                  {(employee.basicSalary || 0) > 0 && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <IndianRupee className="h-4 w-4" />
+                      <span>₹{(employee.basicSalary || 0).toLocaleString('en-IN')}/month</span>
+                    </div>
+                  )}
+                </div>
 
-        {/* Employee List */}
-        <div className="px-3 sm:px-4 md:px-6 py-3">
-          <p className="text-xs text-gray-500 mb-2">{filteredEmployees.length} employees</p>
-
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <LoadingSpinner />
+                <div className="flex flex-col gap-2 pt-2 border-t">
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleEdit(employee)}
+                      data-testid={`button-edit-${employee.id}`}
+                      className="flex-1"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => toggleStatus(employee)}
+                      data-testid={`button-toggle-status-${employee.id}`}
+                      className="flex-1"
+                    >
+                      {employee.status === "active" ? (
+                        <><UserX className="h-4 w-4 mr-1" />Deactivate</>
+                      ) : (
+                        <><UserCheck className="h-4 w-4 mr-1" />Activate</>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleDelete(employee.id)}
+                      data-testid={`button-delete-${employee.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    onClick={() => {
+                      setPayingSalaryEmployee(employee);
+                      payrollForm.reset({
+                        vendorId: vendorId,
+                        employeeId: employee.id,
+                        month: new Date().getMonth() + 1,
+                        year: new Date().getFullYear(),
+                        basicSalary: employee.basicSalary || 0,
+                        overtimeHours: 0,
+                        overtimePay: 0,
+                        bonuses: 0,
+                        deductions: 0,
+                        netSalary: employee.basicSalary || 0,
+                        paymentStatus: "paid",
+                        paymentMethod: "bank_transfer",
+                        notes: "",
+                      });
+                    }}
+                    data-testid={`button-pay-salary-${employee.id}`}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    <Wallet className="h-4 w-4 mr-1" />
+                    Pay Salary
+                  </Button>
+                </div>
+              </div>
             </div>
-          ) : filteredEmployees.length === 0 ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <Users className="h-10 w-10 text-gray-300 mb-3" />
-                <p className="text-gray-500 text-sm text-center">
-                  {searchQuery ? "No employees found" : "No employees yet"}
-                </p>
-                <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="mt-3 bg-blue-600">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Employee
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {filteredEmployees.map((employee) => (
-                <EmployeeCard
-                  key={employee.id}
-                  employee={employee}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onStatusChange={(status) => statusMutation.mutate({ id: employee.id, status })}
-                  onViewDetails={handleViewDetails}
-                  onPaySalary={() => {
-                    setPayingSalaryEmployee(employee);
-                    payrollForm.reset({
-                      vendorId: vendorId,
-                      employeeId: employee.id,
-                      month: new Date().getMonth() + 1,
-                      year: new Date().getFullYear(),
-                      basicSalary: employee.basicSalary || 0,
-                      overtimeHours: 0,
-                      overtimePay: 0,
-                      bonuses: 0,
-                      deductions: 0,
-                      netSalary: employee.basicSalary || 0,
-                      paymentStatus: "paid",
-                      paymentMethod: "bank_transfer",
-                      notes: "",
-                    });
-                  }}
-                  Avatar={Avatar}
-                  StatusBadge={StatusBadge}
-                  TypeBadge={TypeBadge}
-                  attendance={attendanceMap[employee.id] || []}
-                  assignedLeads={leadsMap[employee.id] || []}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+          ))
+        )}
       </div>
 
       {/* Pay Salary Dialog */}
       <Dialog open={!!payingSalaryEmployee} onOpenChange={(open) => !open && setPayingSalaryEmployee(null)}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-emerald-600" />
-              Pay Salary - {payingSalaryEmployee?.name}
-            </DialogTitle>
+            <DialogTitle>Pay Salary - {payingSalaryEmployee?.name}</DialogTitle>
             <DialogDescription>
               Record salary payment for {format(new Date(), 'MMMM yyyy')}
             </DialogDescription>
@@ -667,7 +762,7 @@ export default function VendorEmployees() {
                 paySalaryMutation.mutate({ employeeId: payingSalaryEmployee.id, data });
               }
             })} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={payrollForm.control}
                   name="basicSalary"
@@ -680,8 +775,9 @@ export default function VendorEmployees() {
                           field.onChange(value);
                           const total = value + (payrollForm.getValues("bonuses") || 0) - (payrollForm.getValues("deductions") || 0);
                           payrollForm.setValue("netSalary", total);
-                        }} />
+                        }} data-testid="input-basic-salary" />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -697,8 +793,9 @@ export default function VendorEmployees() {
                           field.onChange(value);
                           const total = (payrollForm.getValues("basicSalary") || 0) + value - (payrollForm.getValues("deductions") || 0);
                           payrollForm.setValue("netSalary", total);
-                        }} />
+                        }} data-testid="input-bonuses" />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -715,8 +812,9 @@ export default function VendorEmployees() {
                         field.onChange(value);
                         const total = (payrollForm.getValues("basicSalary") || 0) + (payrollForm.getValues("bonuses") || 0) - value;
                         payrollForm.setValue("netSalary", total);
-                      }} />
+                      }} data-testid="input-deductions" />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -727,8 +825,9 @@ export default function VendorEmployees() {
                   <FormItem>
                     <FormLabel>Net Salary (₹)</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} readOnly className="bg-emerald-50 font-bold text-emerald-700" />
+                      <Input type="number" {...field} readOnly className="bg-muted" data-testid="input-net-salary" />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -739,595 +838,25 @@ export default function VendorEmployees() {
                   <FormItem>
                     <FormLabel>Notes</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Payment notes..." {...field} value={field.value || ""} rows={2} />
+                      <Textarea placeholder="Payment notes..." {...field} value={field.value || ""} data-testid="textarea-salary-notes" />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
-              <DialogFooter className="gap-2">
-                <Button type="button" variant="outline" onClick={() => setPayingSalaryEmployee(null)}>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setPayingSalaryEmployee(null)} data-testid="button-cancel-salary">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={paySalaryMutation.isPending} className="bg-emerald-600 hover:bg-emerald-700">
-                  {paySalaryMutation.isPending ? "Recording..." : "Pay Salary"}
+                <Button type="submit" disabled={paySalaryMutation.isPending} data-testid="button-submit-salary">
+                  {paySalaryMutation.isPending ? "Recording..." : "Record Payment"}
                 </Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
-
+      </div>
     </div>
   );
 }
-
-// Employee Card Component
-function EmployeeCard({
-  employee,
-  onEdit,
-  onDelete,
-  onStatusChange,
-  onViewDetails,
-  onPaySalary,
-  Avatar,
-  StatusBadge,
-  TypeBadge,
-  attendance,
-  assignedLeads,
-}: {
-  employee: Employee;
-  onEdit: (employee: Employee) => void;
-  onDelete: (id: string, name: string) => void;
-  onStatusChange: (status: string) => void;
-  onViewDetails: (employee: Employee) => void;
-  onPaySalary: () => void;
-  Avatar: any;
-  StatusBadge: any;
-  TypeBadge: any;
-  attendance: any[];
-  assignedLeads: any[];
-}) {
-  const joiningDate = employee.joiningDate ? new Date(employee.joiningDate) : new Date(employee.createdAt);
-  const tenure = formatDistanceToNow(joiningDate, { addSuffix: false });
-
-  // Get present days this month
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const presentDays = attendance.filter((a: any) => {
-    const date = new Date(a.date || a.createdAt);
-    return date.getMonth() === currentMonth && date.getFullYear() === currentYear && a.status === 'present';
-  }).length;
-
-  // Build address
-  const addressParts = [];
-  if (employee.city) addressParts.push(employee.city);
-  if (employee.state) addressParts.push(employee.state);
-  const address = addressParts.join(', ');
-
-  return (
-    <Card className="border-0 shadow-sm overflow-hidden active:scale-[0.99] transition-transform">
-      <CardContent className="p-3 sm:p-4">
-        {/* Header Row */}
-        <div className="flex items-start gap-3">
-          <Avatar name={employee.name} size="md" />
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="font-semibold text-gray-900 truncate">{employee.name}</h3>
-                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                  <StatusBadge status={employee.status} />
-                  <TypeBadge type={employee.employmentType} />
-                </div>
-              </div>
-              <span className="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0">{tenure}</span>
-            </div>
-
-            {/* Role & Department */}
-            <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
-              <Briefcase className="h-3.5 w-3.5 text-gray-400" />
-              <span>{employee.role}</span>
-              {employee.department && (
-                <>
-                  <span>•</span>
-                  <span>{employee.department}</span>
-                </>
-              )}
-            </div>
-
-            {/* Contact Info */}
-            <div className="mt-2 space-y-1">
-              <p className="text-sm text-gray-600 flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5 text-gray-400" />
-                {employee.phone}
-              </p>
-              {employee.email && (
-                <p className="text-sm text-gray-600 flex items-center gap-1.5 truncate">
-                  <Mail className="h-3.5 w-3.5 text-gray-400" />
-                  <span className="truncate">{employee.email}</span>
-                </p>
-              )}
-              {address && (
-                <p className="text-sm text-gray-600 flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                  <span className="truncate">{address}</span>
-                </p>
-              )}
-            </div>
-
-            {/* Stats Row */}
-            <div className="flex flex-wrap gap-2 mt-2">
-              {(employee.basicSalary || 0) > 0 && (
-                <span className="text-xs flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded text-emerald-700">
-                  ₹{(employee.basicSalary || 0).toLocaleString()}/mo
-                </span>
-              )}
-              {employee.shiftStartTime && employee.shiftEndTime && (
-                <span className="text-xs flex items-center gap-1 bg-blue-50 px-2 py-1 rounded text-blue-700">
-                  <Clock className="h-3 w-3" />
-                  {employee.shiftStartTime} - {employee.shiftEndTime}
-                </span>
-              )}
-              <span className="text-xs flex items-center gap-1 bg-gray-50 px-2 py-1 rounded text-gray-600">
-                <CalendarDays className="h-3 w-3" />
-                {presentDays} days present
-              </span>
-              {assignedLeads.length > 0 && (
-                <span className="text-xs flex items-center gap-1 bg-amber-50 px-2 py-1 rounded text-amber-700">
-                  <Target className="h-3 w-3" />
-                  {assignedLeads.length} leads
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons - Inside Card */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open(`tel:${employee.phone}`, '_self');
-            }}
-            className="flex-1 h-9 text-xs"
-          >
-            <Phone className="h-4 w-4 text-blue-600" />
-            <span className="ml-1 hidden sm:inline">Call</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open(`https://wa.me/${employee.phone.replace(/[^0-9]/g, '')}`, '_blank');
-            }}
-            className="flex-1 h-9 text-xs"
-          >
-            <FaWhatsapp className="h-4 w-4 text-green-600" />
-            <span className="ml-1 hidden sm:inline">WhatsApp</span>
-          </Button>
-          {employee.email && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(`mailto:${employee.email}`, '_blank');
-              }}
-              className="flex-1 h-9 text-xs"
-            >
-              <Mail className="h-4 w-4 text-purple-600" />
-              <span className="ml-1 hidden sm:inline">Mail</span>
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewDetails(employee);
-            }}
-            className="flex-1 h-9 text-xs"
-          >
-            <Eye className="h-4 w-4" />
-            <span className="ml-1 hidden sm:inline">View</span>
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={(e) => e.stopPropagation()}>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={() => onEdit(employee)}>
-                <Edit2 className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onPaySalary}>
-                <Wallet className="h-4 w-4 mr-2 text-emerald-600" />
-                Pay Salary
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onStatusChange("active")}>
-                <UserCheck className="h-4 w-4 mr-2 text-emerald-600" />
-                Active
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange("inactive")}>
-                <UserX className="h-4 w-4 mr-2 text-gray-600" />
-                Inactive
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange("onboarding")}>
-                <Clock className="h-4 w-4 mr-2 text-blue-600" />
-                Onboarding
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange("ex-employee")}>
-                <UserX className="h-4 w-4 mr-2 text-orange-600" />
-                Ex-Employee
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => onDelete(employee.id, employee.name)}
-                className="text-red-600"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Employee Form Component
-function EmployeeForm({
-  form,
-  onSubmit,
-  isPending,
-  isEditing,
-  onCancel,
-}: {
-  form: any;
-  onSubmit: (data: any) => void;
-  isPending: boolean;
-  isEditing: boolean;
-  onCancel: () => void;
-}) {
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-9">
-            <TabsTrigger value="basic" className="text-xs">Basic</TabsTrigger>
-            <TabsTrigger value="job" className="text-xs">Job</TabsTrigger>
-            <TabsTrigger value="salary" className="text-xs">Salary</TabsTrigger>
-            <TabsTrigger value="docs" className="text-xs">Docs</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="basic" className="space-y-3 mt-3">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full Name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="9876543210" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email *</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="email@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Full address" {...field} value={field.value || ""} rows={2} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-3 gap-3">
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City</FormLabel>
-                    <FormControl>
-                      <Input placeholder="City" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="state"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>State</FormLabel>
-                    <FormControl>
-                      <Input placeholder="State" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="pincode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pincode</FormLabel>
-                    <FormControl>
-                      <Input placeholder="123456" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="job" className="space-y-3 mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Manager, Trainer..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Sales, Operations..." {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="employmentType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Type *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="full-time">Full-Time</SelectItem>
-                        <SelectItem value="part-time">Part-Time</SelectItem>
-                        <SelectItem value="contract">Contract</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="onboarding">Onboarding</SelectItem>
-                        <SelectItem value="ex-employee">Ex-Employee</SelectItem>
-                        <SelectItem value="terminated">Terminated</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="shiftStartTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Shift Start</FormLabel>
-                    <FormControl>
-                      <Input placeholder="09:00 AM" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="shiftEndTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Shift End</FormLabel>
-                    <FormControl>
-                      <Input placeholder="06:00 PM" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="salary" className="space-y-3 mt-3">
-            <FormField
-              control={form.control}
-              name="basicSalary"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monthly Salary (₹)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="30000"
-                      {...field}
-                      value={field.value || 0}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            
-            <div className="p-3 bg-gray-50 rounded-lg space-y-3">
-              <p className="text-xs font-medium text-gray-600">Bank Details (Optional)</p>
-              <FormField
-                control={form.control}
-                name="bankName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Bank Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="HDFC Bank" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="bankAccountNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Account Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="1234567890" {...field} value={field.value || ""} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="bankIfscCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">IFSC Code</FormLabel>
-                      <FormControl>
-                        <Input placeholder="HDFC0001234" {...field} value={field.value || ""} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="docs" className="space-y-3 mt-3">
-            <div className="p-3 bg-gray-50 rounded-lg space-y-3">
-              <p className="text-xs font-medium text-gray-600">ID Proof Details</p>
-              <FormField
-                control={form.control}
-                name="idProofType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">ID Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select ID type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="aadhar">Aadhar Card</SelectItem>
-                        <SelectItem value="pan">PAN Card</SelectItem>
-                        <SelectItem value="passport">Passport</SelectItem>
-                        <SelectItem value="driving_license">Driving License</SelectItem>
-                        <SelectItem value="voter_id">Voter ID</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="idProofNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">ID Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter ID number" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-            <p className="text-xs text-gray-500 text-center py-2">Document uploads can be added from employee profile</p>
-          </TabsContent>
-        </Tabs>
-
-        <DialogFooter className="gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700">
-            {isPending ? "Saving..." : isEditing ? "Update" : "Add Employee"}
-          </Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  );
-}
-

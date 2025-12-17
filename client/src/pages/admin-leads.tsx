@@ -28,6 +28,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Filter, X, Phone, Mail, Calendar, Award, ChevronDown } from "lucide-react";
 import type { Lead, Vendor, Employee } from "@shared/schema";
+import { getApiUrl } from "@/lib/config";
 
 const STATUS_OPTIONS = [
   { value: "new", label: "New" },
@@ -141,7 +142,14 @@ export default function AdminLeadsPage() {
     ],
     queryFn: async () => {
       const queryString = buildQueryParams();
-      const response = await fetch(`/api/admin/leads?${queryString}`);
+      const url = `/api/admin/leads?${queryString}`;
+      const fullUrl = getApiUrl(url);
+      const response = await fetch(fullUrl, {
+        credentials: "include",
+        headers: {
+          ...(localStorage.getItem('token') && { 'Authorization': `Bearer ${localStorage.getItem('token')}` })
+        }
+      });
       if (!response.ok) throw new Error("Failed to fetch leads");
       return response.json();
     },

@@ -1,9 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Home, Sparkles, Package, Globe, Bell } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Home, Sparkles, Package, Globe } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import type { Vendor, Notification } from "@shared/schema";
+import type { Vendor } from "@shared/schema";
 import { getVendorId } from "@/hooks/useVendor";
 
 export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string | null }) {
@@ -22,17 +22,7 @@ export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string 
   // Fetch vendor data for profile display
   const { data: vendor } = useQuery<Vendor>({
     queryKey: ["/api/vendors", vendorId],
-    enabled: !!vendorId,
   });
-
-  // Fetch notifications for badge count
-  const { data: notifications = [] } = useQuery<Notification[]>({
-    queryKey: [`/api/vendors/${vendorId}/notifications`],
-    refetchInterval: 30000,
-    enabled: !!vendorId,
-  });
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const getInitials = (name: string) => {
     return name
@@ -74,11 +64,10 @@ export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string 
   };
 
   const isAccountActive = location.startsWith("/vendor/account");
-  const isNotificationsActive = location === "/vendor/notifications";
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border safe-area-bottom">
-      <nav className="flex items-center justify-around h-16 px-1">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border">
+      <nav className="flex items-center justify-around h-16 px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
@@ -87,7 +76,7 @@ export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string 
             <Link key={item.title} href={item.href}>
               <button
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-[56px]",
+                  "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[60px]",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
@@ -95,69 +84,29 @@ export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string 
                 data-testid={`mobile-nav-${item.title.toLowerCase()}`}
               >
                 <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-medium">{item.title}</span>
+                <span className="text-xs font-medium">{item.title}</span>
               </button>
             </Link>
           );
         })}
         
-        {/* Notifications with badge - hidden as we show in header now */}
-        {/* <Link href="/vendor/notifications">
-          <button
-            className={cn(
-              "relative flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-[56px]",
-              isNotificationsActive
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            data-testid="mobile-nav-notifications"
-          >
-            <div className="relative">
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1.5 flex items-center justify-center min-w-[14px] h-[14px] text-[9px] font-bold text-white rounded-full bg-red-500">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </div>
-            <span className="text-[10px] font-medium">Alerts</span>
-          </button>
-        </Link> */}
-        
-        {/* Profile Section - Shows Business Logo */}
+        {/* Profile Section */}
         <Link href="/vendor/account">
           <button
             className={cn(
-              "flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-[56px]",
+              "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[60px]",
               isAccountActive
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
             )}
             data-testid="mobile-nav-account"
           >
-            <Avatar className={cn(
-              "h-6 w-6 ring-2 ring-offset-1",
-              isAccountActive 
-                ? "ring-primary ring-offset-background" 
-                : "ring-muted-foreground/30 ring-offset-background"
-            )}>
-              {(vendor?.logo || localStorage.getItem(`vendor_logo_${vendorId}`)) ? (
-                <AvatarImage 
-                  src={localStorage.getItem(`vendor_logo_${vendorId}`) || vendor?.logo || ""} 
-                  alt={vendor?.businessName || "Business"} 
-                  className="object-cover"
-                />
-              ) : null}
-              <AvatarFallback className={cn(
-                "text-[9px] font-semibold",
-                isAccountActive
-                  ? "bg-primary/20 text-primary"
-                  : "bg-muted text-muted-foreground"
-              )}>
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className="text-[10px] bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
                 {vendor?.businessName ? getInitials(vendor.businessName) : "VH"}
               </AvatarFallback>
             </Avatar>
-            <span className="text-[10px] font-medium">Profile</span>
+            <span className="text-xs font-medium">Account</span>
           </button>
         </Link>
       </nav>

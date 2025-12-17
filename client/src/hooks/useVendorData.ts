@@ -40,7 +40,13 @@ export function useVendorData<T>({
   return useQuery<T>({
     queryKey: fullQueryKey,
     queryFn: async () => {
-      const response = await fetch(url);
+      const fullUrl = getApiUrl(url);
+      const response = await fetch(fullUrl, {
+        credentials: "include",
+        headers: {
+          ...(localStorage.getItem('token') && { 'Authorization': `Bearer ${localStorage.getItem('token')}` })
+        }
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch ${endpoint}`);
       }
@@ -81,7 +87,13 @@ export function useData<T>({
   return useQuery<T>({
     queryKey: normalizedQueryKey,
     queryFn: async () => {
-      const response = await fetch(url);
+      const fullUrl = getApiUrl(url);
+      const response = await fetch(fullUrl, {
+        credentials: "include",
+        headers: {
+          ...(localStorage.getItem('token') && { 'Authorization': `Bearer ${localStorage.getItem('token')}` })
+        }
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch from ${endpoint}`);
       }

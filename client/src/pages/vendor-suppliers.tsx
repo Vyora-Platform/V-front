@@ -2,28 +2,24 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSupplierSchema, type Supplier, type InsertSupplier } from "@shared/schema";
-import { 
-  Warehouse, Search, Plus, Trash2, Edit, Phone, Mail, MapPin, Building, 
-  DollarSign, Package, TrendingUp, FileText, ArrowLeft, ChevronRight,
-  Users, MoreVertical, Filter, SortAsc
-} from "lucide-react";
+import { Warehouse, Search, Plus, Trash2, Edit, Phone, Mail, MapPin, Building, DollarSign, Package, TrendingUp, FileText, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
@@ -37,10 +33,9 @@ export default function VendorSuppliers() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
 
   // Fetch suppliers with search and filter
-  const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
+  const { data: suppliers, isLoading } = useQuery<Supplier[]>({
     queryKey: ['/api/vendors', vendorId, 'suppliers', searchQuery, statusFilter, categoryFilter],
     enabled: !!vendorId,
     queryFn: async () => {
@@ -91,65 +86,31 @@ export default function VendorSuppliers() {
   };
 
   // Stats
-  const activeSuppliers = suppliers.filter(s => s.status === "active").length;
-  const totalOutstanding = suppliers.reduce((sum, s) => sum + (s.outstandingBalance || 0), 0);
-  const totalSuppliers = suppliers.length;
-  const totalPurchases = suppliers.reduce((sum, s) => sum + (s.totalPurchases || 0), 0);
+  const activeSuppliers = suppliers?.filter(s => s.status === "active").length || 0;
+  const totalOutstanding = suppliers?.reduce((sum, s) => sum + (s.outstandingBalance || 0), 0) || 0;
+  const totalSuppliers = suppliers?.length || 0;
 
-  // Filter suppliers
-  const filteredSuppliers = suppliers.filter(supplier => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch = 
-        supplier.name?.toLowerCase().includes(query) ||
-        supplier.businessName?.toLowerCase().includes(query) ||
-        supplier.phone?.includes(query) ||
-        supplier.email?.toLowerCase().includes(query);
-      if (!matchesSearch) return false;
-    }
-    if (statusFilter !== 'all' && supplier.status !== statusFilter) return false;
-    if (categoryFilter !== 'all' && supplier.category !== categoryFilter) return false;
-    return true;
-  });
-
-  // Get initials for avatar
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
-
-  // Get category color
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      'raw_materials': 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-      'finished_goods': 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-      'packaging': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-      'equipment': 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-      'services': 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300',
-      'other': 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-    };
-    return colors[category] || colors['other'];
-  };
 
   // Show loading while vendor ID initializes
   if (!vendorId) { return <LoadingSpinner />; }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      {/* Header - Mobile Optimized */}
-      <div className="bg-white dark:bg-gray-800 border-b sticky top-0 z-10">
-        <div className="px-4 py-3 flex items-center justify-between gap-3">
+    <div className="flex h-full w-full flex-col">
+      {/* Header */}
+      <div className="px-4 py-3 border-b flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setLocation("/vendor/dashboard")}
-              className="shrink-0"
+            className="md:hidden flex-shrink-0"
+            data-testid="button-back-to-dashboard"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-              <h1 className="text-lg font-bold text-foreground">Suppliers</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">Manage your supplier network</p>
+            <h1 className="text-xl font-bold text-foreground">Suppliers</h1>
+            <p className="text-xs text-muted-foreground">Manage supplier relationships</p>
           </div>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
@@ -157,112 +118,70 @@ export default function VendorSuppliers() {
           if (!open) setEditingSupplier(null);
         }}>
           <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5">
+            <Button size="sm" data-testid="button-add-supplier">
               <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Add Supplier</span>
             </Button>
           </DialogTrigger>
-            <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-              <DialogHeader className="p-4 pb-0 sticky top-0 bg-background z-10 border-b">
-                <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="icon" onClick={handleCloseDialog}>
-                    <ArrowLeft className="h-5 w-5" />
-                  </Button>
-                  <div>
+          <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
               <DialogTitle>{editingSupplier ? "Edit Supplier" : "Add New Supplier"}</DialogTitle>
               <DialogDescription>
-                      {editingSupplier ? "Update supplier details" : "Add a new supplier to your network"}
+                {editingSupplier ? "Update supplier information" : "Add a new supplier to your database"}
               </DialogDescription>
-                  </div>
-                </div>
             </DialogHeader>
-              <div className="p-4">
             <SupplierForm
               supplier={editingSupplier}
               vendorId={vendorId}
               onSuccess={handleCloseDialog}
             />
-              </div>
           </DialogContent>
         </Dialog>
       </div>
 
-        {/* Stats Cards - Horizontal Scroll on Mobile */}
-        <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-3 min-w-max">
-            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-blue-200 dark:border-blue-800">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-blue-500/20">
-                  <Users className="h-4 w-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
-                  <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{totalSuppliers}</p>
-                </div>
-              </div>
-            </Card>
-            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-green-500/20">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Active</p>
-                  <p className="text-lg font-bold text-green-700 dark:text-green-400">{activeSuppliers}</p>
-                </div>
-              </div>
+      {/* Stats - Responsive Grid */}
+      <div className="px-4 py-3 border-b">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-3">
+          <Card className="p-3">
+            <p className="text-xs text-muted-foreground mb-1">Total</p>
+            <p className="text-lg font-bold">{totalSuppliers}</p>
           </Card>
-            <Card className="p-3 min-w-[140px] bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 border-orange-200 dark:border-orange-800">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-orange-500/20">
-                  <DollarSign className="h-4 w-4 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Outstanding</p>
-                  <p className="text-lg font-bold text-orange-700 dark:text-orange-400">₹{(totalOutstanding / 1000).toFixed(1)}k</p>
-                </div>
-              </div>
+          <Card className="p-3">
+            <p className="text-xs text-muted-foreground mb-1">Active</p>
+            <p className="text-lg font-bold text-green-600">{activeSuppliers}</p>
           </Card>
-            <Card className="p-3 min-w-[140px] bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-purple-500/20">
-                  <Package className="h-4 w-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Purchases</p>
-                  <p className="text-lg font-bold text-purple-700 dark:text-purple-400">₹{(totalPurchases / 1000).toFixed(1)}k</p>
-                </div>
-              </div>
+          <Card className="p-3">
+            <p className="text-xs text-muted-foreground mb-1">Balance</p>
+            <p className="text-lg font-bold text-orange-600">₹{(totalOutstanding / 1000).toFixed(1)}k</p>
           </Card>
-          </div>
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+      {/* Search and Filters - Horizontal Scroll */}
+      <div className="px-4 py-3 border-b">
+        <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+          <div className="relative flex-1 min-w-[200px] snap-start">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search suppliers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-10"
+              className="pl-9"
+              data-testid="input-search-suppliers"
             />
           </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[110px] h-10">
-              <SelectValue placeholder="Status" />
+              <SelectTrigger className="w-[160px] flex-shrink-0 snap-start" data-testid="select-status-filter">
+                <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[130px] h-10 hidden sm:flex">
-              <SelectValue placeholder="Category" />
+              <SelectTrigger className="w-[180px] flex-shrink-0 snap-start" data-testid="select-category-filter">
+                <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
@@ -274,133 +193,98 @@ export default function VendorSuppliers() {
                 <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
-        </div>
           </div>
 
-      {/* Suppliers List */}
-      <div className="flex-1 overflow-y-auto p-4">
           {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="p-4 animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4" />
-                  </div>
-                </div>
-              </Card>
-            ))}
+            <div className="text-center py-8">Loading suppliers...</div>
+          ) : suppliers && suppliers.length > 0 ? (
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[150px]">Supplier Name</TableHead>
+                    <TableHead className="min-w-[120px]">Contact</TableHead>
+                    <TableHead className="min-w-[100px]">Category</TableHead>
+                    <TableHead className="min-w-[100px]">Outstanding</TableHead>
+                    <TableHead className="min-w-[80px]">Status</TableHead>
+                    <TableHead className="text-right min-w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {suppliers.map((supplier) => (
+                    <TableRow key={supplier.id} data-testid={`row-supplier-${supplier.id}`}>
+                      <TableCell>
+                        <div>
+                          <Link href={`/vendor/suppliers/${supplier.id}`}>
+                            <div className="font-medium hover:text-primary cursor-pointer" data-testid={`text-supplier-name-${supplier.id}`}>
+                              {supplier.name}
                             </div>
-        ) : filteredSuppliers.length > 0 ? (
-          <div className="space-y-3">
-            {filteredSuppliers.map((supplier) => (
-              <Link key={supplier.id} href={`/vendor/suppliers/${supplier.id}`}>
-                <Card className="overflow-hidden hover:shadow-md transition-all cursor-pointer active:scale-[0.99]">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      {/* Avatar */}
-                      <Avatar className="h-12 w-12 shrink-0">
-                        <AvatarFallback className={cn(
-                          "text-sm font-semibold",
-                          supplier.status === 'active' 
-                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
-                            : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                        )}>
-                          {getInitials(supplier.name)}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground truncate">{supplier.name}</h3>
-                          <Badge 
-                            variant={supplier.status === 'active' ? 'default' : 'secondary'}
-                            className="text-[10px] px-1.5 py-0 h-5"
-                          >
-                            {supplier.status}
-                          </Badge>
-                        </div>
-                        {supplier.businessName && (
-                          <p className="text-sm text-muted-foreground truncate">{supplier.businessName}</p>
-                        )}
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {supplier.phone}
-                          </span>
-                          <Badge className={cn("text-[10px] px-1.5 py-0 h-5", getCategoryColor(supplier.category))}>
-                            {supplier.category?.replace('_', ' ') || 'Other'}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      {/* Balance & Arrow */}
-                      <div className="text-right shrink-0">
-                        {supplier.outstandingBalance && supplier.outstandingBalance > 0 ? (
-                          <div>
-                            <p className="text-xs text-muted-foreground">Balance</p>
-                            <p className="text-sm font-semibold text-orange-600">
-                              ₹{supplier.outstandingBalance.toLocaleString()}
-                            </p>
-                          </div>
-                        ) : (
-                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          </Link>
+                          {supplier.businessName && (
+                            <div className="text-sm text-muted-foreground">{supplier.businessName}</div>
                           )}
                         </div>
-
-                      {/* Actions Menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
-                          <Button variant="ghost" size="icon" className="shrink-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => {
-                            e.preventDefault();
-                            handleEdit(supplier);
-                          }}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleDelete(supplier.id, supplier.name);
-                            }}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {supplier.phone}
+                          </div>
+                          {supplier.email && (
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Mail className="h-3 w-3" />
+                              {supplier.email}
+                            </div>
+                          )}
                         </div>
-                  </CardContent>
-                </Card>
-              </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {supplier.category?.replace('_', ' ') || 'N/A'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className={supplier.outstandingBalance && supplier.outstandingBalance > 0 ? "text-orange-600 font-medium" : ""}>
+                          ₹{(supplier.outstandingBalance || 0).toLocaleString()}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={supplier.status === "active" ? "default" : "secondary"}
+                          data-testid={`badge-status-${supplier.id}`}
+                        >
+                          {supplier.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(supplier)}
+                            data-testid={`button-edit-${supplier.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(supplier.id, supplier.name)}
+                            data-testid={`button-delete-${supplier.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   ))}
+                </TableBody>
+              </Table>
             </div>
           ) : (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-              <Warehouse className="h-10 w-10 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">No suppliers found</h3>
-            <p className="text-sm text-muted-foreground mb-6 max-w-xs">
-              {searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' 
-                ? "Try adjusting your search or filters"
-                : "Add your first supplier to get started"}
-            </p>
-            {!searchQuery && statusFilter === 'all' && categoryFilter === 'all' && (
-              <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Your First Supplier
-              </Button>
-            )}
+            <div className="text-center py-8 text-muted-foreground">
+              No suppliers found. Add your first supplier to get started.
             </div>
           )}
       </div>
@@ -408,60 +292,42 @@ export default function VendorSuppliers() {
   );
 }
 
-// Supplier Form Component - Enhanced with better validation
+// Supplier Form Component
 function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | null; vendorId: string; onSuccess: () => void }) {
   const { toast } = useToast();
   
   const form = useForm<Omit<InsertSupplier, 'vendorId'>>({
     resolver: zodResolver(insertSupplierSchema.omit({ vendorId: true })),
     defaultValues: supplier ? {
-      name: supplier.name || "",
-      businessName: supplier.businessName || "",
-      phone: supplier.phone || "",
-      email: supplier.email || "",
-      contactPerson: supplier.contactPerson || "",
-      category: supplier.category || "other",
-      status: supplier.status || "active",
-      gstin: supplier.gstin || "",
-      pan: supplier.pan || "",
-      addressLine1: supplier.addressLine1 || "",
-      addressLine2: supplier.addressLine2 || "",
-      city: supplier.city || "",
-      state: supplier.state || "",
-      pincode: supplier.pincode || "",
-      bankName: supplier.bankName || "",
-      accountNumber: supplier.accountNumber || "",
-      ifscCode: supplier.ifscCode || "",
-      notes: supplier.notes || "",
+      name: supplier.name,
+      businessName: supplier.businessName,
+      phone: supplier.phone,
+      email: supplier.email,
+      contactPerson: supplier.contactPerson,
+      category: supplier.category,
+      status: supplier.status,
+      gstin: supplier.gstin,
+      pan: supplier.pan,
+      addressLine1: supplier.addressLine1,
+      addressLine2: supplier.addressLine2,
+      city: supplier.city,
+      state: supplier.state,
+      pincode: supplier.pincode,
+      bankName: supplier.bankName,
+      accountNumber: supplier.accountNumber,
+      ifscCode: supplier.ifscCode,
+      notes: supplier.notes,
     } : {
       name: "",
-      businessName: "",
       phone: "",
-      email: "",
-      contactPerson: "",
       category: "other",
       status: "active",
-      gstin: "",
-      pan: "",
-      addressLine1: "",
-      addressLine2: "",
-      city: "",
-      state: "",
-      pincode: "",
-      bankName: "",
-      accountNumber: "",
-      ifscCode: "",
-      notes: "",
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertSupplier) => {
       const response = await apiRequest("POST", `/api/vendors/${vendorId}/suppliers`, data);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create supplier");
-      }
       return response.json();
     },
     onSuccess: () => {
@@ -469,8 +335,8 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
       toast({ title: "Supplier created successfully" });
       onSuccess();
     },
-    onError: (error: Error) => {
-      toast({ title: "Failed to create supplier", description: error.message, variant: "destructive" });
+    onError: () => {
+      toast({ title: "Failed to create supplier", variant: "destructive" });
     },
   });
 
@@ -478,10 +344,6 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
     mutationFn: async (data: InsertSupplier) => {
       if (!supplier) throw new Error("No supplier to update");
       const response = await apiRequest("PATCH", `/api/vendors/${vendorId}/suppliers/${supplier.id}`, data);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to update supplier");
-      }
       return response.json();
     },
     onSuccess: () => {
@@ -489,19 +351,13 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
       toast({ title: "Supplier updated successfully" });
       onSuccess();
     },
-    onError: (error: Error) => {
-      toast({ title: "Failed to update supplier", description: error.message, variant: "destructive" });
+    onError: () => {
+      toast({ title: "Failed to update supplier", variant: "destructive" });
     },
   });
 
   const onSubmit = (data: Omit<InsertSupplier, 'vendorId'>) => {
-    // Clean up empty strings to undefined
-    const cleanData = Object.fromEntries(
-      Object.entries(data).map(([key, value]) => [key, value === "" ? undefined : value])
-    ) as Omit<InsertSupplier, 'vendorId'>;
-    
-    const supplierData = { ...cleanData, vendorId } as InsertSupplier;
-    
+    const supplierData = { ...data, vendorId: vendorId };
     if (supplier) {
       updateMutation.mutate(supplierData);
     } else {
@@ -512,17 +368,17 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <Accordion type="multiple" defaultValue={["basic"]} className="w-full">
+        <Accordion type="multiple" defaultValue={["basic", "business"]} className="w-full">
           {/* Basic Information */}
-          <AccordionItem value="basic" className="border rounded-lg px-4 mb-3">
-            <AccordionTrigger className="text-base font-semibold py-3">
+          <AccordionItem value="basic">
+            <AccordionTrigger className="text-base font-semibold">
               <div className="flex items-center gap-2">
-                <Building className="h-4 w-4 text-blue-600" />
+                <Building className="h-4 w-4" />
                 Basic Information
               </div>
             </AccordionTrigger>
-            <AccordionContent className="space-y-4 pb-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <AccordionContent className="space-y-4 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -530,7 +386,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>Supplier Name *</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="ABC Suppliers" />
+                        <Input {...field} placeholder="ABC Suppliers" data-testid="input-supplier-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -543,7 +399,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>Business Name</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="ABC Enterprises Pvt Ltd" />
+                        <Input {...field} value={field.value || ""} placeholder="ABC Enterprises Pvt Ltd" data-testid="input-business-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -556,7 +412,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>Phone Number *</FormLabel>
                       <FormControl>
-                        <Input {...field} type="tel" placeholder="9876543210" />
+                        <Input {...field} type="tel" placeholder="+91 9876543210" data-testid="input-phone" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -569,7 +425,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} type="email" placeholder="supplier@example.com" />
+                        <Input {...field} value={field.value || ""} type="email" placeholder="supplier@example.com" data-testid="input-email" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -582,7 +438,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>Contact Person</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="John Doe" />
+                        <Input {...field} value={field.value || ""} placeholder="John Doe" data-testid="input-contact-person" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -594,9 +450,9 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Category *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger data-testid="select-category">
                             <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                         </FormControl>
@@ -619,9 +475,9 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger data-testid="select-status">
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                         </FormControl>
@@ -638,16 +494,16 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
             </AccordionContent>
           </AccordionItem>
 
-          {/* Business & Tax Details */}
-          <AccordionItem value="business" className="border rounded-lg px-4 mb-3">
-            <AccordionTrigger className="text-base font-semibold py-3">
+          {/* Business Details */}
+          <AccordionItem value="business">
+            <AccordionTrigger className="text-base font-semibold">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-green-600" />
-                Tax Details
+                <FileText className="h-4 w-4" />
+                Business & Tax Details
               </div>
             </AccordionTrigger>
-            <AccordionContent className="space-y-4 pb-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <AccordionContent className="space-y-4 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="gstin"
@@ -655,7 +511,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>GSTIN</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="22AAAAA0000A1Z5" />
+                        <Input {...field} value={field.value || ""} placeholder="22AAAAA0000A1Z5" data-testid="input-gstin" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -668,7 +524,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>PAN</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="AAAAA0000A" />
+                        <Input {...field} value={field.value || ""} placeholder="AAAAA0000A" data-testid="input-pan" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -679,14 +535,14 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
           </AccordionItem>
 
           {/* Address */}
-          <AccordionItem value="address" className="border rounded-lg px-4 mb-3">
-            <AccordionTrigger className="text-base font-semibold py-3">
+          <AccordionItem value="address">
+            <AccordionTrigger className="text-base font-semibold">
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-orange-600" />
+                <MapPin className="h-4 w-4" />
                 Address
               </div>
             </AccordionTrigger>
-            <AccordionContent className="space-y-4 pb-4">
+            <AccordionContent className="space-y-4 pt-4">
               <FormField
                 control={form.control}
                 name="addressLine1"
@@ -694,7 +550,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                   <FormItem>
                     <FormLabel>Address Line 1</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value || ""} placeholder="123 Main Street" />
+                      <Input {...field} value={field.value || ""} placeholder="123 Main Street" data-testid="input-addressline1" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -707,13 +563,13 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                   <FormItem>
                     <FormLabel>Address Line 2</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value || ""} placeholder="Suite 456" />
+                      <Input {...field} value={field.value || ""} placeholder="Suite 456" data-testid="input-addressline2" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="city"
@@ -721,7 +577,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>City</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="Mumbai" />
+                        <Input {...field} value={field.value || ""} placeholder="Mumbai" data-testid="input-city" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -734,7 +590,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>State</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="Maharashtra" />
+                        <Input {...field} value={field.value || ""} placeholder="Maharashtra" data-testid="input-state" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -747,7 +603,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>Pincode</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="400001" />
+                        <Input {...field} value={field.value || ""} placeholder="400001" data-testid="input-pincode" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -758,15 +614,15 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
           </AccordionItem>
 
           {/* Banking Details */}
-          <AccordionItem value="banking" className="border rounded-lg px-4 mb-3">
-            <AccordionTrigger className="text-base font-semibold py-3">
+          <AccordionItem value="banking">
+            <AccordionTrigger className="text-base font-semibold">
               <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-purple-600" />
-                Banking Details
+                <DollarSign className="h-4 w-4" />
+                Banking & Payment
               </div>
             </AccordionTrigger>
-            <AccordionContent className="space-y-4 pb-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <AccordionContent className="space-y-4 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="bankName"
@@ -774,7 +630,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>Bank Name</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="State Bank of India" />
+                        <Input {...field} value={field.value || ""} placeholder="State Bank of India" data-testid="input-bank-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -787,7 +643,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>Account Number</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="1234567890" />
+                        <Input {...field} value={field.value || ""} placeholder="1234567890" data-testid="input-account-number" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -800,7 +656,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                     <FormItem>
                       <FormLabel>IFSC Code</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} placeholder="SBIN0001234" />
+                        <Input {...field} value={field.value || ""} placeholder="SBIN0001234" data-testid="input-ifsc-code" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -811,11 +667,11 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
           </AccordionItem>
 
           {/* Additional Notes */}
-          <AccordionItem value="notes" className="border rounded-lg px-4 mb-3">
-            <AccordionTrigger className="text-base font-semibold py-3">
+          <AccordionItem value="notes">
+            <AccordionTrigger className="text-base font-semibold">
               Additional Notes
             </AccordionTrigger>
-            <AccordionContent className="space-y-4 pb-4">
+            <AccordionContent className="space-y-4 pt-4">
               <FormField
                 control={form.control}
                 name="notes"
@@ -828,6 +684,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
                         value={field.value || ""}
                         placeholder="Any additional notes about the supplier..."
                         rows={3}
+                        data-testid="input-notes"
                       />
                     </FormControl>
                     <FormMessage />
@@ -838,11 +695,11 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
           </AccordionItem>
         </Accordion>
 
-        <div className="flex gap-2 justify-end pt-4 border-t">
+        <div className="flex gap-2 justify-end pt-4">
           <Button
             type="submit"
             disabled={createMutation.isPending || updateMutation.isPending}
-            className="min-w-[140px]"
+            data-testid="button-submit-supplier"
           >
             {createMutation.isPending || updateMutation.isPending
               ? "Saving..."

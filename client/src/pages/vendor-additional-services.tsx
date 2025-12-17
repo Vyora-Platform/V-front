@@ -11,8 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { Search, Crown, MessageSquare, CheckCircle2, ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+import { Search, Crown, MessageSquare, CheckCircle2 } from "lucide-react";
 import type { AdditionalService, Vendor } from "@shared/schema";
 
 export default function VendorAdditionalServices() {
@@ -112,20 +111,12 @@ export default function VendorAdditionalServices() {
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-6 pb-20 md:pb-6">
-      {/* Header with Back Button */}
-      <div className="flex items-center gap-3">
-        <Link href="/vendor/dashboard">
-          <Button variant="ghost" size="icon" className="shrink-0 -ml-2">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-        </Link>
+    <div className="p-6 space-y-6">
       <div>
-          <h1 className="text-xl md:text-3xl font-bold">Additional Services</h1>
-          <p className="text-sm text-muted-foreground">
+        <h1 className="text-3xl font-bold">Additional Services</h1>
+        <p className="text-muted-foreground mt-1">
           Premium services to enhance your business
         </p>
-        </div>
       </div>
 
       <div className="relative">

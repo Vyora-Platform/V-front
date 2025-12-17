@@ -7,9 +7,10 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import ThemeToggle from "@/components/ThemeToggle";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Building2 } from "lucide-react";
 import type { Vendor } from "@shared/schema";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { SubscriptionProvider } from "@/hooks/useSubscription";
 import { LoginPage } from "@/pages/LoginPage";
 import { SignUpPage } from "@/pages/SignUpPage";
 import { useEffect } from "react";
@@ -26,9 +27,7 @@ import VendorCatalogueEdit from "@/pages/vendor-catalogue-edit";
 import VendorBookings from "@/pages/vendor-bookings";
 import VendorAppointments from "@/pages/vendor-appointments";
 import VendorOrders from "@/pages/vendor-orders";
-import VendorOrderDetail from "@/pages/vendor-order-detail";
 import VendorEmployees from "@/pages/vendor-employees";
-import VendorEmployeeDetail from "@/pages/vendor-employee-detail";
 import VendorAttendance from "@/pages/vendor-attendance";
 import VendorLeaves from "@/pages/vendor-leaves";
 import VendorTasks from "@/pages/vendor-tasks";
@@ -41,7 +40,6 @@ import VendorSupplierDetail from "@/pages/vendor-supplier-detail";
 import VendorExpenses from "@/pages/vendor-expenses";
 import VendorLeads from "@/pages/vendor-leads";
 import VendorQuotations from "@/pages/vendor-quotations";
-import VendorQuotationDetail from "@/pages/vendor-quotation-detail";
 import VendorMiniWebsite from "@/pages/vendor-mini-website";
 import VendorMiniWebsiteDashboard from "@/pages/vendor-mini-website-dashboard";
 import MiniWebsitePublic from "@/pages/mini-website-public";
@@ -72,24 +70,17 @@ import VendorGreetingBrowse from "@/pages/vendor-greeting-browse";
 import VendorGreetingCustomize from "@/pages/vendor-greeting-customize";
 import VendorPOS from "@/pages/vendor-pos";
 import AdminLeads from "@/pages/admin-leads";
-import AdminDemoRequests from "@/pages/admin-demo-requests";
 import AdminCustomers from "@/pages/admin-customers";
 import AdminProducts from "@/pages/admin-products";
 import AdminOrders from "@/pages/admin-orders";
 import AdminVendors from "@/pages/admin-vendors";
 import AdminSettings from "@/pages/admin-settings";
 import AdminAdditionalServices from "@/pages/admin-additional-services";
-import AdminPromoBanners from "@/pages/admin-promo-banners";
 import VendorAdditionalServices from "@/pages/vendor-additional-services";
 import VendorSubscription from "@/pages/vendor-subscription";
 import VendorAccount from "@/pages/vendor-account";
 import VendorAccountBusinessDetails from "@/pages/vendor-account-business-details";
 import VendorAccountPaymentSettings from "@/pages/vendor-account-payment-settings";
-import VendorNotifications from "@/pages/vendor-notifications";
-import VendorAnalytics from "@/pages/vendor-analytics";
-import VendorReferral from "@/pages/vendor-referral";
-import VendorBilling from "@/pages/vendor-billing";
-import NotificationBell from "@/components/NotificationBell";
 import NotFound from "@/pages/not-found";
 import { getVendorId } from "@/hooks/useVendor";
 import { isAuthenticated, clearAuthData } from "@/lib/auth";
@@ -198,11 +189,14 @@ function VendorLayout({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  // Get first name from owner name or business name
-  const getFirstName = (name: string) => {
-    if (!name) return "User";
-    const firstName = name.split(' ')[0];
-    return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+  // Get initials for avatar fallback
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
   
   const style = {
@@ -218,32 +212,37 @@ function VendorLayout({ children }: { children: React.ReactNode }) {
           <AppSidebar userRole="vendor" vendorId={vendorId} />
         </div>
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between px-3 py-2 md:px-6 md:py-4 bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-10 shadow-md">
-            <div className="flex items-center gap-2 md:gap-3">
+          <header className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 border-b border-border bg-background sticky top-0 z-10">
+            <div className="flex items-center gap-3">
               {/* Hide sidebar toggle on mobile */}
               <div className="hidden md:block">
-                <SidebarTrigger data-testid="button-sidebar-toggle" className="text-white hover:bg-white/20 [&>svg]:w-6 [&>svg]:h-6" />
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
               </div>
               
-              {/* Vyora Logo + Welcome Message */}
-              <div className="flex items-center gap-2 md:gap-3 md:pl-3 md:border-l border-white/30">
-                {/* Vyora Logo */}
-                <div className="w-8 h-8 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white flex items-center justify-center shadow-lg">
-                  <span className="text-blue-600 font-bold text-sm md:text-xl">V</span>
-                </div>
-                {/* Welcome Message */}
-                <div className="flex flex-col">
-                  <span className="text-sm md:text-lg font-semibold text-white leading-tight" data-testid="text-welcome">
-                    Welcome, {vendor?.ownerName ? getFirstName(vendor.ownerName) : (vendor?.businessName ? getFirstName(vendor.businessName) : "User")} ji!
+              {/* Vendor Profile */}
+              {vendor && (
+                <div className="flex items-center gap-2 md:gap-3 md:pl-2 md:border-l border-border">
+                  <Avatar className="h-8 w-8 md:h-10 md:w-10">
+                    {vendor.logo ? (
+                      <AvatarImage src={vendor.logo} alt={vendor.businessName} />
+                    ) : (
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {vendor.businessName ? getInitials(vendor.businessName) : <Building2 className="h-4 w-4" />}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="hidden sm:flex flex-col">
+                    <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-vendor-name">
+                      {vendor.businessName}
+                    </span>
+                    <span className="text-xs text-muted-foreground leading-tight" data-testid="text-vendor-category">
+                      {vendor.category}
                     </span>
                   </div>
                 </div>
+              )}
             </div>
-            <div className="flex items-center">
-              {/* Notification Bell - visible on both mobile and desktop */}
-              <NotificationBell variant="mobile" className="md:hidden text-white" />
-              <NotificationBell className="hidden md:flex text-white" />
-            </div>
+            <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto pb-16 md:pb-0">
             {children}
@@ -450,11 +449,6 @@ function Router() {
           <VendorOrders />
         </VendorLayout>
       </Route>
-      <Route path="/vendor/orders/:id">
-        <VendorLayout>
-          <VendorOrderDetail />
-        </VendorLayout>
-      </Route>
       <Route path="/vendor/pos">
         <VendorLayout>
           <VendorPOS />
@@ -488,11 +482,6 @@ function Router() {
       <Route path="/vendor/stock-turnover">
         <VendorLayout>
           <VendorStockTurnover />
-        </VendorLayout>
-      </Route>
-      <Route path="/vendor/employees/:id">
-        <VendorLayout>
-          <VendorEmployeeDetail />
         </VendorLayout>
       </Route>
       <Route path="/vendor/employees">
@@ -555,34 +544,17 @@ function Router() {
           <VendorLeads />
         </VendorLayout>
       </Route>
-      <Route path="/vendor/notifications">
-        <VendorLayout>
-          <VendorNotifications />
-        </VendorLayout>
-      </Route>
-      <Route path="/vendor/analytics">
-        <VendorLayout>
-          <VendorAnalytics />
-        </VendorLayout>
-      </Route>
-      <Route path="/vendor/referral">
-        <VendorLayout>
-          <VendorReferral />
-        </VendorLayout>
-      </Route>
-      <Route path="/vendor/billing">
-        <VendorLayout>
-          <VendorBilling />
-        </VendorLayout>
-      </Route>
       <Route path="/vendor/quotations">
         <VendorLayout>
           <VendorQuotations />
         </VendorLayout>
       </Route>
-      <Route path="/vendor/quotations/:id">
+      <Route path="/vendor/tasks">
         <VendorLayout>
-          <VendorQuotationDetail />
+          <div className="p-6">
+            <h1 className="text-2xl font-bold">Tasks</h1>
+            <p className="text-muted-foreground">Task management coming soon</p>
+          </div>
         </VendorLayout>
       </Route>
       <Route path="/vendor/coupons">
@@ -739,11 +711,6 @@ function Router() {
           <AdminLeads />
         </AdminLayout>
       </Route>
-      <Route path="/admin/demo-requests">
-        <AdminLayout>
-          <AdminDemoRequests />
-        </AdminLayout>
-      </Route>
       <Route path="/admin/customers">
         <AdminLayout>
           <AdminCustomers />
@@ -837,11 +804,6 @@ function Router() {
           <AdminAdditionalServices />
         </AdminLayout>
       </Route>
-      <Route path="/admin/promo-banners">
-        <AdminLayout>
-          <AdminPromoBanners />
-        </AdminLayout>
-      </Route>
 
       {/* Vendor Routes */}
       <Route path="/vendor/additional-services">
@@ -868,12 +830,10 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SubscriptionProvider>
         <TooltipProvider>
           <Toaster />
           <Router />
         </TooltipProvider>
-        </SubscriptionProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

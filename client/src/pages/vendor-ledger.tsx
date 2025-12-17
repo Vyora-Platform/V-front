@@ -12,6 +12,7 @@ import { format } from "date-fns";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { getApiUrl } from "@/lib/config";
 
 type LedgerTransaction = {
   id: string;
@@ -73,7 +74,13 @@ export default function VendorLedger() {
       const params = buildQueryParams();
       const queryString = params.toString();
       const url = `/api/vendors/${vendorId}/ledger-summary${queryString ? `?${queryString}` : ''}`;
-      const res = await fetch(url);
+      const fullUrl = getApiUrl(url);
+      const res = await fetch(fullUrl, {
+        credentials: "include",
+        headers: {
+          ...(localStorage.getItem('token') && { 'Authorization': `Bearer ${localStorage.getItem('token')}` })
+        }
+      });
       if (!res.ok) throw new Error('Failed to fetch summary');
       return res.json();
     },
@@ -86,7 +93,13 @@ export default function VendorLedger() {
       const params = buildQueryParams();
       const queryString = params.toString();
       const url = `/api/vendors/${vendorId}/ledger-transactions${queryString ? `?${queryString}` : ''}`;
-      const res = await fetch(url);
+      const fullUrl = getApiUrl(url);
+      const res = await fetch(fullUrl, {
+        credentials: "include",
+        headers: {
+          ...(localStorage.getItem('token') && { 'Authorization': `Bearer ${localStorage.getItem('token')}` })
+        }
+      });
       if (!res.ok) throw new Error('Failed to fetch transactions');
       return res.json();
     },
