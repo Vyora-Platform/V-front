@@ -41,6 +41,7 @@ import {
   Contact,
   Crown,
   LogOut,
+  Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getVendorId } from "@/hooks/useVendor";
@@ -78,6 +79,7 @@ const vendorMenuItems = [
 
 const adminMenuItems = [
   { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
+  { title: "Demo Requests", url: "/admin/demo-requests", icon: Calendar },
   { title: "Vendors", url: "/admin/vendors", icon: Building2 },
   { title: "Leads", url: "/admin/leads", icon: TrendingUp },
   { title: "Customers", url: "/admin/customers", icon: Contact },
@@ -87,6 +89,7 @@ const adminMenuItems = [
   { title: "Master Products", url: "/admin/products", icon: ShoppingCart },
   { title: "Greeting Templates", url: "/admin/greeting-templates", icon: Sparkles },
   { title: "Additional Services", url: "/admin/additional-services", icon: Crown },
+  { title: "Promo Banners", url: "/admin/promo-banners", icon: Image },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 

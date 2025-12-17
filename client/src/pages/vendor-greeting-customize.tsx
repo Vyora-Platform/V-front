@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getApiUrl } from "@/lib/config";
@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Download, Share2, Send, Twitter, Package, ShoppingBag, Tag, Globe, Store, ImageIcon, Upload } from "lucide-react";
-import { SiWhatsapp, SiFacebook, SiInstagram, SiLinkedin } from "react-icons/si";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Download, Share2, Send, Twitter, Package, ShoppingBag, Tag, Globe, Store, ImageIcon, Upload, Loader2, Copy, Check, Smartphone, Monitor, Square, RectangleVertical, RectangleHorizontal, Hash, Smile } from "lucide-react";
+import { SiWhatsapp, SiFacebook, SiInstagram, SiLinkedin, SiTelegram } from "react-icons/si";
 import type { GreetingTemplate } from "@shared/schema";
 import { useLocation, useParams } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +19,25 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
 import { ImageEditorDialog } from "@/components/ImageEditorDialog";
+
+// Download size options
+const downloadSizeOptions = [
+  { value: "instagram_post", label: "Instagram Post", size: "1080x1080", icon: Square },
+  { value: "instagram_story", label: "Instagram Story", size: "1080x1920", icon: RectangleVertical },
+  { value: "whatsapp_status", label: "WhatsApp Status", size: "1080x1920", icon: RectangleVertical },
+  { value: "facebook_post", label: "Facebook Post", size: "1200x630", icon: RectangleHorizontal },
+  { value: "twitter", label: "Twitter", size: "1200x675", icon: RectangleHorizontal },
+];
+
+// Hashtag suggestions
+const hashtagSuggestions = [
+  "#offers", "#deals", "#discount", "#sale", "#festival", "#celebration",
+  "#shopping", "#business", "#local", "#quality", "#service", "#india",
+  "#trending", "#viral", "#bestdeals", "#specialoffer", "#limitedtime"
+];
+
+// Emoji picker for quick access
+const quickEmojis = ["🎉", "🔥", "⭐", "💯", "🎁", "❤️", "✨", "👍", "🙌", "💰", "🛒", "📣"];
 
 export default function VendorGreetingCustomize() {
   const params = useParams<{ vendorId: string; templateId: string }>();
@@ -29,6 +49,7 @@ export default function VendorGreetingCustomize() {
   
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [customText, setCustomText] = useState("");
   const [businessName, setBusinessName] = useState("My Business");
@@ -38,6 +59,8 @@ export default function VendorGreetingCustomize() {
   const [logo, setLogo] = useState<string>("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
+  const [selectedDownloadSize, setSelectedDownloadSize] = useState("instagram_post");
+  const [copied, setCopied] = useState(false);
 
   // Image editor state
   const [showImageEditor, setShowImageEditor] = useState(false);
@@ -47,7 +70,7 @@ export default function VendorGreetingCustomize() {
   const handleLogoSave = (editedImage: string) => {
     setLogoPreview(editedImage);
     setLogo(editedImage);
-    setLogoFile(null); // Clear file since we're using edited image
+    setLogoFile(null);
     setShowImageEditor(false);
     setImageToEdit("");
   };
@@ -64,6 +87,10 @@ export default function VendorGreetingCustomize() {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedOffers, setSelectedOffers] = useState<string[]>([]);
+
+  // Character count
+  const characterCount = customText.length;
+  const maxCharacters = 2200; // Instagram limit
 
   // Fetch template
   const { data: template, isLoading } = useQuery<GreetingTemplate>({
@@ -133,18 +160,10 @@ export default function VendorGreetingCustomize() {
 
   // Auto-fill vendor details, logo, and miniwebsite link
   useEffect(() => {
-    console.log("🔄 Auto-filling store branding...");
-    console.log("Vendor data:", vendor);
-    console.log("MiniWebsite data:", miniWebsite);
-    
     if (vendor) {
       const name = vendor.businessName || vendor.name || "My Business";
       const location = vendor.address || vendor.city || vendor.location || "India";
       const phoneNumber = vendor.phone || vendor.contactNumber || "+91 9876543210";
-      
-      console.log("✅ Setting business name:", name);
-      console.log("✅ Setting location:", location);
-      console.log("✅ Setting phone:", phoneNumber);
       
       setBusinessName(name);
       setBusinessLocation(location);
@@ -153,11 +172,8 @@ export default function VendorGreetingCustomize() {
       // Auto-fill logo from vendor profile or miniwebsite
       const vendorLogo = vendor.logo || vendor.logoUrl || miniWebsite?.logo || miniWebsite?.logoUrl || "";
       if (vendorLogo) {
-        console.log("✅ Auto-filling vendor logo:", vendorLogo);
         setLogo(vendorLogo);
         setLogoPreview(vendorLogo);
-      } else {
-        console.log("⚠️ No logo found in vendor profile or miniwebsite");
       }
     }
     
@@ -165,30 +181,17 @@ export default function VendorGreetingCustomize() {
     if (miniWebsite) {
       let miniWebsiteUrl = "";
       
-      // Check if miniwebsite is published
       if (miniWebsite.isPublished || miniWebsite.status === 'published') {
-        // Priority 1: Custom domain
         if (miniWebsite.customDomain) {
           miniWebsiteUrl = `https://${miniWebsite.customDomain}`;
-        }
-        // Priority 2: Slug-based URL
-        else if (miniWebsite.slug) {
+        } else if (miniWebsite.slug) {
           miniWebsiteUrl = `https://vyora.in/${miniWebsite.slug}`;
-        }
-        // Priority 3: Subdomain
-        else if (miniWebsite.subdomain) {
+        } else if (miniWebsite.subdomain) {
           miniWebsiteUrl = `https://${miniWebsite.subdomain}.vyora.in`;
-        }
-        // Fallback: Vendor ID
-        else {
+        } else {
           miniWebsiteUrl = `https://vyora.in/store/${vendorId}`;
         }
-        
-        console.log("✅ Setting miniwebsite URL:", miniWebsiteUrl);
         setWebsite(miniWebsiteUrl);
-      } else {
-        console.log("⚠️ MiniWebsite not published yet");
-        setWebsite("");
       }
     }
   }, [vendor, miniWebsite, vendorId]);
@@ -215,69 +218,42 @@ export default function VendorGreetingCustomize() {
       apiRequest("POST", `/api/greeting-template-usage/${usageId}/share`, { platform }),
   });
 
-  const handleDownload = async () => {
-    try {
-      // Create usage record
-      const usage = await createUsageMutation.mutateAsync({
-        templateId,
-        vendorId,
-        customText: { text: customText, businessName, location: businessLocation, website, phone, logo: logo || logoPreview },
-        includedProducts: selectedProducts,
-        includedServices: selectedServices,
-        includedOffers: selectedOffers,
-      });
-
-      // Track download
-      await apiRequest("POST", `/api/greeting-templates/${templateId}/download`, {});
-
-      toast({
-        title: "Downloaded!",
-        description: "Template has been downloaded to your device",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to download template",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const toggleSelection = (id: string, selected: string[], setSelected: (ids: string[]) => void) => {
-    if (selected.includes(id)) {
-      setSelected(selected.filter(item => item !== id));
+  // Add emoji to text
+  const addEmoji = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newText = customText.substring(0, start) + emoji + customText.substring(end);
+      setCustomText(newText);
+      // Set cursor position after emoji
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+        textarea.focus();
+      }, 0);
     } else {
-      setSelected([...selected, id]);
+      setCustomText(prev => prev + emoji);
     }
   };
 
-  const handleShare = async (platform: string) => {
-    try {
-      console.log("Starting share flow for platform:", platform);
-      console.log("Template ID:", templateId, "Vendor ID:", vendorId);
-      
-      // Create usage record if not already created
-      const usage = await createUsageMutation.mutateAsync({
-        templateId,
-        vendorId,
-        customText: { text: customText, businessName, location: businessLocation, website, phone, logo: logo || logoPreview },
-        includedProducts: selectedProducts,
-        includedServices: selectedServices,
-        includedOffers: selectedOffers,
-      });
+  // Add hashtag to text
+  const addHashtag = (hashtag: string) => {
+    if (!customText.includes(hashtag)) {
+      setCustomText(prev => prev + (prev ? " " : "") + hashtag);
+    }
+  };
 
-      console.log("Usage created:", usage);
+  // Copy caption to clipboard
+  const copyCaption = async () => {
+    const captionText = buildShareText();
+    await navigator.clipboard.writeText(captionText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({ title: "Caption copied to clipboard!" });
+  };
 
-      if (!usage || !usage.id) {
-        console.error("Usage record missing ID:", usage);
-        throw new Error("Failed to create usage record");
-      }
-
-      console.log("Tracking share for usage ID:", usage.id);
-      // Track share
-      await trackShareMutation.mutateAsync({ usageId: usage.id, platform });
-
-      // Build share text with selected items and branding
+  // Build share text
+  const buildShareText = () => {
       let shareText = customText ? `${customText}\n\n` : `${template?.title}\n\n`;
       
       // Store branding
@@ -343,6 +319,78 @@ export default function VendorGreetingCustomize() {
       // Add Vyora platform branding
       shareText += `\n\n✨ Powered by Vyora - Smart Business Management`;
       
+    return shareText;
+  };
+
+  const handleDownload = async () => {
+    try {
+      // Create usage record
+      await createUsageMutation.mutateAsync({
+        templateId,
+        vendorId,
+        customText: { text: customText, businessName, location: businessLocation, website, phone, logo: logo || logoPreview },
+        includedProducts: selectedProducts,
+        includedServices: selectedServices,
+        includedOffers: selectedOffers,
+      });
+
+      // Track download
+      await apiRequest("POST", `/api/greeting-templates/${templateId}/download`, {});
+
+      // Download the image
+      const response = await fetch(template?.imageUrl || "");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const sizeOption = downloadSizeOptions.find(s => s.value === selectedDownloadSize);
+      a.download = `${template?.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${sizeOption?.value || 'poster'}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Downloaded!",
+        description: `Template downloaded (${sizeOption?.size})`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleSelection = (id: string, selected: string[], setSelected: (ids: string[]) => void) => {
+    if (selected.includes(id)) {
+      setSelected(selected.filter(item => item !== id));
+    } else {
+      setSelected([...selected, id]);
+    }
+  };
+
+  const handleShare = async (platform: string) => {
+    try {
+      // Create usage record if not already created
+      const usage = await createUsageMutation.mutateAsync({
+        templateId,
+        vendorId,
+        customText: { text: customText, businessName, location: businessLocation, website, phone, logo: logo || logoPreview },
+        includedProducts: selectedProducts,
+        includedServices: selectedServices,
+        includedOffers: selectedOffers,
+      });
+
+      if (!usage || !usage.id) {
+        throw new Error("Failed to create usage record");
+      }
+
+      // Track share
+      await trackShareMutation.mutateAsync({ usageId: usage.id, platform });
+
+      const shareText = buildShareText();
       const shareUrl = template?.imageUrl || "";
 
       let url = "";
@@ -359,11 +407,14 @@ export default function VendorGreetingCustomize() {
         case "linkedin":
           url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
           break;
+        case "telegram":
+          url = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+          break;
         case "instagram":
           // Instagram doesn't support direct web sharing
           toast({
             title: "Instagram Sharing",
-            description: "Please use the Instagram app to share this template",
+            description: "Download the image and share it via the Instagram app",
           });
           return;
       }
@@ -386,13 +437,11 @@ export default function VendorGreetingCustomize() {
   };
 
   if (isLoading) {
-
-    // Show loading while vendor ID initializes
     if (!vendorId) { return <LoadingSpinner />; }
 
     return (
       <div className="p-6 flex items-center justify-center min-h-screen">
-        <div className="text-muted-foreground">Loading template...</div>
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -412,38 +461,41 @@ export default function VendorGreetingCustomize() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setLocation(`/vendors/${vendorId}/greeting`)}
-          data-testid="button-back"
         >
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">Customize Template</h1>
-          <p className="text-muted-foreground">{template.title}</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl md:text-3xl font-bold truncate">Customize Template</h1>
+          <p className="text-muted-foreground text-sm truncate">{template.title}</p>
         </div>
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
+
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
         {/* Left: Template Preview */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Template Preview</CardTitle>
+        <Card className="order-2 lg:order-1">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Monitor className="w-5 h-5" />
+              Live Preview
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="aspect-square bg-muted rounded-lg overflow-hidden relative">
+            <div className="aspect-square bg-gradient-to-b from-gray-900 to-gray-800 rounded-lg overflow-hidden relative">
               <img
                 src={template.imageUrl}
                 alt={template.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
               {/* Logo overlay on preview if logo is present */}
               {logoPreview && template.supportsLogo && (
-                <div className="absolute top-4 right-4 w-20 h-20 bg-white rounded-lg shadow-xl p-2 flex items-center justify-center border-2 border-white">
+                <div className="absolute top-4 right-4 w-16 h-16 md:w-20 md:h-20 bg-white rounded-lg shadow-xl p-2 flex items-center justify-center border-2 border-white">
                   <img
                     src={logoPreview}
                     alt="Store Logo"
@@ -454,6 +506,13 @@ export default function VendorGreetingCustomize() {
                   </div>
                 </div>
               )}
+              {/* Store name overlay */}
+              <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-2 rounded-lg max-w-[80%]">
+                <p className="font-semibold text-sm truncate">{businessName}</p>
+                {businessLocation && (
+                  <p className="text-xs text-gray-300 truncate">📍 {businessLocation}</p>
+                )}
+              </div>
             </div>
 
             {/* Template Info */}
@@ -465,43 +524,58 @@ export default function VendorGreetingCustomize() {
                   </Badge>
                 ))}
               </div>
-              <p className="text-sm text-muted-foreground">{template.description}</p>
+              <p className="text-sm text-muted-foreground line-clamp-2">{template.description}</p>
             </div>
 
             {/* Stats */}
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>{template.downloadCount} downloads</span>
-              <span>{template.shareCount} shares</span>
+            <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
+              <span className="flex items-center gap-1">
+                <Download className="w-4 h-4" />
+                {template.downloadCount} downloads
+              </span>
+              <span className="flex items-center gap-1">
+                <Share2 className="w-4 h-4" />
+                {template.shareCount} shares
+              </span>
             </div>
           </CardContent>
         </Card>
 
         {/* Right: Customization Options */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Customize & Share</CardTitle>
+        <Card className="order-1 lg:order-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Customize & Share</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {/* Store Branding Section */}
-              <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Store className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold">Store Branding</h3>
-                </div>
+            <Tabs defaultValue="branding" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="branding" className="text-xs md:text-sm">
+                  <Store className="w-4 h-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Branding</span>
+                </TabsTrigger>
+                <TabsTrigger value="message" className="text-xs md:text-sm">
+                  <Send className="w-4 h-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Message</span>
+                </TabsTrigger>
+                <TabsTrigger value="share" className="text-xs md:text-sm">
+                  <Share2 className="w-4 h-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Share</span>
+                </TabsTrigger>
+              </TabsList>
                 
-                <div className="grid gap-3">
+              {/* Branding Tab */}
+              <TabsContent value="branding" className="space-y-4">
                   {/* Logo Upload/Preview */}
                   {template.supportsLogo && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
                         <ImageIcon className="w-4 h-4 text-primary" />
-                        <label className="text-xs font-medium text-muted-foreground">Store Logo</label>
+                      <label className="text-sm font-medium">Store Logo</label>
                       </div>
                       
                       {logoPreview ? (
-                        <div className="space-y-2">
-                          <div className="relative w-32 h-32 border-2 border-dashed border-primary rounded-lg overflow-hidden bg-white flex items-center justify-center p-3">
+                      <div className="flex items-start gap-4">
+                        <div className="relative w-24 h-24 border-2 border-dashed border-primary rounded-lg overflow-hidden bg-white flex items-center justify-center p-2">
                             <img
                               src={logoPreview}
                               alt="Store logo"
@@ -521,28 +595,26 @@ export default function VendorGreetingCustomize() {
                             >
                               ✕
                             </Button>
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {logoFile ? "Custom Upload" : "Profile Logo"}
+                          </Badge>
                             <Button
                               type="button"
                               variant="outline"
-                              size="icon"
-                              className="absolute -bottom-2 -right-2 h-6 w-6 rounded-full bg-white border-2"
+                            size="sm"
                               onClick={handleEditLogo}
-                              title="Edit logo"
                             >
-                              ✏️
+                            ✏️ Edit Logo
                             </Button>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <Badge variant="secondary" className="text-xs">
-                              {logoFile ? "Custom Upload" : "Profile Logo"}
-                            </Badge>
                           </div>
                         </div>
                       ) : (
-                        <div className="relative w-32 h-32 border-2 border-dashed border-muted-foreground/50 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                      <div className="relative w-24 h-24 border-2 border-dashed border-muted-foreground/50 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
                           <label className="cursor-pointer flex flex-col items-center gap-1">
                             <Upload className="w-6 h-6 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">Upload Logo</span>
+                          <span className="text-xs text-muted-foreground">Upload</span>
                             <Input
                               type="file"
                               accept="image/png,image/jpeg,image/jpg"
@@ -563,12 +635,11 @@ export default function VendorGreetingCustomize() {
                           </label>
                         </div>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {logoPreview ? "✓ Logo will appear on shared greeting" : "Upload your store logo (PNG/JPG)"}
-                      </p>
                     </div>
                   )}
                   
+                {/* Business Details */}
+                <div className="grid gap-3">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Business Name</label>
                     <Input
@@ -602,7 +673,7 @@ export default function VendorGreetingCustomize() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Globe className="w-4 h-4 text-primary" />
-                      <label className="text-xs font-medium text-muted-foreground">MiniWebsite Link</label>
+                      <label className="text-xs font-medium text-muted-foreground">Website / Store Link</label>
                     </div>
                     <Input
                       value={website}
@@ -613,48 +684,109 @@ export default function VendorGreetingCustomize() {
                     {miniWebsite?.isPublished && (
                       <p className="text-xs text-green-600 mt-1">✓ Your miniwebsite is live!</p>
                     )}
-                    {!miniWebsite?.isPublished && (
-                      <p className="text-xs text-amber-600 mt-1">⚠ Set up your miniwebsite to share</p>
-                    )}
                   </div>
                 </div>
-              </div>
+              </TabsContent>
 
+              {/* Message Tab */}
+              <TabsContent value="message" className="space-y-4">
               {/* Custom Message */}
               {template.hasEditableText && (
-                <div>
-                  <label className="text-sm font-medium">Custom Message</label>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Custom Caption</label>
+                      <span className={`text-xs ${characterCount > maxCharacters ? 'text-red-500' : 'text-muted-foreground'}`}>
+                        {characterCount}/{maxCharacters}
+                      </span>
+                    </div>
                   <Textarea
+                      ref={textareaRef}
                     value={customText}
                     onChange={(e) => setCustomText(e.target.value)}
                     placeholder="Add your festive greeting or promotional message..."
                     rows={4}
-                    data-testid="textarea-custom-message"
-                  />
+                      className="resize-none"
+                    />
+                    
+                    {/* Quick Emoji Bar */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                      <Smile className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      {quickEmojis.map((emoji) => (
+                        <Button
+                          key={emoji}
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-lg"
+                          onClick={() => addEmoji(emoji)}
+                        >
+                          {emoji}
+                        </Button>
+                      ))}
+                    </div>
+
+                    {/* Hashtag Suggestions */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Popular Hashtags</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {hashtagSuggestions.slice(0, 8).map((hashtag) => (
+                          <Badge
+                            key={hashtag}
+                            variant="outline"
+                            className="cursor-pointer hover:bg-primary/10 text-xs"
+                            onClick={() => addHashtag(hashtag)}
+                          >
+                            {hashtag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Copy Caption Button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={copyCaption}
+                      className="w-full"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4 mr-2 text-green-500" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy Full Caption
+                        </>
+                      )}
+                    </Button>
                 </div>
               )}
 
               {/* Select Products */}
               {template.supportsProducts && vendorProducts.length > 0 && (
-                <div className="space-y-3 border-t pt-4">
+                  <div className="space-y-2 border-t pt-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Package className="w-4 h-4 text-primary" />
-                      <label className="text-sm font-medium">Select Products to Feature</label>
+                        <label className="text-sm font-medium">Link Products</label>
                     </div>
                     <Badge variant="secondary">{selectedProducts.length} selected</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">Choose products to showcase in your greeting</p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
                     {vendorProducts.slice(0, 20).map((product: any) => (
                       <div key={product.id} className="flex items-center gap-2 hover:bg-muted/50 p-2 rounded">
                         <Checkbox
                           checked={selectedProducts.includes(product.id)}
                           onCheckedChange={() => toggleSelection(product.id, selectedProducts, setSelectedProducts)}
-                          data-testid={`checkbox-product-${product.id}`}
                         />
-                        <div className="flex-1 text-sm">
-                          <div className="font-medium">{product.name}</div>
+                          <div className="flex-1 text-sm min-w-0">
+                            <div className="font-medium truncate">{product.name}</div>
                           <div className="text-xs text-muted-foreground">₹{product.price}</div>
                         </div>
                       </div>
@@ -665,25 +797,23 @@ export default function VendorGreetingCustomize() {
 
               {/* Select Services */}
               {template.supportsServices && vendorServices.length > 0 && (
-                <div className="space-y-3 border-t pt-4">
+                  <div className="space-y-2 border-t pt-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <ShoppingBag className="w-4 h-4 text-primary" />
-                      <label className="text-sm font-medium">Select Services to Feature</label>
+                        <label className="text-sm font-medium">Link Services</label>
                     </div>
                     <Badge variant="secondary">{selectedServices.length} selected</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">Choose services to highlight in your greeting</p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
                     {vendorServices.slice(0, 20).map((service: any) => (
                       <div key={service.id} className="flex items-center gap-2 hover:bg-muted/50 p-2 rounded">
                         <Checkbox
                           checked={selectedServices.includes(service.id)}
                           onCheckedChange={() => toggleSelection(service.id, selectedServices, setSelectedServices)}
-                          data-testid={`checkbox-service-${service.id}`}
                         />
-                        <div className="flex-1 text-sm">
-                          <div className="font-medium">{service.name}</div>
+                          <div className="flex-1 text-sm min-w-0">
+                            <div className="font-medium truncate">{service.name}</div>
                           <div className="text-xs text-muted-foreground">₹{service.price}</div>
                         </div>
                       </div>
@@ -694,25 +824,23 @@ export default function VendorGreetingCustomize() {
 
               {/* Select Offers */}
               {template.supportsOffers && vendorOffers.length > 0 && (
-                <div className="space-y-3 border-t pt-4">
+                  <div className="space-y-2 border-t pt-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Tag className="w-4 h-4 text-primary" />
-                      <label className="text-sm font-medium">Select Offers & Coupons</label>
+                        <label className="text-sm font-medium">Link Offers</label>
                     </div>
                     <Badge variant="secondary">{selectedOffers.length} selected</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">Choose special offers to share with customers</p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
                     {vendorOffers.filter((o: any) => o.status === 'active').slice(0, 20).map((offer: any) => (
                       <div key={offer.id} className="flex items-center gap-2 hover:bg-muted/50 p-2 rounded">
                         <Checkbox
                           checked={selectedOffers.includes(offer.id)}
                           onCheckedChange={() => toggleSelection(offer.id, selectedOffers, setSelectedOffers)}
-                          data-testid={`checkbox-offer-${offer.id}`}
                         />
-                        <div className="flex-1 text-sm">
-                          <div className="font-medium">{offer.code}</div>
+                          <div className="flex-1 text-sm min-w-0">
+                            <div className="font-medium truncate">{offer.code}</div>
                           <div className="text-xs text-green-600 font-medium">
                             {offer.discountType === 'percentage' ? `${offer.discountValue}% OFF` : `₹${offer.discountValue} OFF`}
                           </div>
@@ -722,81 +850,125 @@ export default function VendorGreetingCustomize() {
                   </div>
                 </div>
               )}
+              </TabsContent>
 
-              {/* Download Button */}
-              <div className="border-t pt-4">
+              {/* Share Tab */}
+              <TabsContent value="share" className="space-y-4">
+                {/* Download Options */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium">Download Size</label>
+                  <Select value={selectedDownloadSize} onValueChange={setSelectedDownloadSize}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {downloadSizeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            <option.icon className="w-4 h-4" />
+                            <span>{option.label}</span>
+                            <span className="text-xs text-muted-foreground">({option.size})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
                 <Button
                   className="w-full"
+                    variant="outline"
                   onClick={handleDownload}
                   disabled={createUsageMutation.isPending}
-                  data-testid="button-download"
                 >
+                    {createUsageMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
                   <Download className="w-4 h-4 mr-2" />
-                  {createUsageMutation.isPending ? "Downloading..." : "Download Template"}
+                    )}
+                    Download Template
                 </Button>
               </div>
 
-              {/* Social Sharing Icons */}
-              <div className="border-t pt-4 space-y-3">
+                {/* Social Sharing */}
+                <div className="space-y-3 border-t pt-4">
                 <p className="text-sm font-medium">Share on Social Media</p>
-                <div className="grid grid-cols-2 gap-2">
+                  
+                  <div className="grid grid-cols-3 gap-2">
                   {/* WhatsApp */}
                   <Button
                     variant="outline"
-                    className="justify-center"
+                      className="flex-col h-auto py-3 hover:bg-green-50 hover:border-green-300 dark:hover:bg-green-950"
                     onClick={() => handleShare("whatsapp")}
                     disabled={trackShareMutation.isPending}
-                    data-testid="button-share-whatsapp"
                   >
-                    <SiWhatsapp className="w-5 h-5 text-[#25D366]" />
+                      <SiWhatsapp className="w-6 h-6 text-[#25D366]" />
+                      <span className="text-xs mt-1">WhatsApp</span>
                   </Button>
 
                   {/* Facebook */}
                   <Button
                     variant="outline"
-                    className="justify-center"
+                      className="flex-col h-auto py-3 hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-950"
                     onClick={() => handleShare("facebook")}
                     disabled={trackShareMutation.isPending}
-                    data-testid="button-share-facebook"
                   >
-                    <SiFacebook className="w-5 h-5 text-[#1877F2]" />
+                      <SiFacebook className="w-6 h-6 text-[#1877F2]" />
+                      <span className="text-xs mt-1">Facebook</span>
                   </Button>
 
                   {/* Instagram */}
                   <Button
                     variant="outline"
-                    className="justify-center"
+                      className="flex-col h-auto py-3 hover:bg-pink-50 hover:border-pink-300 dark:hover:bg-pink-950"
                     onClick={() => handleShare("instagram")}
                     disabled={trackShareMutation.isPending}
-                    data-testid="button-share-instagram"
+                    >
+                      <SiInstagram className="w-6 h-6 text-[#E4405F]" />
+                      <span className="text-xs mt-1">Instagram</span>
+                    </Button>
+
+                    {/* Telegram */}
+                    <Button
+                      variant="outline"
+                      className="flex-col h-auto py-3 hover:bg-sky-50 hover:border-sky-300 dark:hover:bg-sky-950"
+                      onClick={() => handleShare("telegram")}
+                      disabled={trackShareMutation.isPending}
                   >
-                    <SiInstagram className="w-5 h-5 text-[#E4405F]" />
+                      <SiTelegram className="w-6 h-6 text-[#0088cc]" />
+                      <span className="text-xs mt-1">Telegram</span>
                   </Button>
 
                   {/* Twitter */}
                   <Button
                     variant="outline"
-                    className="justify-center"
+                      className="flex-col h-auto py-3 hover:bg-sky-50 hover:border-sky-300 dark:hover:bg-sky-950"
                     onClick={() => handleShare("twitter")}
                     disabled={trackShareMutation.isPending}
-                    data-testid="button-share-twitter"
                   >
-                    <Twitter className="w-5 h-5 text-[#1DA1F2]" />
+                      <Twitter className="w-6 h-6 text-[#1DA1F2]" />
+                      <span className="text-xs mt-1">Twitter</span>
                   </Button>
 
                   {/* LinkedIn */}
                   <Button
                     variant="outline"
-                    className="justify-center"
+                      className="flex-col h-auto py-3 hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-950"
                     onClick={() => handleShare("linkedin")}
                     disabled={trackShareMutation.isPending}
-                    data-testid="button-share-linkedin"
                   >
-                    <SiLinkedin className="w-5 h-5 text-[#0A66C2]" />
+                      <SiLinkedin className="w-6 h-6 text-[#0A66C2]" />
+                      <span className="text-xs mt-1">LinkedIn</span>
                   </Button>
                 </div>
               </div>
+
+                {/* Branding Notice */}
+                <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground mb-1">🔒 Branding Protected</p>
+                  <p>Your store logo, name, and website link will be automatically included on all shared templates to maintain brand consistency.</p>
             </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
@@ -807,7 +979,7 @@ export default function VendorGreetingCustomize() {
         onOpenChange={setShowImageEditor}
         imageSrc={imageToEdit}
         onSave={handleLogoSave}
-        aspectRatio={1} // Square aspect ratio for logos
+        aspectRatio={1}
       />
     </div>
   );

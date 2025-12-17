@@ -50,7 +50,7 @@ export default function VendorProductsCatalogue() {
         <Tabs defaultValue="my-products" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="my-products" data-testid="tab-my-products">My Products</TabsTrigger>
-          <TabsTrigger value="suggested-products" data-testid="tab-suggested-products">Suggested Products</TabsTrigger>
+          <TabsTrigger value="suggested-products" data-testid="tab-suggested-products">Suggested (Admin)</TabsTrigger>
         </TabsList>
         
         <TabsContent value="my-products">
@@ -305,22 +305,16 @@ function SuggestedProductsTab({ vendorId }: { vendorId: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<MasterProduct | null>(null);
 
-  const { data: masterProducts = [] } = useQuery<MasterProduct[]>({
-    queryKey: ["/api/master-products"],
-  });
-
-  const { data: vendorProducts = [] } = useQuery<VendorProduct[]>({
-    queryKey: [`/api/vendors/${vendorId}/products`],
+  // Fetch suggested products filtered by vendor's category (admin-created products)
+  const { data: suggestedProducts = [], isLoading } = useQuery<MasterProduct[]>({
+    queryKey: [`/api/vendors/${vendorId}/suggested-products`],
     enabled: !!vendorId,
   });
 
-  const vendorProductIds = new Set(vendorProducts.map((p) => p.masterProductId));
-
-  const filteredProducts = masterProducts.filter((product) => {
+  const filteredProducts = suggestedProducts.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const notInInventory = !vendorProductIds.has(product.id);
-    return matchesSearch && notInInventory;
+    return matchesSearch;
   });
 
   const addMutation = useMutation({
@@ -328,6 +322,7 @@ function SuggestedProductsTab({ vendorId }: { vendorId: string }) {
       apiRequest("POST", `/api/vendors/${vendorId}/products`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/products`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suggested-products`] });
       setSelectedProduct(null);
       toast({ title: "Product added to inventory" });
     },
@@ -338,6 +333,11 @@ function SuggestedProductsTab({ vendorId }: { vendorId: string }) {
 
   return (
     <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold mb-1">Suggested Products</h2>
+        <p className="text-xs text-muted-foreground mb-4">Admin-created products matching your business category. Add them to your inventory with your own pricing.</p>
+      </div>
+      
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -349,11 +349,19 @@ function SuggestedProductsTab({ vendorId }: { vendorId: string }) {
         />
       </div>
 
-      {filteredProducts.length === 0 ? (
+      {isLoading ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Package className="w-12 h-12 mx-auto mb-4 opacity-50 animate-pulse" />
+            <p className="text-sm">Loading suggested products...</p>
+          </CardContent>
+        </Card>
+      ) : filteredProducts.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">{searchQuery ? "No products found" : "All products have been added to your inventory"}</p>
+            <p className="text-sm font-medium mb-2">{searchQuery ? "No products found" : "No suggested products available"}</p>
+            <p className="text-xs">Products matching your business category will appear here when added by admin.</p>
           </CardContent>
         </Card>
       ) : (
