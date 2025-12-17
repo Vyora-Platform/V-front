@@ -1575,6 +1575,31 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Lead = typeof leads.$inferSelect;
 
+// Demo Requests table - track demo booking requests from landing page
+export const demoRequests = pgTable("demo_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email"),
+  businessName: text("business_name"),
+  source: text("source").default("landing_page"), // 'landing_page', 'hero_cta', 'contact_form'
+  status: text("status").notNull().default("new"), // 'new', 'contacted', 'scheduled', 'completed', 'cancelled'
+  notes: text("notes"),
+  scheduledAt: timestamp("scheduled_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertDemoRequestSchema = createInsertSchema(demoRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDemoRequest = z.infer<typeof insertDemoRequestSchema>;
+export type DemoRequest = typeof demoRequests.$inferSelect;
+
 // Lead Communications table - track all interactions with leads
 export const leadCommunications = pgTable("lead_communications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1798,6 +1823,7 @@ export const miniWebsites = pgTable("mini_websites", {
     heroLayout: string; // 'centered', 'split', 'fullwidth'
     heroMedia?: string[]; // Hero section images/videos
     gallery?: string[]; // Array of image URLs
+    layoutId?: string; // Selected layout template ID (e.g., 'general-modern', 'salon-elegance')
     ctaButtons?: Array<{
       label: string;
       action: string; // 'call', 'whatsapp', 'enquiry', 'quotation'
@@ -2165,6 +2191,30 @@ export const insertStockAlertSchema = createInsertSchema(stockAlerts).omit({
 export type InsertStockAlert = z.infer<typeof insertStockAlertSchema>;
 export type StockAlert = typeof stockAlerts.$inferSelect;
 
+// Poster Categories table - admin-managed categories for organizing posters
+export const posterCategories = pgTable("poster_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  icon: text("icon").notNull(), // Lucide icon name
+  description: text("description"),
+  color: text("color").notNull().default("#3B82F6"), // Brand color for category
+  sortOrder: integer("sort_order").notNull().default(0),
+  isUpcoming: boolean("is_upcoming").notNull().default(false), // For upcoming events
+  eventDate: timestamp("event_date"), // For time-bound categories
+  status: text("status").notNull().default("active"), // 'active', 'inactive'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPosterCategorySchema = createInsertSchema(posterCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPosterCategory = z.infer<typeof insertPosterCategorySchema>;
+export type PosterCategory = typeof posterCategories.$inferSelect;
+
 // Greeting Templates table - uploaded by admin for marketing
 export const greetingTemplates = pgTable("greeting_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2174,6 +2224,12 @@ export const greetingTemplates = pgTable("greeting_templates", {
   description: text("description"),
   imageUrl: text("image_url").notNull(), // Uploaded design image
   thumbnailUrl: text("thumbnail_url"), // Smaller preview image
+  
+  // Category reference
+  categoryId: varchar("category_id").references(() => posterCategories.id),
+  
+  // Search tags
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // ['sale', 'discount', 'festival', etc.]
   
   // Filter Categories
   // 1. Occasion-Based
@@ -2417,3 +2473,114 @@ export const adminOrdersFilterSchema = z.object({
 });
 
 export type AdminOrdersFilter = z.infer<typeof adminOrdersFilterSchema>;
+
+// ========== PROMO BANNERS MODULE ==========
+
+// Promo Banners table - admin-managed promotional banners shown to vendors
+export const promoBanners = pgTable("promo_banners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  subtitle: text("subtitle"),
+  imageUrl: text("image_url"), // Banner image URL
+  navigationUrl: text("navigation_url"), // URL to navigate when clicked
+  gradient: text("gradient"), // CSS gradient class for fallback
+  displayOrder: integer("display_order").notNull().default(0),
+  status: text("status").notNull().default("active"), // 'active', 'inactive', 'scheduled'
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  targetAudience: text("target_audience").default("all"), // 'all', 'new', 'premium'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPromoBannerSchema = createInsertSchema(promoBanners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPromoBanner = z.infer<typeof insertPromoBannerSchema>;
+export type PromoBanner = typeof promoBanners.$inferSelect;
+
+// ========== REFERRAL PROGRAM MODULE ==========
+
+// Referrals table - tracks vendor referrals
+export const referrals = pgTable("referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referrerId: varchar("referrer_id").notNull().references(() => vendors.id), // Vendor who referred
+  referredId: varchar("referred_id").references(() => vendors.id), // New vendor who was referred (null until they sign up)
+  referralCode: text("referral_code").notNull(), // The code used
+  referredEmail: text("referred_email"), // Email of person invited (for tracking)
+  referredPhone: text("referred_phone"), // Phone of person invited
+  status: text("status").notNull().default("pending"), // 'pending', 'signed_up', 'subscribed', 'credited', 'expired'
+  rewardAmount: decimal("reward_amount", { precision: 10, scale: 2 }).notNull().default("200"),
+  creditedAt: timestamp("credited_at"), // When reward was credited
+  expiresAt: timestamp("expires_at"), // When the referral invite expires
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertReferralSchema = createInsertSchema(referrals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
+export type Referral = typeof referrals.$inferSelect;
+
+// Referral Stats - aggregated stats for vendors
+export const referralStats = pgTable("referral_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id).unique(),
+  referralCode: text("referral_code").notNull().unique(), // Vendor's unique referral code
+  totalReferrals: integer("total_referrals").notNull().default(0),
+  successfulReferrals: integer("successful_referrals").notNull().default(0), // Subscribed referrals
+  pendingReferrals: integer("pending_referrals").notNull().default(0),
+  totalEarnings: decimal("total_earnings", { precision: 10, scale: 2 }).notNull().default("0"),
+  pendingEarnings: decimal("pending_earnings", { precision: 10, scale: 2 }).notNull().default("0"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertReferralStatsSchema = createInsertSchema(referralStats).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertReferralStats = z.infer<typeof insertReferralStatsSchema>;
+export type ReferralStats = typeof referralStats.$inferSelect;
+
+// Referral Withdrawals table - tracks withdrawal requests
+export const referralWithdrawals = pgTable("referral_withdrawals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  withdrawMethod: text("withdraw_method").notNull(), // 'upi', 'bank_transfer'
+  
+  // UPI details
+  upiId: text("upi_id"),
+  
+  // Bank details
+  bankName: text("bank_name"),
+  accountNumber: text("account_number"),
+  ifscCode: text("ifsc_code"),
+  accountHolderName: text("account_holder_name"),
+  
+  status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed', 'rejected'
+  transactionId: text("transaction_id"), // Payment transaction ID after completion
+  failureReason: text("failure_reason"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertReferralWithdrawalSchema = createInsertSchema(referralWithdrawals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertReferralWithdrawal = z.infer<typeof insertReferralWithdrawalSchema>;
+export type ReferralWithdrawal = typeof referralWithdrawals.$inferSelect;

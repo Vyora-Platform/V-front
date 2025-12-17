@@ -1,0 +1,80 @@
+Stock Turnover Module (Detailed)
+🔹 Core Features
+1.	Add Stock (In/Out):
+o	One-Tap Buttons: “Stock In” and “Stock Out.”.
+o	Barcode/QR Scan Support: Scan product code to adjust stock quickly..
+2.	Smart Defaults: System remembers last supplier, price, unit.
+3.	Multi-location Stock: If vendor has branches, stock separated but centrally visible.
+
+
+2. Auto-Reduce on Sale
+•	POS Sales: Every in-store sale reduces stock in real-time.
+•	Website/App Orders: Every confirmed online order reduces stock instantly.
+•	Bookings/Services: If service consumes items (e.g., salon cream, medical consumables), auto-deduct on booking completion.
+•	Returns/Refunds: When sale refunded → stock auto-restored (if product physically Quotation Module: Once quotation is accepted → stock reservation option
+
+
+3. Low Stock Alerts
+•	Alert Limits: Vendor sets “minimum stock” level for each product/service consumable.
+•	Smart Alerts:
+o	Dashboard indicator
+o	Push notification on mobile
+o	WhatsApp/SMS/email alert
+•	Auto-Reorder Suggestion: System recommends reorder qty based on past turnover trends.
+•	Supplier Shortcut: Directly open purchase order draft for vendor.
+
+
+4. Stock History & Logs
+•	Track every movement: (date, time, staff, reason).
+•	Filter options:
+o	Stock In
+o	Stock Out
+o	Sold
+o	Expired
+o	Damaged
+o	Returned
+•	Export to Excel/PDF for compliance.
+
+
+4.	Expiry & Warranty Tracking:
+o	Expiry dates for perishable products.
+o	Alerts before expiry → “Sell soon” reminder.
+o	Warranty items (e.g., electronics) auto-tagged with warranty end date.
+
+5. Damaged/Returned Stock
+•	Quick Stock Out → Reason (Damaged / Expired / Returned).
+•	Returned items can be:
+o	Restocked (if usable)
+o	Discarded (if damaged/expired).
+•	Track shrinkage losses.
+Expiry & Warranty Tracking
+•	Expiry Dates: For perishable goods (e.g., bakery, medicines).
+•	Warranty Tracking: Electronics or durable goods tagged with warranty details.
+•	Smart Alerts:
+o	“⚠️ Expiring soon” reminders
+o	Auto-mark discount suggestion for clearance
+•	Batch Management: Track by lot number.
+•	
+Customer CRM: Link warranty with specific customer purchase
+7. Smart Insights (Analytics)
+•	Turnover Rate: Days to sell current stock.
+•	Top Performers: Bestselling products/services.
+•	Slow Movers: Highlight dead stock.
+•	Profitability per Item: Net margin analysis.
+•	Seasonal Trend Prediction: AI-powered reorder suggestions.
+Marketing Module: Suggest promotions for slow-moving stock
+________________________________________
+🔹 UX (Designed for Small Vendors)
+•	Buttons: Stock In / Stock Out.
+•	Quick Search: Find product by typing.
+•	Customer Selection at Sale: Auto-link sales to customer database.
+•	Visual Indicators:
+o	Green = Healthy Stock
+o	Yellow = Low Stock
+o	Red = Out of Stock
+•	Offline Mode: Works without internet, syncs later.
+
+________________________________________
+
+
+

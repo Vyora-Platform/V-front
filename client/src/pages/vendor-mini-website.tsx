@@ -12,12 +12,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getApiUrl } from "@/lib/config";
 import { 
   Eye, Save, Globe, Phone, Store, Package, CheckCircle2, AlertCircle,
   ChevronRight, ChevronLeft, Users, HelpCircle, Star, Tag, Info, Clock, MapPin,
-  Upload, X, Plus, ImageIcon
+  Upload, X, Plus, ImageIcon, Palette, Lock
 } from "lucide-react";
 import { FileUpload, MultiFileUpload } from "@/components/file-upload";
+import { ColorThemeSelector } from "@/components/ColorThemeSelector";
+import { LayoutSelector, websiteLayouts } from "@/components/LayoutSelector";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,7 +34,7 @@ const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 
 // Comprehensive form schema
 const miniWebsiteFormSchema = z.object({
-  // Step 1: Business Info
+  // Step 1: Website Name (Subdomain)
   subdomain: z.string().min(3).max(50).regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens"),
   businessName: z.string().min(2).max(100),
   tagline: z.string().max(200).optional(),
@@ -57,6 +60,7 @@ const miniWebsiteFormSchema = z.object({
   // Branding & Theme (removed from steps, using defaults)
   primaryColor: z.string().default("#0f766e"),
   secondaryColor: z.string().default("#14b8a6"),
+  accentColor: z.string().default("#0d9488"),
   heroMedia: z.array(z.string()).default([]),
   
   // Step 4: Team & About
@@ -116,23 +120,33 @@ const miniWebsiteFormSchema = z.object({
   homeServiceAvailable: z.boolean().default(false),
   homeServiceCharges: z.number().default(0).optional(),
   homeServiceTime: z.string().optional(),
+  
+  // Layout Selection
+  layoutId: z.string().default("general-modern"),
 });
 
 type FormValues = z.infer<typeof miniWebsiteFormSchema>;
 
 const STEPS = [
-  { id: 1, name: "Business Info", icon: Store },
-  { id: 2, name: "Contact", icon: Phone },
-  { id: 3, name: "Business Hours", icon: Clock },
-  { id: 4, name: "Gallery", icon: ImageIcon },
-  { id: 5, name: "Team & About", icon: Users },
-  { id: 6, name: "FAQs", icon: HelpCircle },
-  { id: 7, name: "Testimonials", icon: Star },
-  { id: 8, name: "Coupons", icon: Tag },
-  { id: 9, name: "Catalog", icon: Package },
-  { id: 10, name: "E-commerce", icon: Package },
-  { id: 11, name: "Review", icon: CheckCircle2 },
+  { id: 1, name: "Website Name", icon: Globe },
+  { id: 2, name: "Business Info", icon: Store },
+  { id: 3, name: "Contact", icon: Phone },
+  { id: 4, name: "Business Hours", icon: Clock },
+  { id: 5, name: "Gallery", icon: ImageIcon },
+  { id: 6, name: "Team & About", icon: Users },
+  { id: 7, name: "FAQs", icon: HelpCircle },
+  { id: 8, name: "Testimonials", icon: Star },
+  { id: 9, name: "Coupons", icon: Tag },
+  { id: 10, name: "Catalog", icon: Package },
+  { id: 11, name: "E-commerce", icon: Package },
+  { id: 12, name: "Color Theme", icon: Palette },
+  { id: 13, name: "Choose Layout", icon: Globe },
+  { id: 14, name: "Review & Publish", icon: CheckCircle2 },
 ];
+
+// LocalStorage keys
+const STORAGE_KEY_FORM_DATA = 'vendor_website_builder_form_data';
+const STORAGE_KEY_COMPLETED_STEPS = 'vendor_website_builder_completed_steps';
 
 export default function VendorMiniWebsite() {
   const { toast } = useToast();
@@ -147,6 +161,26 @@ export default function VendorMiniWebsite() {
   
   const [currentStep, setCurrentStep] = useState(validStep);
   const [showPreview, setShowPreview] = useState(false);
+  
+  // Subdomain availability state
+  const [subdomainAvailable, setSubdomainAvailable] = useState<boolean | null>(null);
+  const [subdomainMessage, setSubdomainMessage] = useState<string>("");
+  const [checkingSubdomain, setCheckingSubdomain] = useState(false);
+  
+  // Track completed steps
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_COMPLETED_STEPS);
+      return saved ? new Set(JSON.parse(saved)) : new Set<number>();
+    } catch {
+      return new Set<number>();
+    }
+  });
+  
+  // Save completed steps to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_COMPLETED_STEPS, JSON.stringify([...completedSteps]));
+  }, [completedSteps]);
   
   // Update step when URL query parameter changes
   useEffect(() => {
@@ -186,54 +220,122 @@ export default function VendorMiniWebsite() {
     enabled: !!vendorId,
   });
 
-  // Initialize form with empty defaults (will be filled by useEffect)
+  // Get saved form data from localStorage
+  const getSavedFormData = (): Partial<FormValues> | null => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_FORM_DATA);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const savedFormData = getSavedFormData();
+
+  // Initialize form with saved data or empty defaults
   const form = useForm<FormValues>({
     resolver: zodResolver(miniWebsiteFormSchema),
     defaultValues: {
-      subdomain: "",
-      businessName: "",
-      tagline: "",
-      description: "",
-      logo: "",
-      contactEmail: "",
-      contactPhone: "",
-      address: "",
-      googleMapsUrl: "",
-      businessHours: DAYS.map(day => ({ 
+      subdomain: savedFormData?.subdomain || "",
+      businessName: savedFormData?.businessName || "",
+      tagline: savedFormData?.tagline || "",
+      description: savedFormData?.description || "",
+      logo: savedFormData?.logo || "",
+      contactEmail: savedFormData?.contactEmail || "",
+      contactPhone: savedFormData?.contactPhone || "",
+      address: savedFormData?.address || "",
+      googleMapsUrl: savedFormData?.googleMapsUrl || "",
+      businessHours: savedFormData?.businessHours || DAYS.map(day => ({ 
         day, 
         isOpen: day !== "Sunday",
         slots: [{ open: "09:00", close: "18:00" }]
       })),
-      primaryColor: "#0f766e",
-      secondaryColor: "#14b8a6",
-      heroMedia: [],
-      teamMembers: [],
-      faqs: [],
-      testimonials: [],
-      selectedCouponIds: [],
-      selectedServiceIds: [],
-      selectedProductIds: [],
-      ecommerceEnabled: true,
-      ecommerceMode: "both",
-      allowGuestCheckout: false,
-      requirePhone: true,
-      requireAddress: true,
-      showPrices: true,
-      currency: "INR",
-      paymentMethods: [
+      primaryColor: savedFormData?.primaryColor || "#0f766e",
+      secondaryColor: savedFormData?.secondaryColor || "#14b8a6",
+      accentColor: savedFormData?.accentColor || "#0d9488",
+      heroMedia: savedFormData?.heroMedia || [],
+      teamMembers: savedFormData?.teamMembers || [],
+      faqs: savedFormData?.faqs || [],
+      testimonials: savedFormData?.testimonials || [],
+      selectedCouponIds: savedFormData?.selectedCouponIds || [],
+      selectedServiceIds: savedFormData?.selectedServiceIds || [],
+      selectedProductIds: savedFormData?.selectedProductIds || [],
+      ecommerceEnabled: savedFormData?.ecommerceEnabled ?? true,
+      ecommerceMode: savedFormData?.ecommerceMode || "both",
+      allowGuestCheckout: savedFormData?.allowGuestCheckout ?? false,
+      requirePhone: savedFormData?.requirePhone ?? true,
+      requireAddress: savedFormData?.requireAddress ?? true,
+      showPrices: savedFormData?.showPrices ?? true,
+      currency: savedFormData?.currency || "INR",
+      paymentMethods: savedFormData?.paymentMethods || [
         { type: "cod", enabled: true },
       ],
-      minOrderValue: 0,
-      taxRate: 0,
-      notificationEmails: [],
-      homeDeliveryAvailable: false,
-      homeDeliveryCharges: 0,
-      homeDeliveryTime: "",
-      homeServiceAvailable: false,
-      homeServiceCharges: 0,
-      homeServiceTime: "",
+      minOrderValue: savedFormData?.minOrderValue || 0,
+      taxRate: savedFormData?.taxRate || 0,
+      notificationEmails: savedFormData?.notificationEmails || [],
+      homeDeliveryAvailable: savedFormData?.homeDeliveryAvailable ?? false,
+      homeDeliveryCharges: savedFormData?.homeDeliveryCharges || 0,
+      homeDeliveryTime: savedFormData?.homeDeliveryTime || "",
+      homeServiceAvailable: savedFormData?.homeServiceAvailable ?? false,
+      homeServiceCharges: savedFormData?.homeServiceCharges || 0,
+      homeServiceTime: savedFormData?.homeServiceTime || "",
+      layoutId: savedFormData?.layoutId || "general-modern",
     },
   });
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    const subscription = form.watch((data) => {
+      localStorage.setItem(STORAGE_KEY_FORM_DATA, JSON.stringify(data));
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // Check subdomain availability function (called on button click)
+  const checkSubdomainAvailability = async () => {
+    const subdomain = form.getValues("subdomain");
+    
+    if (!subdomain || subdomain.length < 3) {
+      setSubdomainAvailable(null);
+      setSubdomainMessage("Website name must be at least 3 characters");
+      return;
+    }
+
+    // Validate format first
+    const subdomainRegex = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+    if (!subdomainRegex.test(subdomain)) {
+      setSubdomainAvailable(false);
+      setSubdomainMessage("Use only lowercase letters, numbers, and hyphens (can't start/end with hyphen)");
+      return;
+    }
+
+    setCheckingSubdomain(true);
+    setSubdomainMessage("");
+    try {
+      const apiUrl = getApiUrl(`/api/check-subdomain/${subdomain}?vendorId=${vendorId || ''}`);
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const data = await response.json();
+      setSubdomainAvailable(data.available);
+      setSubdomainMessage(data.reason || (data.available ? "This website name is available!" : "This website name is already taken"));
+    } catch (error) {
+      console.error("Error checking subdomain:", error);
+      setSubdomainAvailable(null);
+      setSubdomainMessage("Unable to check availability. Please try again.");
+    } finally {
+      setCheckingSubdomain(false);
+    }
+  };
+
+  // Reset availability when subdomain changes
+  const watchedSubdomain = form.watch("subdomain");
+  useEffect(() => {
+    // Reset availability state when user types
+    setSubdomainAvailable(null);
+    setSubdomainMessage("");
+  }, [watchedSubdomain]);
 
   // Autofill form with vendor details when creating new website
   useEffect(() => {
@@ -265,6 +367,7 @@ export default function VendorMiniWebsite() {
         })),
         primaryColor: "#0f766e",
         secondaryColor: "#14b8a6",
+        accentColor: "#0d9488",
         heroMedia: vendor.banner ? [vendor.banner] : [],
         teamMembers: [{
           name: vendor.ownerName || "",
@@ -296,6 +399,7 @@ export default function VendorMiniWebsite() {
         homeServiceAvailable: false,
         homeServiceCharges: 0,
         homeServiceTime: "",
+        layoutId: "general-modern",
       });
       
       console.log("✅ Auto-filled mini-website form");
@@ -333,6 +437,7 @@ export default function VendorMiniWebsite() {
         })),
         primaryColor: branding?.primaryColor || "#0f766e",
         secondaryColor: branding?.secondaryColor || "#14b8a6",
+        accentColor: branding?.accentColor || "#0d9488",
         heroMedia: branding?.heroMedia || (vendor.banner ? [vendor.banner] : []),
         teamMembers: team || (vendor.ownerName ? [{
           name: vendor.ownerName,
@@ -365,98 +470,120 @@ export default function VendorMiniWebsite() {
         homeServiceAvailable: ecommerce?.homeServiceAvailable || false,
         homeServiceCharges: ecommerce?.homeServiceCharges || 0,
         homeServiceTime: ecommerce?.homeServiceTime || "",
+        layoutId: branding?.layoutId || "general-modern",
       });
       
       console.log("✅ Prefilled edit form");
     }
   }, [isCreateMode, miniWebsite, vendor, form]);
 
-  // Save mini-website mutation
+  // Helper function to build save payload
+  const buildSavePayload = (data: FormValues) => ({
+    subdomain: data.subdomain,
+    businessInfo: {
+      businessName: data.businessName,
+      tagline: data.tagline,
+      about: data.description,
+      category: "General",
+      logo: data.logo,
+    },
+    contactInfo: {
+      email: data.contactEmail || "contact@example.com",
+      phone: data.contactPhone || "+91 00000 00000",
+      address: data.address || "Not provided",
+      city: "Not specified",
+      state: "Not specified",
+      pincode: "000000",
+      googleMapsUrl: data.googleMapsUrl,
+      workingHours: data.businessHours,
+    },
+    branding: {
+      themeTemplate: "modern",
+      primaryColor: data.primaryColor,
+      secondaryColor: data.secondaryColor,
+      accentColor: data.accentColor,
+      fontFamily: "Inter",
+      heroLayout: "centered",
+      heroMedia: data.heroMedia,
+      layoutId: data.layoutId,
+    },
+    selectedCatalog: {
+      services: data.selectedServiceIds,
+      products: data.selectedProductIds,
+    },
+    team: data.teamMembers,
+    faqs: data.faqs,
+    testimonials: data.testimonials,
+    selectedCouponIds: data.selectedCouponIds || [],
+    features: {
+      showReviews: true,
+      showGallery: true,
+      showTeam: data.teamMembers.length > 0,
+      showWorkingHours: true,
+      showCatalog: true,
+      enableWhatsAppChat: true,
+      enableCallButton: true,
+      showOffers: (data.selectedCouponIds || []).length > 0,
+    },
+    ecommerce: {
+      enabled: data.ecommerceEnabled !== undefined ? data.ecommerceEnabled : true,
+      mode: data.ecommerceMode || "both",
+      allowGuestCheckout: data.allowGuestCheckout !== undefined ? data.allowGuestCheckout : false,
+      requirePhone: data.requirePhone !== undefined ? data.requirePhone : true,
+      requireAddress: data.requireAddress !== undefined ? data.requireAddress : true,
+      showPrices: data.showPrices !== undefined ? data.showPrices : true,
+      currency: data.currency || "INR",
+      paymentMethods: data.paymentMethods || [
+        { type: "cod", enabled: true },
+      ],
+      minOrderValue: data.minOrderValue || 0,
+      taxRate: data.taxRate || 0,
+      notificationEmails: data.notificationEmails || [],
+      homeDeliveryAvailable: data.homeDeliveryAvailable || false,
+      homeDeliveryCharges: data.homeDeliveryCharges || 0,
+      homeDeliveryTime: data.homeDeliveryTime || "",
+      homeServiceAvailable: data.homeServiceAvailable || false,
+      homeServiceCharges: data.homeServiceCharges || 0,
+      homeServiceTime: data.homeServiceTime || "",
+    },
+  });
+
+  // Silent save mutation (for auto-save on Next - no toast)
+  const silentSaveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const payload = buildSavePayload(data);
+      return await apiRequest("POST", `/api/vendors/${vendorId}/mini-website`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/mini-website`] });
+      // No toast - silent save
+    },
+    onError: (error: any) => {
+      console.error("Auto-save failed:", error);
+      // Silent fail - don't interrupt user
+    },
+  });
+
+  // Save mini-website mutation (with toast - for explicit Save Draft)
   const saveMutation = useMutation({
     mutationFn: async (data: FormValues) => {
-      const payload = {
-        subdomain: data.subdomain,
-        businessInfo: {
-          businessName: data.businessName,
-          tagline: data.tagline,
-          about: data.description,
-          category: "General",
-          logo: data.logo,
-        },
-        contactInfo: {
-          email: data.contactEmail || "contact@example.com",
-          phone: data.contactPhone || "+91 00000 00000",
-          address: data.address || "Not provided",
-          city: "Not specified",
-          state: "Not specified",
-          pincode: "000000",
-          googleMapsUrl: data.googleMapsUrl,
-          workingHours: data.businessHours,
-        },
-        branding: {
-          themeTemplate: "modern",
-          primaryColor: data.primaryColor,
-          secondaryColor: data.secondaryColor,
-          fontFamily: "Inter",
-          heroLayout: "centered",
-          heroMedia: data.heroMedia,
-        },
-        selectedCatalog: {
-          services: data.selectedServiceIds,
-          products: data.selectedProductIds,
-        },
-        team: data.teamMembers,
-        faqs: data.faqs,
-        testimonials: data.testimonials,
-        selectedCouponIds: data.selectedCouponIds || [],
-        features: {
-          showReviews: true,
-          showGallery: true,
-          showTeam: data.teamMembers.length > 0,
-          showWorkingHours: true,
-          showCatalog: true,
-          enableWhatsAppChat: true,
-          enableCallButton: true,
-          showOffers: (data.selectedCouponIds || []).length > 0,
-        },
-        ecommerce: {
-          enabled: data.ecommerceEnabled !== undefined ? data.ecommerceEnabled : true,
-          mode: data.ecommerceMode || "both",
-          allowGuestCheckout: data.allowGuestCheckout !== undefined ? data.allowGuestCheckout : false,
-          requirePhone: data.requirePhone !== undefined ? data.requirePhone : true,
-          requireAddress: data.requireAddress !== undefined ? data.requireAddress : true,
-          showPrices: data.showPrices !== undefined ? data.showPrices : true,
-          currency: data.currency || "INR",
-          paymentMethods: data.paymentMethods || [
-            { type: "cod", enabled: true },
-          ],
-          minOrderValue: data.minOrderValue || 0,
-          taxRate: data.taxRate || 0,
-          notificationEmails: data.notificationEmails || [],
-          homeDeliveryAvailable: data.homeDeliveryAvailable || false,
-          homeDeliveryCharges: data.homeDeliveryCharges || 0,
-          homeDeliveryTime: data.homeDeliveryTime || "",
-          homeServiceAvailable: data.homeServiceAvailable || false,
-          homeServiceCharges: data.homeServiceCharges || 0,
-          homeServiceTime: data.homeServiceTime || "",
-        },
-      };
-
-      // Always use POST - backend handles both create and update
+      const payload = buildSavePayload(data);
       return await apiRequest("POST", `/api/vendors/${vendorId}/mini-website`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/mini-website`] });
       toast({
-        title: "Success",
-        description: "Mini-website saved successfully!",
+        title: "✓ Saved",
+        description: "Your changes have been saved.",
+        duration: 2000,
       });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to save mini-website. Please try again.",
+        description: error.message || "Failed to save. Please try again.",
         variant: "destructive",
+        duration: 3000,
       });
     },
   });
@@ -471,8 +598,9 @@ export default function VendorMiniWebsite() {
       const subdomain = form.getValues("subdomain");
       const siteUrl = getSiteUrl(subdomain);
       toast({
-        title: "Published!",
+        title: "🎉 Published!",
         description: `Your site is now live at ${siteUrl}`,
+        duration: 3000,
       });
     },
     onError: () => {
@@ -480,6 +608,7 @@ export default function VendorMiniWebsite() {
         title: "Error",
         description: "Failed to publish mini-website.",
         variant: "destructive",
+        duration: 2500,
       });
     },
   });
@@ -501,6 +630,7 @@ export default function VendorMiniWebsite() {
         title: "No subdomain",
         description: "Please set a subdomain first.",
         variant: "destructive",
+        duration: 2000,
       });
       return;
     }
@@ -508,48 +638,143 @@ export default function VendorMiniWebsite() {
     window.open(siteUrl, '_blank');
   };
 
-  // Validate step requirements
+  // Validate step requirements - ALL STEPS ARE MANDATORY
   const validateStep = (step: number): { isValid: boolean; errors: string[] } => {
     const values = form.getValues();
     const errors: string[] = [];
 
     switch (step) {
-      case 1: // Business Info
-        if (!values.subdomain) errors.push("Subdomain is required");
-        if (!values.businessName) errors.push("Business Name is required");
-        if (!values.tagline) errors.push("Tagline is required");
-        if (!values.description) errors.push("Description is required");
+      case 1: // Website Name (Subdomain)
+        if (!values.subdomain || !values.subdomain.trim()) errors.push("Website name is required");
+        else if (values.subdomain.length < 3) errors.push("Website name must be at least 3 characters");
+        else if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(values.subdomain)) {
+          errors.push("Use only lowercase letters, numbers, and hyphens");
+        }
+        // Check if availability was verified
+        if (subdomainAvailable === null && values.subdomain && values.subdomain.length >= 3) {
+          errors.push("Please check website name availability first");
+        }
+        if (subdomainAvailable === false && values.subdomain && values.subdomain.length >= 3) {
+          errors.push("This website name is not available");
+        }
         break;
-      case 2: // Contact
-        if (!values.contactEmail) errors.push("Contact Email is required");
-        if (!values.contactPhone) errors.push("Contact Phone is required");
-        if (!values.address) errors.push("Address is required");
+      case 2: // Business Info
+        if (!values.businessName || !values.businessName.trim()) errors.push("Business Name is required");
+        if (!values.tagline || !values.tagline.trim()) errors.push("Tagline is required");
+        if (!values.description || !values.description.trim()) errors.push("Description is required");
         break;
-      case 3: // Business Hours - optional, skip
+      case 3: // Contact
+        if (!values.contactEmail || !values.contactEmail.trim()) errors.push("Contact Email is required");
+        if (!values.contactPhone || !values.contactPhone.trim()) errors.push("Contact Phone is required");
+        if (!values.address || !values.address.trim()) errors.push("Address is required");
         break;
-      case 4: // Gallery - optional, skip
+      case 4: // Business Hours - At least one day must be open
+        const businessHours = values.businessHours || [];
+        const hasOpenDay = businessHours.some(day => day.isOpen);
+        if (!hasOpenDay) {
+          errors.push("At least one business day must be open");
+        }
         break;
-      case 5: // Team & About - optional, skip
+      case 5: // Gallery - At least 1 image required
+        const heroMedia = values.heroMedia || [];
+        if (heroMedia.length < 1) {
+          errors.push("At least 1 gallery image is required");
+        }
         break;
-      case 6: // FAQs - optional, skip
+      case 6: // Team & About - At least 1 team member
+        const teamMembers = values.teamMembers || [];
+        if (teamMembers.length < 1) {
+          errors.push("At least 1 team member is required");
+        }
         break;
-      case 7: // Testimonials - REQUIRED: minimum 3
+      case 7: // FAQs - At least 1 FAQ
+        const faqs = values.faqs || [];
+        if (faqs.length < 1) {
+          errors.push("At least 1 FAQ is required");
+        }
+        break;
+      case 8: // Testimonials - REQUIRED: minimum 3
         const testimonials = values.testimonials || [];
         if (testimonials.length < 3) {
           errors.push(`At least 3 testimonials are required. You have ${testimonials.length}.`);
         }
         break;
-      case 8: // Coupons - optional, skip
+      case 9: // Coupons - optional (but step must be visited)
         break;
-      case 9: // Catalog - optional, skip
+      case 10: // Catalog - At least 1 service or product
+        const selectedServices = values.selectedServiceIds || [];
+        const selectedProducts = values.selectedProductIds || [];
+        if (selectedServices.length === 0 && selectedProducts.length === 0) {
+          errors.push("At least 1 service or product must be selected");
+        }
         break;
-      case 10: // E-commerce - optional, skip
+      case 11: // E-commerce - validation handled by form schema
         break;
-      case 11: // Review - optional, skip
+      case 12: // Color Theme - colors are pre-selected, valid by default
+        break;
+      case 13: // Choose Layout - must select a layout
+        if (!values.layoutId || !values.layoutId.trim()) {
+          errors.push("Please select a layout for your website");
+        }
+        break;
+      case 14: // Review & Publish - no validation needed
         break;
     }
 
     return { isValid: errors.length === 0, errors };
+  };
+
+  // Check if a step can be navigated to (all previous steps must be completed)
+  const canNavigateToStep = (targetStep: number): boolean => {
+    // Can always go to step 1
+    if (targetStep === 1) return true;
+    
+    // Can go to current step
+    if (targetStep === currentStep) return true;
+    
+    // Can go to any completed step
+    if (completedSteps.has(targetStep)) return true;
+    
+    // Can go to the next step after the last completed step
+    for (let i = 1; i < targetStep; i++) {
+      if (!completedSteps.has(i)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Handle clicking on a step in the stepper
+  const handleStepClick = (stepId: number) => {
+    if (canNavigateToStep(stepId)) {
+      // Validate current step before navigating away
+      if (stepId !== currentStep) {
+        const validation = validateStep(currentStep);
+        if (validation.isValid) {
+          // Mark current step as completed
+          setCompletedSteps(prev => new Set([...prev, currentStep]));
+          // Save form data
+          const data = form.getValues();
+          silentSaveMutation.mutate(data);
+        }
+      }
+      setCurrentStep(stepId);
+    } else {
+      // Find the first incomplete step
+      let firstIncomplete = 1;
+      for (let i = 1; i < stepId; i++) {
+        if (!completedSteps.has(i)) {
+          firstIncomplete = i;
+          break;
+        }
+      }
+      toast({
+        title: "Complete Previous Steps",
+        description: `Please complete Step ${firstIncomplete} (${STEPS[firstIncomplete - 1].name}) first.`,
+        variant: "destructive",
+        duration: 2500,
+      });
+    }
   };
 
   const handleNext = () => {
@@ -562,15 +787,20 @@ export default function VendorMiniWebsite() {
           title: "Missing Required Fields",
           description: validation.errors.join(", "),
           variant: "destructive",
+          duration: 2500,
         });
         return;
       }
 
-      // Auto-save progress (happens in background)
-      const data = form.getValues();
-      saveMutation.mutate(data);
-      // Advance to next step
+      // Mark current step as completed
+      setCompletedSteps(prev => new Set([...prev, currentStep]));
+
+      // Advance to next step IMMEDIATELY (instant navigation)
       setCurrentStep(currentStep + 1);
+      
+      // Auto-save progress in background (silent - no toast)
+      const data = form.getValues();
+      silentSaveMutation.mutate(data);
     }
   };
 
@@ -588,23 +818,19 @@ export default function VendorMiniWebsite() {
         title: "Cannot Save Draft",
         description: "At minimum, Subdomain and Business Name are required to save a draft.",
         variant: "destructive",
+        duration: 2500,
       });
       return;
     }
 
     const data = form.getValues();
     saveMutation.mutate(data);
-    
-    toast({
-      title: "Draft Saved",
-      description: "Your changes have been saved successfully.",
-    });
   };
 
   const handlePublish = async () => {
-    // Validate all required steps for publishing
+    // Validate all required steps for publishing (steps 1-13, excluding final review step 14)
     const allErrors: string[] = [];
-    for (let step = 1; step <= 3; step++) {
+    for (let step = 1; step <= 13; step++) {
       const validation = validateStep(step);
       if (!validation.isValid) {
         allErrors.push(`Step ${step} (${STEPS[step - 1].name}): ${validation.errors.join(", ")}`);
@@ -614,11 +840,20 @@ export default function VendorMiniWebsite() {
     if (allErrors.length > 0) {
       toast({
         title: "Validation Error",
-        description: "Please complete all required fields.",
+        description: `Please complete all required steps. ${allErrors[0]}`,
         variant: "destructive",
+        duration: 3500,
       });
       return;
     }
+    
+    // Mark all steps as completed
+    const allSteps = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    setCompletedSteps(allSteps);
+    
+    // Clear localStorage after successful publish
+    localStorage.removeItem(STORAGE_KEY_FORM_DATA);
+    localStorage.removeItem(STORAGE_KEY_COMPLETED_STEPS);
     
     // Save first, then publish
     const data = form.getValues();
@@ -662,24 +897,35 @@ export default function VendorMiniWebsite() {
           <div className="flex gap-2 min-w-max">
             {STEPS.map((step) => {
               const StepIcon = step.icon;
-              const isCompleted = currentStep > step.id;
+              const isCompleted = completedSteps.has(step.id);
               const isActive = currentStep === step.id;
+              const canNavigate = canNavigateToStep(step.id);
+              const isLocked = !canNavigate && !isCompleted && !isActive;
               
               return (
-                <div
+                <button
                   key={step.id}
+                  type="button"
+                  onClick={() => handleStepClick(step.id)}
+                  disabled={isLocked}
                   className={`flex items-center gap-2 px-4 py-2 rounded-md border transition-colors ${
                     isActive
                       ? "bg-primary text-primary-foreground border-primary"
                       : isCompleted
-                      ? "bg-muted border-muted-foreground/20"
-                      : "bg-card border-border"
+                      ? "bg-green-50 border-green-300 hover:bg-green-100 cursor-pointer"
+                      : isLocked
+                      ? "bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed"
+                      : "bg-card border-border hover:bg-muted cursor-pointer"
                   }`}
                 >
-                  <StepIcon className="h-4 w-4" />
+                  {isLocked ? (
+                    <Lock className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <StepIcon className="h-4 w-4" />
+                  )}
                   <span className="text-sm font-medium whitespace-nowrap">{step.name}</span>
                   {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-600" />}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -691,8 +937,143 @@ export default function VendorMiniWebsite() {
           <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-180px)]">
             <Form {...form}>
               <form className="space-y-6">
-                {/* Step 1: Business Info */}
+                {/* Step 1: Choose Your Website Name */}
                 {currentStep === 1 && (
+                  <Card className="border-2">
+                    <CardHeader className="text-center pb-2">
+                      <div className="mx-auto w-16 h-16 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full flex items-center justify-center mb-4">
+                        <Globe className="h-8 w-8 text-white" />
+                      </div>
+                      <CardTitle className="text-2xl">Choose Your Website Name</CardTitle>
+                      <CardDescription className="text-base">
+                        Pick a unique name for your business website. This will be your online address.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6 pt-4">
+                      <div className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="subdomain"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-base font-semibold">Website Name</FormLabel>
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="relative flex-1">
+                                    <FormControl>
+                                      <Input 
+                                        {...field}
+                                        value={field.value.toLowerCase().replace(/[^a-z0-9-]/g, '')}
+                                        onChange={(e) => {
+                                          const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                                          field.onChange(value);
+                                        }}
+                                        data-testid="input-subdomain"
+                                        placeholder="yourbusiness"
+                                        className={`text-lg font-medium pr-10 ${
+                                          subdomainAvailable === true ? 'border-green-500 focus-visible:ring-green-500' : 
+                                          subdomainAvailable === false ? 'border-red-500 focus-visible:ring-red-500' : ''
+                                        }`}
+                                        autoComplete="off"
+                                      />
+                                    </FormControl>
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                      {!checkingSubdomain && subdomainAvailable === true && (
+                                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                      )}
+                                      {!checkingSubdomain && subdomainAvailable === false && (
+                                        <AlertCircle className="h-5 w-5 text-red-500" />
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    onClick={checkSubdomainAvailability}
+                                    disabled={checkingSubdomain || !field.value || field.value.length < 3}
+                                    className="shrink-0 bg-teal-600 hover:bg-teal-700"
+                                  >
+                                    {checkingSubdomain ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                        Checking...
+                                      </>
+                                    ) : (
+                                      "Check Availability"
+                                    )}
+                                  </Button>
+                                </div>
+                                
+                                {/* Subdomain preview */}
+                                <div className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg border">
+                                  <p className="text-sm text-muted-foreground mb-1">Your website will be available at:</p>
+                                  <p className="text-lg font-mono font-semibold text-primary break-all">
+                                    {getSiteUrl(field.value || 'yourbusiness')}
+                                  </p>
+                                </div>
+                                
+                                {/* Availability message */}
+                                {subdomainMessage && (
+                                  <p className={`text-sm flex items-center gap-1 ${
+                                    subdomainAvailable === true ? 'text-green-600' : 
+                                    subdomainAvailable === false ? 'text-red-600' : 'text-amber-600'
+                                  }`}>
+                                    {subdomainAvailable === true ? (
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    ) : subdomainAvailable === false ? (
+                                      <AlertCircle className="h-4 w-4" />
+                                    ) : (
+                                      <AlertCircle className="h-4 w-4" />
+                                    )}
+                                    {subdomainMessage}
+                                  </p>
+                                )}
+                                
+                                {/* Prompt to check availability */}
+                                {field.value && field.value.length >= 3 && subdomainAvailable === null && !subdomainMessage && (
+                                  <p className="text-sm text-amber-600 flex items-center gap-1">
+                                    <AlertCircle className="h-4 w-4" />
+                                    Click "Check Availability" to verify this name is available
+                                  </p>
+                                )}
+                                
+                                <FormMessage />
+                              </div>
+                              <FormDescription className="mt-3">
+                                <span className="block text-xs text-muted-foreground">
+                                  • Use 3-50 characters
+                                </span>
+                                <span className="block text-xs text-muted-foreground">
+                                  • Only lowercase letters, numbers, and hyphens allowed
+                                </span>
+                                <span className="block text-xs text-muted-foreground">
+                                  • Cannot start or end with a hyphen
+                                </span>
+                              </FormDescription>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      {/* Info box */}
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="flex gap-3">
+                          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                          <div className="text-sm text-blue-800 dark:text-blue-200">
+                            <p className="font-medium mb-1">Why choose a good website name?</p>
+                            <ul className="space-y-1 text-blue-700 dark:text-blue-300">
+                              <li>• Makes it easy for customers to find and remember you</li>
+                              <li>• Represents your brand professionally online</li>
+                              <li>• Can't be changed easily once published</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Step 2: Business Info */}
+                {currentStep === 2 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -707,38 +1088,6 @@ export default function VendorMiniWebsite() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="subdomain"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Subdomain *</FormLabel>
-                            <div className="flex items-center gap-2">
-                              <FormControl>
-                                <Input 
-                                  {...field}
-                                  value={field.value.toLowerCase()}
-                                  onChange={(e) => field.onChange(e.target.value.toLowerCase())}
-                                  data-testid="input-subdomain"
-                                  placeholder="your-business"
-                                />
-                              </FormControl>
-                              <span className="text-sm text-muted-foreground">
-                                {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-                                  ? `/site/[subdomain]` 
-                                  : `.vendorhub.com`}
-                              </span>
-                            </div>
-                            <FormMessage />
-                            {field.value && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Full URL: <span className="font-mono">{getSiteUrl(field.value)}</span>
-                              </p>
-                            )}
-                          </FormItem>
-                        )}
-                      />
-                      
                       <FormField
                         control={form.control}
                         name="businessName"
@@ -804,8 +1153,8 @@ export default function VendorMiniWebsite() {
                   </Card>
                 )}
 
-                {/* Step 2: Contact Info */}
-                {currentStep === 2 && (
+                {/* Step 3: Contact Info */}
+                {currentStep === 3 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -880,8 +1229,8 @@ export default function VendorMiniWebsite() {
                   </Card>
                 )}
 
-                {/* Step 3: Business Hours */}
-                {currentStep === 3 && (
+                {/* Step 4: Business Hours */}
+                {currentStep === 4 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -890,9 +1239,20 @@ export default function VendorMiniWebsite() {
                       </CardTitle>
                       <CardDescription>
                         Set your operating hours (add multiple time slots for break hours)
+                        <span className="block mt-1 text-xs text-amber-600">
+                          * At least one day must be marked as open to proceed
+                        </span>
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
+                      {!(form.watch("businessHours") || []).some((day: any) => day.isOpen) && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                          <p className="text-sm text-amber-800">
+                            <AlertCircle className="h-4 w-4 inline mr-2" />
+                            At least one business day must be open.
+                          </p>
+                        </div>
+                      )}
                       {form.watch("businessHours")?.map((dayHours, dayIndex) => {
                         const day = dayHours.day;
                         const isOpen = form.watch(`businessHours.${dayIndex}.isOpen`);
@@ -988,32 +1348,45 @@ export default function VendorMiniWebsite() {
                   </Card>
                 )}
 
-                {/* Step 4: Gallery */}
-                {currentStep === 4 && <GalleryStep form={form} />}
+                {/* Step 5: Gallery Only */}
+                {currentStep === 5 && <GalleryOnlyStep form={form} />}
 
-                {/* Step 5: Team & About */}
-                {currentStep === 5 && <TeamMembersStep form={form} />}
+                {/* Step 6: Team & About */}
+                {currentStep === 6 && <TeamMembersStep form={form} />}
 
-                {/* Step 6: FAQs */}
-                {currentStep === 6 && <FAQsStep form={form} />}
+                {/* Step 7: FAQs */}
+                {currentStep === 7 && <FAQsStep form={form} />}
 
-                {/* Step 7: Testimonials */}
-                {currentStep === 7 && <TestimonialsStep form={form} />}
+                {/* Step 8: Testimonials */}
+                {currentStep === 8 && <TestimonialsStep form={form} />}
 
-                {/* Step 8: Coupons */}
-                {currentStep === 8 && <CouponsStep form={form} />}
+                {/* Step 9: Coupons */}
+                {currentStep === 9 && <CouponsStep form={form} />}
 
-                {/* Step 9: Catalog */}
-                {currentStep === 9 && (
+                {/* Step 10: Catalog */}
+                {currentStep === 10 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Package className="h-5 w-5" />
                         Select Catalog Items
                       </CardTitle>
-                      <CardDescription>Choose services and products to display on your mini-website</CardDescription>
+                      <CardDescription>
+                        Choose services and products to display on your mini-website
+                        <span className="block mt-1 text-xs text-amber-600">
+                          * At least 1 service or product must be selected to proceed
+                        </span>
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                      {(form.watch("selectedServiceIds") || []).length === 0 && (form.watch("selectedProductIds") || []).length === 0 && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                          <p className="text-sm text-amber-800">
+                            <AlertCircle className="h-4 w-4 inline mr-2" />
+                            At least 1 service or product must be selected.
+                          </p>
+                        </div>
+                      )}
                       {/* Services Section */}
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
@@ -1111,11 +1484,26 @@ export default function VendorMiniWebsite() {
                   </Card>
                 )}
 
-                {/* Step 10: E-commerce Settings */}
-                {currentStep === 10 && <EcommerceSettingsStep form={form} />}
+                {/* Step 11: E-commerce Settings */}
+                {currentStep === 11 && <EcommerceSettingsStep form={form} />}
 
-                {/* Step 11: Review */}
-                {currentStep === 11 && (
+                {/* Step 12: Color Theme */}
+                {currentStep === 12 && <ColorThemeStep form={form} />}
+
+                {/* Step 13: Choose Layout */}
+                {currentStep === 13 && (
+                  <LayoutSelector
+                    selectedLayout={form.watch("layoutId") || "general-modern"}
+                    onLayoutChange={(layoutId) => form.setValue("layoutId", layoutId, { shouldValidate: true, shouldDirty: true })}
+                    formData={form.watch()}
+                    services={services}
+                    products={products}
+                    vendorCategory={vendor?.category || vendor?.businessCategory || vendor?.businessType}
+                  />
+                )}
+
+                {/* Step 14: Review & Publish */}
+                {currentStep === 14 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -1264,9 +1652,9 @@ export default function VendorMiniWebsite() {
                   </Card>
                 )}
 
-                {/* Navigation Buttons */}
-                {currentStep < 10 && (
-                  <div className="flex gap-2">
+                {/* Navigation Buttons - Show on all steps except Review (step 14) */}
+                {currentStep < STEPS.length && (
+                  <div className="flex gap-2 pt-6 border-t mt-6">
                     {currentStep > 1 && (
                       <Button
                         type="button"
@@ -1282,7 +1670,6 @@ export default function VendorMiniWebsite() {
                     <Button
                       type="button"
                       onClick={handleNext}
-                      disabled={saveMutation.isPending}
                       data-testid="button-next"
                       className="ml-auto"
                     >
@@ -1315,10 +1702,8 @@ export default function VendorMiniWebsite() {
   );
 }
 
-// Team Members Step Component
-function GalleryStep({ form }: { form: any }) {
-  const [uploadingImages, setUploadingImages] = useState<Set<number>>(new Set());
-
+// Gallery Only Step Component (Step 4)
+function GalleryOnlyStep({ form }: { form: any }) {
   const handleImagesChange = async (urls: string[]) => {
     form.setValue("heroMedia", urls, { shouldValidate: true, shouldDirty: true });
   };
@@ -1331,17 +1716,29 @@ function GalleryStep({ form }: { form: any }) {
           Gallery Images
         </CardTitle>
         <CardDescription>
-          Upload up to 10 images to showcase your business. These will be displayed in your website gallery.
+          Upload at least 1 image to showcase your business. These will be displayed in your website gallery.
+          <span className="block mt-1 text-xs text-amber-600">
+            * At least 1 image is required to proceed
+          </span>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="font-medium text-base">Business Gallery</h4>
-            <Badge variant="secondary">
+            <Badge variant={(form.watch("heroMedia") || []).length >= 1 ? "default" : "destructive"}>
               {(form.watch("heroMedia") || []).length}/10 images
             </Badge>
           </div>
+
+          {(form.watch("heroMedia") || []).length < 1 && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-sm text-amber-800">
+                <AlertCircle className="h-4 w-4 inline mr-2" />
+                At least 1 gallery image is required to proceed.
+              </p>
+            </div>
+          )}
 
           <MultiFileUpload
             values={form.watch("heroMedia") || []}
@@ -1390,13 +1787,143 @@ function GalleryStep({ form }: { form: any }) {
   );
 }
 
+// Color Theme Step Component (Step 12 - Before Choose Layout)
+function ColorThemeStep({ form }: { form: any }) {
+  // Handle color theme change
+  const handleThemeChange = (theme: { primary: string; secondary: string; accent: string }) => {
+    form.setValue("primaryColor", theme.primary, { shouldValidate: true, shouldDirty: true });
+    form.setValue("secondaryColor", theme.secondary, { shouldValidate: true, shouldDirty: true });
+    form.setValue("accentColor", theme.accent, { shouldValidate: true, shouldDirty: true });
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="h-5 w-5" />
+            Choose Your Color Theme
+          </CardTitle>
+          <CardDescription>
+            Select a color theme for your website. This will define the overall look and feel of your mini-website.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ColorThemeSelector
+            selectedTheme={{
+              primary: form.watch("primaryColor") || "#0f766e",
+              secondary: form.watch("secondaryColor") || "#14b8a6",
+              accent: form.watch("accentColor") || "#0d9488",
+            }}
+            onThemeChange={handleThemeChange}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Legacy Gallery & Design Step Component (kept for backwards compatibility)
+function GalleryStep({ form }: { form: any }) {
+  const handleImagesChange = async (urls: string[]) => {
+    form.setValue("heroMedia", urls, { shouldValidate: true, shouldDirty: true });
+  };
+
+  // Handle color theme change
+  const handleThemeChange = (theme: { primary: string; secondary: string; accent: string }) => {
+    form.setValue("primaryColor", theme.primary, { shouldValidate: true, shouldDirty: true });
+    form.setValue("secondaryColor", theme.secondary, { shouldValidate: true, shouldDirty: true });
+    form.setValue("accentColor", theme.accent, { shouldValidate: true, shouldDirty: true });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Color Theme Selector */}
+      <ColorThemeSelector
+        selectedTheme={{
+          primary: form.watch("primaryColor") || "#0f766e",
+          secondary: form.watch("secondaryColor") || "#14b8a6",
+          accent: form.watch("accentColor") || "#0d9488",
+        }}
+        onThemeChange={handleThemeChange}
+      />
+
+      {/* Gallery Images Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ImageIcon className="h-5 w-5" />
+            Gallery Images
+          </CardTitle>
+          <CardDescription>
+            Upload up to 10 images to showcase your business. These will be displayed in your website gallery.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-base">Business Gallery</h4>
+              <Badge variant="secondary">
+                {(form.watch("heroMedia") || []).length}/10 images
+              </Badge>
+            </div>
+
+            <MultiFileUpload
+              values={form.watch("heroMedia") || []}
+              onChange={handleImagesChange}
+              category="hero"
+              maxFiles={10}
+              className="w-full"
+              allowAnyFile={true}
+            />
+
+            <p className="text-sm text-muted-foreground">
+              Upload high-quality images of your business, products, or services. Recommended size: 1200x800px or larger.
+            </p>
+
+            {/* Preview Grid */}
+            {(form.watch("heroMedia") || []).length > 0 && (
+              <div className="mt-4">
+                <h5 className="text-sm font-medium mb-3">Preview</h5>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {(form.watch("heroMedia") || []).map((url: string, index: number) => (
+                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 border">
+                      <img
+                        src={url}
+                        alt={`Gallery ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentImages = form.watch("heroMedia") || [];
+                          const newImages = currentImages.filter((_: string, i: number) => i !== index);
+                          form.setValue("heroMedia", newImages, { shouldValidate: true, shouldDirty: true });
+                        }}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function TeamMembersStep({ form }: { form: any }) {
   const [newMember, setNewMember] = useState({ name: "", role: "", bio: "", photo: "" });
+  const teamMembers = form.watch("teamMembers") || [];
 
   const addTeamMember = () => {
     if (newMember.name && newMember.role) {
-      const teamMembers = form.watch("teamMembers") || [];
-      form.setValue("teamMembers", [...teamMembers, newMember]);
+      const currentTeamMembers = form.watch("teamMembers") || [];
+      form.setValue("teamMembers", [...currentTeamMembers, newMember]);
       setNewMember({ name: "", role: "", bio: "", photo: "" });
     }
   };
@@ -1408,9 +1935,22 @@ function TeamMembersStep({ form }: { form: any }) {
           <Users className="h-5 w-5" />
           Team & About Us
         </CardTitle>
-        <CardDescription>Introduce your team members</CardDescription>
+        <CardDescription>
+          Introduce your team members
+          <span className="block mt-1 text-xs text-amber-600">
+            * At least 1 team member is required to proceed
+          </span>
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {teamMembers.length < 1 && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+            <p className="text-sm text-amber-800">
+              <AlertCircle className="h-4 w-4 inline mr-2" />
+              At least 1 team member is required.
+            </p>
+          </div>
+        )}
         <div className="space-y-3">
           <Input
             value={newMember.name}
@@ -1651,6 +2191,8 @@ function FAQsStep({ form }: { form: any }) {
     return faqs.some((faq: any) => faq.question === commonFaq.question);
   };
 
+  const currentFaqs = form.watch("faqs") || [];
+
   return (
     <Card>
       <CardHeader>
@@ -1658,9 +2200,22 @@ function FAQsStep({ form }: { form: any }) {
           <HelpCircle className="h-5 w-5" />
           FAQs
         </CardTitle>
-        <CardDescription>Add frequently asked questions. You can select from common FAQs or create your own.</CardDescription>
+        <CardDescription>
+          Add frequently asked questions. You can select from common FAQs or create your own.
+          <span className="block mt-1 text-xs text-amber-600">
+            * At least 1 FAQ is required to proceed
+          </span>
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {currentFaqs.length < 1 && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+            <p className="text-sm text-amber-800">
+              <AlertCircle className="h-4 w-4 inline mr-2" />
+              At least 1 FAQ is required.
+            </p>
+          </div>
+        )}
         {/* Custom FAQ Creation - Moved Above Suggested FAQs */}
         <div className="space-y-4">
           <div>
@@ -1777,6 +2332,7 @@ function TestimonialsStep({ form }: { form: any }) {
         title: "Validation Error",
         description: "Customer name is required",
         variant: "destructive",
+        duration: 2000,
       });
       return;
     }
@@ -1786,6 +2342,7 @@ function TestimonialsStep({ form }: { form: any }) {
         title: "Validation Error",
         description: "Review text is required",
         variant: "destructive",
+        duration: 2000,
       });
       return;
     }
@@ -1811,8 +2368,9 @@ function TestimonialsStep({ form }: { form: any }) {
     });
 
     toast({
-      title: "Testimonial Added",
+      title: "✓ Testimonial Added",
       description: "Testimonial has been added successfully",
+      duration: 2000,
     });
   };
 
@@ -1825,8 +2383,9 @@ function TestimonialsStep({ form }: { form: any }) {
     }], { shouldValidate: true, shouldDirty: true });
     
     toast({
-      title: "Testimonial Added",
-      description: "Suggested testimonial has been added. You can customize it below.",
+      title: "✓ Testimonial Added",
+      description: "You can customize it below.",
+      duration: 2000,
     });
   };
 
@@ -2083,7 +2642,7 @@ function CouponsStep({ form }: { form: any }) {
   );
 }
 
-// Live Preview Component - Exact Match to Design
+// Live Preview Component - Clean Premium Design matching LayoutSelector preview
 function LivePreview({ 
   formData, 
   services: allServices = [], 
@@ -2095,7 +2654,11 @@ function LivePreview({
 }) {
   const { vendorId } = useAuth();
   const primaryColor = formData.primaryColor || "#2563eb";
-  const secondaryColor = formData.secondaryColor || "#10b981";
+  const secondaryColor = formData.secondaryColor || "#f97316";
+  const accentColor = formData.accentColor || "#06b6d4";
+  
+  // Get selected layout configuration
+  const selectedLayout = websiteLayouts.find(l => l.id === formData.layoutId) || websiteLayouts[0];
 
   // Filter services and products based on selection
   const services = allServices.filter((s) => (formData.selectedServiceIds || []).includes(s.id));
@@ -2109,173 +2672,236 @@ function LivePreview({
   
   const coupons = allCoupons.filter((c) => (formData.selectedCouponIds || []).includes(c.id));
 
+  // Default offers if no coupons
+  const defaultOffers = [
+    { title: '20% Off All Services', description: 'Valid until end of month.', badge: '20% DISCOUNT', cta: 'Get Code', color: '#dcfce7' },
+    { title: 'Premium Package Deal', description: 'Get our top services at special price.', badge: null, cta: 'View Details', color: '#fef3c7' },
+    { title: 'New Product Launch!', description: 'Be the first to try our latest arrival.', badge: null, cta: 'Learn More', color: '#dbeafe' },
+    { title: 'Student Discount', description: 'Show your ID to avail the offer.', badge: null, cta: 'View Details', color: '#fce7f3' },
+  ];
+
   return (
-    <div className="w-full min-h-screen text-sm bg-white">
-      {/* Header - Exact Match */}
-      <div className="border-b bg-white sticky top-0 z-10">
-        <div className="px-6 py-3 flex items-center justify-between">
-          <div className="font-bold text-sm">
-            🏢 {formData.businessName || "YourBrand"}
+    <div className="w-full min-h-screen bg-white font-sans">
+      {/* ===== HEADER - Clean & Minimal ===== */}
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4">
+          <div className="flex items-center justify-between">
+            {/* Logo */}
+            <div className="flex items-center gap-2 md:gap-3">
+            <div 
+                className="w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs md:text-sm"
+              style={{ backgroundColor: primaryColor }}
+            >
+                {formData.businessName?.charAt(0) || "Y"}
+            </div>
+              <span className="text-base md:text-xl font-bold text-gray-900">{formData.businessName || "YourBrand"}</span>
           </div>
-          <nav className="flex items-center gap-6 text-xs text-gray-600">
-            <a href="#services" className="hover:text-blue-600">Services</a>
-            <a href="#gallery" className="hover:text-blue-600">Gallery</a>
-            <a href="#about" className="hover:text-blue-600">About Us</a>
-            <a href="#faqs" className="hover:text-blue-600">FAQs</a>
+            
+            {/* Navigation - Hidden on mobile */}
+            <nav className="hidden lg:flex items-center gap-6 md:gap-8">
+              <a href="#offerings" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">Our Offerings</a>
+              <a href="#gallery" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">Gallery</a>
+              <a href="#about" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">About Us</a>
+              <a href="#faq" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">FAQs</a>
           </nav>
-          <Button size="sm" className="h-7 text-xs px-4" style={{ backgroundColor: primaryColor, color: "white" }}>
-            View Details
+            
+            {/* CTA Button */}
+            <Button 
+              size="sm"
+              className="rounded-full px-4 md:px-6 font-medium shadow-sm text-xs md:text-sm"
+              style={{ backgroundColor: secondaryColor, color: 'white' }}
+            >
+              Inquire Now
           </Button>
         </div>
       </div>
+      </header>
 
-      {/* Hero Section - Exact Match */}
-      <div className="px-8 py-12 bg-white">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8 items-center">
-          <div>
-            <h1 className="text-3xl font-bold mb-3 text-gray-900">
-              {formData.businessName || "Your Modern Business Name"}
-            </h1>
-            <div className="flex items-center gap-1 mb-2">
-              {[1,2,3,4,5].map((i) => (
-                <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-              ))}
-              <span className="text-xs text-gray-600 ml-1">4.9 Rating</span>
-            </div>
-            <p className="text-sm text-gray-600 mb-6">{formData.tagline || "Your tagline here"}</p>
-            <div className="flex gap-3">
-              {formData.contactPhone && (
-                <Button 
-                  size="sm" 
-                  className="text-xs px-4" 
-                  style={{ backgroundColor: primaryColor, color: "white" }}
-                  onClick={() => window.open(`tel:${formData.contactPhone}`, '_self')}
+      {/* ===== HERO SECTION - Clean Split Layout ===== */}
+      <section className="py-10 md:py-16 lg:py-20" style={{ background: `linear-gradient(135deg, ${primaryColor}10, ${accentColor}15)` }}>
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
+            {/* Left Content */}
+            <div className="text-center lg:text-left">
+              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 md:mb-4 leading-tight">
+                {formData.businessName || "Your Modern"}<br className="hidden md:block" />
+                {formData.tagline ? "" : "Business Name"}
+              </h1>
+              
+              {/* Rating */}
+              <div className="flex items-center gap-2 mb-3 md:mb-4 justify-center lg:justify-start">
+                <div className="flex">
+                  {[1,2,3,4,5].map(i => (
+                    <span key={i} className="text-yellow-400 text-sm md:text-lg">★</span>
+                  ))}
+              </div>
+                <span className="text-xs md:text-sm text-gray-600">4.9 (1,200 reviews)</span>
+              </div>
+              
+              {/* Address */}
+              <div className="flex items-center gap-2 text-gray-600 mb-6 md:mb-8 justify-center lg:justify-start">
+                <span className="text-gray-400">📍</span>
+                <span className="text-xs md:text-sm">{formData.address || "123 Main Street, Anytown, India"}</span>
+              </div>
+              
+              {/* CTA Buttons */}
+              <div className="flex flex-wrap gap-2 md:gap-3 justify-center lg:justify-start">
+                  <Button 
+                  className="rounded-full px-4 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-medium"
+                  style={{ backgroundColor: primaryColor, color: 'white' }}
+                  onClick={() => formData.googleMapsUrl && window.open(formData.googleMapsUrl, '_blank')}
+                  >
+                  📍 Directions
+                  </Button>
+                  <Button 
+                    variant="outline"
+                  className="rounded-full px-4 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-medium border-gray-300"
+                  onClick={() => formData.contactPhone && window.open(`tel:${formData.contactPhone}`, '_self')}
                 >
-                  📞 Call Now
+                  📞 Contact Us
                 </Button>
-              )}
-              {formData.contactPhone && (
                 <Button 
-                  size="sm" 
-                  className="text-xs px-4" 
-                  style={{ backgroundColor: secondaryColor, color: "white" }}
-                  onClick={() => window.open(`https://wa.me/${formData.contactPhone.replace(/\D/g, '')}`, '_blank')}
-                >
-                  💬 WhatsApp
-                </Button>
-              )}
+                  className="rounded-full px-4 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-medium bg-green-500 hover:bg-green-600 text-white"
+                  onClick={() => formData.contactPhone && window.open(`https://wa.me/${formData.contactPhone.replace(/\D/g, '')}`, '_blank')}
+                  >
+                    💬 WhatsApp
+                  </Button>
+              </div>
             </div>
-          </div>
-          <div className="relative h-48 rounded-xl overflow-hidden">
-            {formData.heroMedia && Array.isArray(formData.heroMedia) && formData.heroMedia.length > 0 ? (
-              <img 
-                src={formData.heroMedia[0]} 
-                alt="Hero" 
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div style={{ background: "linear-gradient(135deg, #5eead4 0%, #0d9488 100%)" }} className="w-full h-full flex items-center justify-center">
-                <div className="text-center text-white">
-                  <span className="text-sm">Hero images will be displayed here</span>
+            
+            {/* Right - Hero Image */}
+            <div className="relative hidden lg:block">
+                  {formData.heroMedia && Array.isArray(formData.heroMedia) && formData.heroMedia.length > 0 ? (
+                <div className="rounded-2xl overflow-hidden shadow-2xl">
+                    <img 
+                      src={formData.heroMedia[0]} 
+                    alt={formData.businessName || "Business"} 
+                    className="w-full h-[350px] md:h-[400px] object-cover"
+                    />
+                </div>
+                  ) : (
+                <div 
+                  className="rounded-2xl overflow-hidden shadow-2xl h-[350px] md:h-[400px] flex items-center justify-center"
+                  style={{ background: `linear-gradient(135deg, ${primaryColor}20, ${accentColor}30)` }}
+                >
+                  <div className="text-center p-8">
+                    <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 bg-white/50 rounded-2xl flex items-center justify-center">
+                      <span className="text-3xl md:text-4xl">🏢</span>
+                    </div>
+                    <p className="font-medium" style={{ color: primaryColor }}>Your Hero Image</p>
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
+      </section>
+      
+      {/* ===== OFFERS AND COUPONS ===== */}
+      <section className="py-10 md:py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8">Offers and Coupons</h2>
+          
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+            {coupons.length > 0 ? (
+              coupons.slice(0, 4).map((coupon: any, idx: number) => (
+                <div key={coupon.id} className="rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all bg-white">
+                  <div 
+                    className="h-24 md:h-36 flex items-center justify-center relative"
+                    style={{ backgroundColor: idx === 0 ? '#dcfce7' : idx === 1 ? '#fef3c7' : idx === 2 ? '#dbeafe' : '#fce7f3' }}
+                  >
+                    {coupon.discountType === 'percentage' && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="text-[10px] md:text-xs" style={{ backgroundColor: primaryColor, color: 'white' }}>
+                          {coupon.discountValue}% DISCOUNT
+                        </Badge>
+            </div>
+                    )}
+                    <span className="text-3xl md:text-4xl">{idx === 0 ? '🎉' : idx === 1 ? '⭐' : idx === 2 ? '🆕' : '🎓'}</span>
+            </div>
+                  <div className="p-3 md:p-4">
+                    <h3 className="font-semibold text-gray-900 mb-1 text-xs md:text-sm line-clamp-1">
+                      {coupon.discountType === 'percentage' ? `${coupon.discountValue}% Off` : `₹${coupon.discountValue} Off`}
+                    </h3>
+                    <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3 line-clamp-2">{coupon.description || "Special Offer"}</p>
+                    <Button 
+                      size="sm" 
+                      className="w-full rounded-lg text-[10px] md:text-xs h-7 md:h-8"
+                      style={{ backgroundColor: secondaryColor, color: 'white' }}
+                    >
+                      Get Code
+                    </Button>
+            </div>
+            </div>
+              ))
+            ) : (
+              defaultOffers.map((offer, idx) => (
+                <div key={idx} className="rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all bg-white">
+                  <div 
+                    className="h-24 md:h-36 flex items-center justify-center relative"
+                    style={{ backgroundColor: offer.color }}
+                  >
+                    {offer.badge && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="text-[10px] md:text-xs" style={{ backgroundColor: primaryColor, color: 'white' }}>{offer.badge}</Badge>
+          </div>
+                    )}
+                    <span className="text-3xl md:text-4xl">{idx === 0 ? '🎉' : idx === 1 ? '⭐' : idx === 2 ? '🆕' : '🎓'}</span>
+        </div>
+                  <div className="p-3 md:p-4">
+                    <h3 className="font-semibold text-gray-900 mb-1 text-xs md:text-sm line-clamp-1">{offer.title}</h3>
+                    <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3 line-clamp-2">{offer.description}</p>
+                    <Button 
+                      size="sm" 
+                      className="w-full rounded-lg text-[10px] md:text-xs h-7 md:h-8"
+                      style={{ backgroundColor: secondaryColor, color: 'white' }}
+                    >
+                      {offer.cta}
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+            </div>
+          </div>
+      </section>
 
-      {/* Offers and Coupons */}
-      {coupons && coupons.length > 0 && (
-        <div className="px-8 py-8 bg-white border-t">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-xl font-bold mb-6 text-gray-900">Offers and Coupons</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {coupons.map((coupon: any) => (
-                <div key={coupon.id} className="rounded-lg overflow-hidden border hover:shadow-lg transition-shadow">
-                  <div className="h-32 flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
-                    <div className="text-center text-white">
-                      <div className="text-3xl font-bold">
-                        {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `₹${coupon.discountValue}`}
+      {/* ===== OUR SERVICES ===== */}
+      <section id="offerings" className="py-10 md:py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="text-center mb-6 md:mb-10">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">Our Services</h2>
+            <p className="text-gray-500 text-xs md:text-sm max-w-xl mx-auto">Discover the range of professional services we offer to help you achieve your goals.</p>
+            </div>
+          
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+            {(services.length > 0 ? services : [
+              { id: '1', name: 'Service One', shortDescription: 'A short, catchy description.', price: 1999 },
+              { id: '2', name: 'Service Two', shortDescription: 'A short, catchy description.', price: 2499 },
+              { id: '3', name: 'Service Three', shortDescription: 'A short, catchy description.', price: 1499 },
+              { id: '4', name: 'Consulting', shortDescription: 'Expert guidance for your business.', price: 4999 },
+            ]).slice(0, 4).map((service: any, idx: number) => (
+              <div key={service.id || idx} className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all overflow-hidden">
+                <div className="h-28 md:h-40 bg-gray-100 flex items-center justify-center">
+                    {service.images && service.images.length > 0 ? (
+                      <img src={service.images[0]} alt={service.name} className="w-full h-full object-cover" />
+                    ) : (
+                    <div className="text-gray-300">
+                      {selectedLayout?.icon && <selectedLayout.icon className="w-12 h-12 md:w-16 md:h-16" />}
+                  </div>
+                        )}
                       </div>
-                      <div className="text-xs mt-1">OFF</div>
-                    </div>
-                  </div>
-                  <div className="p-3 bg-white">
-                    <p className="text-xs font-semibold mb-1">{coupon.description || "Special Offer"}</p>
-                    <p className="text-xs text-gray-600 mb-2 line-clamp-2">{coupon.description}</p>
-                    <div className="text-xs text-gray-500 mb-2">
-                      Code: <span className="font-mono font-semibold">{coupon.code}</span>
-                    </div>
-                    <Button size="sm" className="w-full h-7 text-xs" style={{ backgroundColor: "#f97316", color: "white" }}>
-                      Grab Offer
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Our Services */}
-      {services && services.length > 0 && (
-        <div id="services" className="px-8 py-12 bg-gray-50">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold mb-2 text-gray-900">Our Services</h2>
-              <p className="text-sm text-gray-600">Discover the range of services we provide to help you achieve your goals</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {services.map((service: any) => (
-                <div key={service.id} className="bg-white rounded-xl p-4 hover:shadow-lg transition-shadow">
-                  <div className="w-full aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                    {service.image ? (
-                      <img src={service.image} alt={service.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-4xl">🔧</span>
-                    )}
-                  </div>
-                  <h3 className="text-sm font-semibold mb-1 line-clamp-1">{service.name}</h3>
-                  <p className="text-xs text-gray-600 mb-3 line-clamp-2">{service.description || 'Professional service'}</p>
+                <div className="p-3 md:p-4">
+                  <h3 className="font-semibold text-gray-900 mb-1 text-xs md:text-sm line-clamp-1">{service.name}</h3>
+                  <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3 line-clamp-2">{service.shortDescription || service.description}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold" style={{ color: primaryColor }}>
-                      ₹{service.price?.toLocaleString() || '0'}
-                    </span>
-                    <Button size="sm" className="h-6 text-xs px-3" style={{ backgroundColor: primaryColor, color: "white" }}>
+                    <span className="font-bold text-sm md:text-base" style={{ color: primaryColor }}>₹{service.price?.toLocaleString()}</span>
+                    <Button 
+                      size="sm" 
+                      className="rounded-lg text-[10px] md:text-xs px-3 md:px-4 h-6 md:h-8"
+                      style={{ backgroundColor: secondaryColor, color: 'white' }}
+                    >
                       Book Now
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Our Products */}
-      {products && products.length > 0 && (
-        <div id="products" className="px-8 py-12 bg-white border-t">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl font-bold mb-8 text-gray-900">Our Products</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {products.map((product: any) => (
-                <div key={product.id} className="bg-white rounded-xl overflow-hidden border hover:shadow-lg transition-shadow">
-                  <div className="w-full aspect-square bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden">
-                    {product.image ? (
-                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-6xl">📦</span>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-sm font-semibold mb-1 line-clamp-1">{product.name}</h3>
-                    <p className="text-xs text-gray-600 mb-3 line-clamp-2">{product.description || 'Quality product'}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold" style={{ color: primaryColor }}>
-                        ₹{product.salePrice?.toLocaleString() || product.price?.toLocaleString() || '0'}
-                      </span>
-                      <Button size="sm" className="h-6 text-xs px-3" style={{ backgroundColor: primaryColor, color: "white" }}>
-                        Buy Now
                       </Button>
                     </div>
                   </div>
@@ -2283,203 +2909,256 @@ function LivePreview({
               ))}
             </div>
           </div>
-        </div>
-      )}
+      </section>
 
-      {/* Gallery Section */}
-      {formData.heroMedia && Array.isArray(formData.heroMedia) && formData.heroMedia.length > 0 && (
-        <div id="gallery" className="px-8 py-12 bg-gray-50">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl font-bold mb-8 text-center text-gray-900">Gallery</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {(formData.heroMedia || []).slice(0, 10).map((url: string, idx: number) => (
-                <div key={idx} className="aspect-square rounded-lg overflow-hidden bg-gray-200 hover:shadow-lg transition-shadow">
-                  <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Customer Reviews Section */}
-      {formData.testimonials && Array.isArray(formData.testimonials) && formData.testimonials.length > 0 && (
-        <div className="px-8 py-12 bg-white border-t">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl font-bold mb-8 text-center text-gray-900">Customer Reviews</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(formData.testimonials || []).slice(0, 3).map((testimonial: any, index: number) => (
-                <div key={index} className="bg-gray-50 rounded-xl p-6 border hover:shadow-lg transition-shadow">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center text-lg font-bold" style={{ color: primaryColor }}>
-                      {testimonial.customerName?.charAt(0) || "C"}
+      {/* ===== OUR PRODUCTS ===== */}
+      <section className="py-10 md:py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8">Our Products</h2>
+          
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+            {(products.length > 0 ? products : [
+              { id: '1', name: 'Product A', description: 'A short, catchy description.', salePrice: 3999 },
+              { id: '2', name: 'Product B', description: 'A short, catchy description.', salePrice: 6499 },
+              { id: '3', name: 'Product C', description: 'A short, catchy description.', salePrice: 2499 },
+              { id: '4', name: 'Product D', description: 'A short, catchy description.', salePrice: 7999 },
+            ]).slice(0, 4).map((product: any, idx: number) => (
+              <div key={product.id || idx} className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all overflow-hidden">
+                <div className="h-32 md:h-48 bg-gray-50 flex items-center justify-center p-3 md:p-4">
+                    {product.image ? (
+                    <img src={product.image} alt={product.name} className="w-full h-full object-contain" />
+                    ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+                      <Package className="w-10 h-10 md:w-16 md:h-16 text-gray-300" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold">{testimonial.customerName}</p>
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: testimonial.rating }).map((_, i) => (
-                          <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        ))}
-                      </div>
+                    )}
+                  </div>
+                <div className="p-3 md:p-4">
+                  <h3 className="font-semibold text-gray-900 mb-1 text-xs md:text-sm line-clamp-1">{product.name}</h3>
+                  <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3 line-clamp-2">{product.description}</p>
+                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 md:gap-2">
+                      <span className="font-bold text-sm md:text-base" style={{ color: primaryColor }}>
+                        ₹{(product.salePrice || product.price)?.toLocaleString()}
+                      </span>
+                      {product.price && product.salePrice && product.price > product.salePrice && (
+                        <span className="text-[10px] md:text-xs text-gray-400 line-through">₹{product.price?.toLocaleString()}</span>
+                      )}
+                </div>
+                    <Button 
+                      size="sm" 
+                      className="rounded-lg text-[10px] md:text-xs px-2 md:px-4 h-6 md:h-8"
+                      style={{ backgroundColor: secondaryColor, color: 'white' }}
+                    >
+                      Add to Cart
+                    </Button>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600 leading-relaxed">{testimonial.reviewText}</p>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      )}
+      </section>
 
-      {/* About Us - Exact Match */}
-      <div id="about" className="px-8 py-12 bg-gray-50">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-2xl font-bold mb-4 text-gray-900">About Us</h2>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {formData.description || "Our mission is to provide the best service to our valued customers. Learn more about our journey, our team, and what makes us different in the competitive landscape."}
-          </p>
-        </div>
+      {/* ===== ABOUT US & TEAM ===== */}
+      <section id="about" className="py-10 md:py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          {/* About Text */}
+          <div className="text-center mb-8 md:mb-12">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-3 md:mb-4">About Us</h2>
+            <p className="text-gray-500 max-w-2xl mx-auto text-xs md:text-sm leading-relaxed">
+              {formData.description || "Our mission is to provide the highest quality products and services to our valued customers. Learn more about our journey, our team, and our commitment to excellence."}
+            </p>
       </div>
 
-      {/* Our Team */}
+          {/* Our Team */}
       {formData.teamMembers && Array.isArray(formData.teamMembers) && formData.teamMembers.length > 0 && (
-        <div className="px-8 py-12 bg-white border-t">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl font-bold mb-8 text-center text-gray-900">Our Team</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {(formData.teamMembers || []).map((member: any, index: number) => (
-                <div key={index} className="text-center">
-                  <div className="w-20 h-20 rounded-full mx-auto mb-3 overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100">
+            <div className="text-center">
+              <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-6 md:mb-8">Our Team</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 max-w-3xl mx-auto">
+                {(formData.teamMembers || []).slice(0, 4).map((member: any, idx: number) => (
+                  <div key={idx} className="text-center">
+                  <div 
+                      className="w-14 h-14 md:w-20 md:h-20 rounded-full mx-auto mb-2 md:mb-3 flex items-center justify-center text-lg md:text-2xl font-bold text-white shadow-md overflow-hidden"
+                      style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
+                  >
                     {member.photo ? (
                       <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-2xl font-bold" style={{ color: primaryColor }}>
-                        {member.name.charAt(0)}
-                      </div>
+                      member.name?.charAt(0)
                     )}
                   </div>
-                  <p className="text-sm font-semibold">{member.name}</p>
-                  <p className="text-xs text-gray-600">{member.role}</p>
-                  {member.bio && (
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{member.bio}</p>
-                  )}
+                    <h4 className="font-semibold text-gray-900 text-xs md:text-sm">{member.name}</h4>
+                    <p className="text-[10px] md:text-xs" style={{ color: primaryColor }}>{member.role}</p>
                 </div>
               ))}
-            </div>
           </div>
         </div>
       )}
+        </div>
+      </section>
 
-      {/* Business Hours */}
+      {/* ===== BUSINESS HOURS ===== */}
       {formData.businessHours && formData.businessHours.length > 0 && (
-        <div className="px-8 py-12 bg-gray-50">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold mb-8 text-center text-gray-900">Business Hours</h2>
-            <div className="bg-white rounded-xl p-6 border space-y-3">
-              {formData.businessHours.map((dayHours: any, index: number) => (
-                <div key={index} className="flex justify-between items-center text-sm py-2 border-b last:border-b-0">
-                  <span className="font-medium">{dayHours.day}</span>
-                  {dayHours.isOpen ? (
-                    <div className="text-gray-600">
-                      {dayHours.slots.map((slot: any, slotIndex: number) => (
-                        <span key={slotIndex}>
-                          {slot.open} - {slot.close}
-                          {slotIndex < dayHours.slots.length - 1 && ', '}
-                        </span>
-                      ))}
-                    </div>
+        <section className="py-10 md:py-16 bg-white">
+          <div className="max-w-4xl mx-auto px-4 md:px-6">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8 text-center">Business Hours</h2>
+            
+            <div className="bg-gray-50 rounded-2xl p-4 md:p-6 border border-gray-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                {/* Working Hours */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3 md:mb-4 text-xs md:text-sm">Working Hours</h3>
+                  <div className="space-y-2 md:space-y-3 text-xs md:text-sm">
+                    {formData.businessHours.slice(0, 3).map((day: any, idx: number) => (
+                      <div key={idx} className="flex justify-between">
+                        <span className="text-gray-600">{day.day}</span>
+                        {day.isOpen ? (
+                          <span className="text-gray-900">{day.slots?.[0]?.open || '9:00 AM'} - {day.slots?.[0]?.close || '6:00 PM'}</span>
                   ) : (
-                    <span className="text-red-600 font-medium">Closed</span>
+                    <span className="text-red-500 font-medium">Closed</span>
                   )}
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Frequently Asked Questions */}
-      {formData.faqs && Array.isArray(formData.faqs) && formData.faqs.length > 0 && (
-        <div id="faqs" className="px-8 py-12 bg-white border-t">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold mb-8 text-center text-gray-900">Frequently Asked Questions</h2>
-            <div className="space-y-3">
-              {(formData.faqs || []).map((faq: any, index: number) => (
-                <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium mb-2">{faq.question}</p>
-                      <p className="text-sm text-gray-600">{faq.answer}</p>
+                {/* Break Time */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3 md:mb-4 text-xs md:text-sm">Break Time</h3>
+                  <div className="space-y-2 md:space-y-3 text-xs md:text-sm">
+                    {formData.businessHours.slice(0, 3).map((day: any, idx: number) => (
+                      <div key={idx} className="flex justify-between">
+                        <span className="text-gray-600">{day.day}</span>
+                        {day.isOpen ? (
+                          <span className="text-gray-900">1:00 PM - 2:00 PM</span>
+                        ) : (
+                          <span className="text-red-500 font-medium">Closed</span>
+                        )}
+            </div>
+                    ))}
                     </div>
-                    <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
                   </div>
                 </div>
-              ))}
             </div>
           </div>
-        </div>
+        </section>
       )}
 
-
-      {/* Footer */}
-      <div className="bg-slate-900 text-white">
-        <div className="px-8 py-8 border-t border-slate-800">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-3 gap-8 mb-6">
-              {/* Business Info */}
-              <div>
-                <h3 className="font-bold text-lg mb-3">{formData.businessName || "Business Name"}</h3>
-                <p className="text-xs text-gray-400 mb-2">{formData.tagline || ""}</p>
-                {formData.address && (
-                  <p className="text-xs text-gray-400 mb-2">{formData.address}</p>
-                )}
-                {formData.contactPhone && (
-                  <p className="text-xs text-gray-400 mb-1">📞 {formData.contactPhone}</p>
-                )}
-                {formData.contactEmail && (
-                  <p className="text-xs text-gray-400">📧 {formData.contactEmail}</p>
-                )}
+      {/* ===== FAQs ===== */}
+      {formData.faqs && Array.isArray(formData.faqs) && formData.faqs.length > 0 && (
+        <section id="faq" className="py-10 md:py-16 bg-gray-50">
+          <div className="max-w-3xl mx-auto px-4 md:px-6">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8 text-center">Frequently Asked Questions</h2>
+            
+            <div className="space-y-2 md:space-y-3">
+              {(formData.faqs || []).slice(0, 5).map((faq: any, idx: number) => (
+                <div key={idx} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                  <button className="w-full px-4 md:px-6 py-3 md:py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors">
+                    <span className="font-medium text-gray-900 text-xs md:text-sm pr-4">{faq.question}</span>
+                    <span className="text-gray-400 flex-shrink-0">▼</span>
+                  </button>
+                  <div className="px-4 md:px-6 pb-3 md:pb-4">
+                    <p className="text-gray-500 text-xs md:text-sm">{faq.answer}</p>
+                  </div>
+                  </div>
+              ))}
+                  </div>
               </div>
-              
-              {/* Quick Links */}
-              <div>
-                <h3 className="font-bold text-sm mb-3">Quick Links</h3>
-                <div className="flex flex-col gap-2 text-xs">
-                  <a href="#services" className="text-gray-400 hover:text-blue-400 transition-colors">Services</a>
-                  <a href="#products" className="text-gray-400 hover:text-blue-400 transition-colors">Products</a>
-                  <a href="#gallery" className="text-gray-400 hover:text-blue-400 transition-colors">Gallery</a>
-                  <a href="#about" className="text-gray-400 hover:text-blue-400 transition-colors">About Us</a>
-                  <a href="#faqs" className="text-gray-400 hover:text-blue-400 transition-colors">FAQs</a>
+        </section>
+      )}
+
+      {/* ===== GALLERY ===== */}
+      {formData.heroMedia && Array.isArray(formData.heroMedia) && formData.heroMedia.length > 1 && (
+        <section id="gallery" className="py-10 md:py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 md:px-6">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8 text-center">Gallery</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+              {formData.heroMedia.slice(0, 8).map((url: string, idx: number) => (
+                <div 
+                  key={idx} 
+                  className={`rounded-lg md:rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer ${idx === 0 ? 'col-span-2 row-span-2' : ''}`}
+                >
+                  <img 
+                    src={url} 
+                    alt={`Gallery ${idx + 1}`} 
+                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                    style={{ minHeight: idx === 0 ? '200px' : '100px' }}
+                  />
+                  </div>
+              ))}
                 </div>
               </div>
-              
-              {/* Business Hours Summary */}
-              {formData.businessHours && formData.businessHours.length > 0 && (
+        </section>
+      )}
+
+      {/* ===== TESTIMONIALS ===== */}
+      {formData.testimonials && Array.isArray(formData.testimonials) && formData.testimonials.length > 0 && (
+        <section className="py-10 md:py-16 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 md:px-6">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8 text-center">Customer Reviews</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              {(formData.testimonials || []).slice(0, 3).map((testimonial: any, idx: number) => (
+                <div key={idx} className="bg-white rounded-xl p-4 md:p-6 shadow-sm border border-gray-100">
+                  <div className="flex items-center gap-1 mb-3 md:mb-4">
+                    {Array.from({ length: testimonial.rating || 5 }).map((_, i) => (
+                      <span key={i} className="text-yellow-400 text-sm md:text-lg">★</span>
+                    ))}
+                </div>
+                  <p className="text-gray-600 mb-4 md:mb-6 text-xs md:text-sm leading-relaxed">"{testimonial.reviewText}"</p>
+                  <div className="flex items-center gap-3 border-t pt-3 md:pt-4">
+                    <div 
+                      className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-bold text-xs md:text-sm"
+                      style={{ backgroundColor: accentColor }}
+                    >
+                      {testimonial.customerName?.charAt(0) || "C"}
+              </div>
                 <div>
-                  <h3 className="font-bold text-sm mb-3">Hours</h3>
-                  <div className="text-xs text-gray-400 space-y-1">
-                    {formData.businessHours.slice(0, 3).map((day: any, idx: number) => (
-                      <div key={idx}>
-                        <span className="font-medium">{day.day}:</span>{' '}
-                        {day.isOpen ? `${day.slots[0]?.open}-${day.slots[0]?.close}` : 'Closed'}
+                      <p className="font-semibold text-xs md:text-sm">{testimonial.customerName}</p>
+                      {testimonial.customerLocation && (
+                        <p className="text-[10px] md:text-xs text-gray-500">📍 {testimonial.customerLocation}</p>
+                      )}
+                    </div>
+                  </div>
                       </div>
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
+        </section>
+      )}
+
+      {/* ===== FOOTER - Clean & Minimal ===== */}
+      <footer className="bg-white border-t border-gray-100 py-6 md:py-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Copyright */}
+            <p className="text-xs md:text-sm text-gray-500">
+              © {new Date().getFullYear()} {formData.businessName || "YourBrand"}. All rights reserved.
+              </p>
             
-            <div className="border-t border-slate-800 pt-6 text-center">
-              <p className="text-xs text-gray-400 mb-2">
-                © {new Date().getFullYear()} {formData.businessName || "Business Name"}. All rights reserved.
-              </p>
-              <p className="text-xs text-gray-500">
-                Powered by Vyora
-              </p>
+            {/* Footer Links */}
+            <nav className="flex items-center gap-4 md:gap-6 text-xs md:text-sm">
+              <a href="#offerings" className="text-gray-600 hover:text-gray-900 transition-colors">Our Offerings</a>
+              <a href="#gallery" className="text-gray-600 hover:text-gray-900 transition-colors">Gallery</a>
+              <a href="#about" className="text-gray-600 hover:text-gray-900 transition-colors">About Us</a>
+              <a href="#faq" className="text-gray-600 hover:text-gray-900 transition-colors">FAQs</a>
+            </nav>
             </div>
+          
+          {/* Vyora Branding */}
+          <div className="text-center mt-6 md:mt-8 pt-4 md:pt-6 border-t border-gray-100">
+            <a 
+              href="https://vyora.club" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-xs md:text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <span>This website is created with</span>
+              <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-500">Vyora.club</span>
+            </a>
           </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

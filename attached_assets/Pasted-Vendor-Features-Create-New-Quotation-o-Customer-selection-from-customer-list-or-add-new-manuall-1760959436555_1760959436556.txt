@@ -1,0 +1,87 @@
+Vendor Features
+•	Create New Quotation
+o	Customer selection (from customer list or add new manually this customer will automatically gets added into customer module)
+o	Auto-fill details (phone, email, address)
+o	Select products/services from predefined list or add new custom line items
+o	Autofill quantity, rate, taxes , and add additional discount, additional charges for service or delivery charges depending on the product or services(multiple charges addition option)
+o	Add optional notes or terms & conditions
+o	Auto-calculate total (subtotal + tax + discount)
+•	Save, Edit, or Delete quotations
+•	Quotation statuses: Draft, Sent, Accepted, Rejected, Expired
+•	Unique quotation number & date auto-generated
+•	Print / Download / Share as PDF
+•	Send via WhatsApp, Email, or link
+Admin Features
+•	View all quotations created by vendors
+•	Filter by date, status, or vendor
+•	Export all quotations in CSV or PDF
+________________________________________
+Vendor Features
+•	Quotation follow-up reminders
+•	Customer view tracking (see if customer opened quotation link)
+•	Convert quotation to Invoice or Order on acceptance
+•	Add internal notes or attach related documents
+•	Offline customer quotation entry (for walk-in clients)
+•	Send auto-reminder to customers for pending approval
+Admin Features
+•	Dashboard with total quotations, accepted/rejected rate
+•	Monitor quotation-to-sale conversion rate
+•	Vendor-wise quotation performance
+________________________________________
+Vendor Features
+•	Create quotation templates with pre-filled terms, headers, and footers
+•	Auto Add company logo, signature, and branding
+•	Auto tax and discount management
+•	Set validity period (e.g., valid for 7 days)
+•	Quotation duplication (reuse old quotation)
+•	Link quotation to lead or campaign for source tracking
+Admin Features
+•	Approve vendor quotation templates (for quality control)
+•	Set global tax rules and categories
+•	Configure quotation number format (prefix/suffix)
+•	Analytics: Average quotation value, response time, top-selling items
+________________________________________
+Vendor Features
+•	Analytics dashboard:
+o	Total quotations created, sent, accepted, rejected
+o	Total value of open vs converted quotations
+o	Average approval time, best-performing items
+•	Integration with:
+o	Leads module (convert lead → quotation)
+o	Customer module (auto-sync customer data)
+o	Expenses module (profit margin analysis)
+o	Inventory module (track stock availability)
+•	Convert quotation directly into Order/Invoice
+•	View payment history for accepted quotations
+Admin Features
+•	Marketplace-wide quotation insights
+•	Track top-performing vendors or service categories
+•	Set default templates, approval thresholds
+•	Export reports for financial analysis
+________________________________________
+Quotation Module Summary
+Feature	Vendor	Admin
+Create/Edit Quotation	✅	View/Approve
+Attach Customer	✅	View
+Add Products/Services	✅	Configure universal items
+Status Tracking	✅	✅
+PDF/Sharing	✅	✅
+Analytics & Insights	✅	✅
+Integration with Leads, Customers, Inventory	✅	✅
+________________________________________
+Sample Quotation Flow
+1.	Lead or Customer → Create Quotation
+2.	Vendor adds products/services, pricing, terms
+3.	Send via WhatsApp/email
+4.	Customer accepts → Convert to Order/Invoice
+5.	Track payments and close sale
+________________________________________
+Benefits
+✅ Speeds up sales cycle
+✅ Makes quotations look professional
+✅ Enables conversion tracking
+✅ Reduces pricing errors
+✅ Integrates with CRM and billing
+________________________________________
+integrate this Quotation Module into your complete vendor + admin ecosystem, alongside Customer, Lead, Employee, and  other modules
+

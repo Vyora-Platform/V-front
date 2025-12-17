@@ -67,36 +67,7 @@ export function SubscriptionPayment({ plan, vendorId, onSuccess, onError, onCanc
         startsWithRzp: razorpayKeyId?.startsWith('rzp_')
       });
 
-      // Validate Razorpay key before creating options
-      const keyValidation = {
-        hasKey: !!razorpayKeyId,
-        isValidFormat: razorpayKeyId?.startsWith('rzp_'),
-        isNotOldFallback: razorpayKeyId !== 'rzp_test_your_key_id',
-        keyValue: razorpayKeyId
-      };
-
-      console.log("Key validation details:", keyValidation);
-
-      if (!keyValidation.hasKey || !keyValidation.isValidFormat || !keyValidation.isNotOldFallback) {
-        const errorReasons = [];
-        if (!keyValidation.hasKey) errorReasons.push("Key is missing");
-        if (!keyValidation.isValidFormat) errorReasons.push("Invalid key format");
-        if (!keyValidation.isNotOldFallback) errorReasons.push("Using placeholder key");
-
-        console.warn("Razorpay key validation failed:", errorReasons);
-        console.warn("Using fallback test key for debugging...");
-
-        // For debugging: use a known working test key
-        razorpayKeyId = 'rzp_test_RhHdGgNx7Uu3Rf';
-
-        toast({
-          title: "Using test payment key",
-          description: "Payment system is in test mode.",
-          variant: "secondary"
-        });
-      }
-
-      // Initialize Razorpay checkout (after validation)
+      // Initialize Razorpay checkout
       const options = {
         key: razorpayKeyId,
         amount: amount,
@@ -225,6 +196,38 @@ export function SubscriptionPayment({ plan, vendorId, onSuccess, onError, onCanc
       }
 
       console.log("Razorpay is available, proceeding...");
+
+      // Validate Razorpay key
+      const keyValidation = {
+        hasKey: !!razorpayKeyId,
+        isValidFormat: razorpayKeyId?.startsWith('rzp_'),
+        isNotOldFallback: razorpayKeyId !== 'rzp_test_your_key_id',
+        keyValue: razorpayKeyId
+      };
+
+      console.log("Key validation details:", keyValidation);
+
+      if (!keyValidation.hasKey || !keyValidation.isValidFormat || !keyValidation.isNotOldFallback) {
+        const errorReasons = [];
+        if (!keyValidation.hasKey) errorReasons.push("Key is missing");
+        if (!keyValidation.isValidFormat) errorReasons.push("Invalid key format");
+        if (!keyValidation.isNotOldFallback) errorReasons.push("Using placeholder key");
+
+        console.warn("Razorpay key validation failed:", errorReasons);
+        console.warn("Using fallback test key for debugging...");
+
+        // For debugging: use a known working test key
+        razorpayKeyId = 'rzp_test_RhHdGgNx7Uu3Rf';
+
+        toast({
+          title: "Using test payment key",
+          description: "Payment system is in test mode.",
+          variant: "secondary"
+        });
+
+        // Don't return, continue with fallback key
+      }
+
       console.log("Creating Razorpay instance with options:", options);
 
       try {

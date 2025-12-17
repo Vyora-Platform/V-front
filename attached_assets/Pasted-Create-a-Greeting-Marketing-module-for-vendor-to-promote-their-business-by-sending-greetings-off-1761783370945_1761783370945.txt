@@ -1,0 +1,71 @@
+Create a Greeting, & Marketing module for vendor to promote their business by sending greetings, offers, wishes, etc to their customers . these design will be uploaded by admin with all the text, filtration and categorization design on some third party apps like canva etc . Make sure don’t create Greeting, & Marketing creating tamplete system , just make the upload system in admin panel and browse and sharing to all social media with adding their own text, products, services, offers from their respective catalogues and auto branding of the vendors business and our plateform which is Vyora with link .
+🎯 MODULE NAME
+Greeting, & Marketing Module
+________________________________________
+🔍 FILTER CATEGORIES (FOR ADMIN & VENDOR)
+🧧 1. Occasion-Based Filters
+Used for finding festival or event-based greetings.
+•	National Festivals → Independence Day, Republic Day, Gandhi Jayanti
+•	Religious Festivals → Diwali, Eid, Christmas, Holi, Raksha Bandhan, Navratri, Pongal, Onam, etc.
+•	Health Awareness Days → World Health Day, Yoga Day, Cancer Awareness, etc.
+•	Business Events → Grand Opening, Anniversary, New Branch Opening
+•	Special Days → Valentine’s Day, Women’s Day, Teacher’s Day, Children’s Day
+•	Birthday / Anniversary / Welcome / Congratulations templates
+•	Custom filter (added by vendor)
+•	
+________________________________________
+💰 2. Offer & Campaign Type Filters
+For promotional and business campaign visuals:
+•	Flat Discounts (e.g., “Flat 50% Off”)
+•	Buy One Get One (BOGO)
+•	Flash Sale / Limited Period Offer
+•	New Product Launch
+•	Membership Offer / Subscription Offer
+•	Referral Campaign
+•	Seasonal Clearance / Year-End Sale
+•	Free Trial / Demo Offer
+•	Custom Offers (added by vendor)
+________________________________________
+🏷️ 3. Industry or Business Type Filters
+So each business sees relevant creatives.
+•	Fitness & Gym
+•	Yoga / Wellness
+•	Salon / Spa / Beauty
+•	Clinics / Labs / Diagnostics
+•	Libraries / Coaching Centers / Institutes
+•	Restaurants / Cafes
+•	Retail Shops / Boutiques
+•	Electronics & Appliances
+•	Real Estate / Property
+•	Pet Care / Veterinary
+•	Automotive / Garage
+•	Grocery / Daily Needs
+•	Others (custom business category added by admin)
+________________________________________
+
+🧩 6. Branding & Customization Filters
+•	Auto-includes Vendor Logo , name, location
+•	Editable Text Areas 
+•	Add Product  from product catalogue 
+•	Add service from service catalogue
+•	Add Offer and coupons from Offer and coupons catalogue
+•	Auto Business Website link if present from mini website module
+•	Platform Branding of Vyora
+________________________________________
+🕒 4. Time & Relevance Filters
+•	Upcoming Events
+•	Ongoing Campaigns
+•	Expired Campaigns (Archived)
+•	Trending Now
+•	Most Used Templates
+•	Recently Added
+
+________________________________________
+🧾 5. Admin-Only Filters
+For analytics and moderation:
+•	Most downloaded templates
+•	Most shared on social media
+•	Drafts / Published
+•	Templates nearing expiry
+________________________________________
+

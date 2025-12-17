@@ -1,70 +1,62 @@
 /**
- * Global environment + API configuration
- * Works for:
- * - Local dev frontend (Vite @ 5173)
- * - Production frontend (Cloudflare Pages)
- * - Backend hosted separately (DigitalOcean)
+ * Application configuration for API URLs and environment detection
  */
 
-/**
- * Determine separated mode (frontend + backend separate)
- */
-export const isSeparatedMode = (): boolean => {
-  return Boolean(
-    import.meta.env.VITE_API_URL ||
-    import.meta.env.VITE_API_BASE_URL
-  );
+// Detect if we're in development separated mode (client on different port than server)
+const isSeparatedMode = () => {
+  // Check if we're running on a different port than the server (5173 vs 3000)
+  // This indicates separated development mode
+  if (typeof window === 'undefined') return false;
+
+  return window.location.port === '5173';
 };
 
-/**
- * Return API base URL
- * Priority:
- * 1. VITE_API_URL  (main production variable)
- * 2. VITE_API_BASE_URL (optional)
- * 3. localhost:3000 for local dev
- * 4. https://api.vyora.club as final production fallback
- */
+// Get the API base URL based on environment
 export const getApiBaseUrl = (): string => {
-  const apiBaseUrl =
-    import.meta.env.VITE_API_URL ||
-    import.meta.env.VITE_API_BASE_URL ||
-    (import.meta.env.DEV ? "http://localhost:3000" : "https://api.vyora.club");
+  if (isSeparatedMode()) {
+    // In separated mode, client runs on 5173, server on 3000
+    return 'http://localhost:3000';
+  }
 
-  console.log("🔧 getApiBaseUrl:", {
-    "VITE_API_URL": import.meta.env.VITE_API_URL,
-    "VITE_API_BASE_URL": import.meta.env.VITE_API_BASE_URL,
-    result: apiBaseUrl,
-  });
-
-  return apiBaseUrl;
+  // In integrated mode or production, use relative URLs
+  return '';
 };
 
-/**
- * Returns full API URL
- */
+// Get full API URL for a given endpoint
 export const getApiUrl = (endpoint: string): string => {
   const baseUrl = getApiBaseUrl();
-  console.log("baseUrl", baseUrl);
-  console.log("endpoint", endpoint);
+  const separated = isSeparatedMode();
 
-  const normalizedEndpoint = endpoint.startsWith("/")
-    ? endpoint
-    : `/${endpoint}`;
+  // Ensure endpoint starts with /
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-  return `${baseUrl}${normalizedEndpoint}`;
+  // Return full URL for separated mode, relative for integrated mode
+  const fullUrl = baseUrl ? `${baseUrl}${normalizedEndpoint}` : normalizedEndpoint;
+
+  console.log('🔗 getApiUrl:', {
+    endpoint,
+    normalizedEndpoint,
+    baseUrl,
+    separated,
+    fullUrl,
+    port: typeof window !== 'undefined' ? window.location.port : 'N/A'
+  });
+
+  return fullUrl;
 };
 
-/**
- * Environment helpers
- */
-export const isDevelopment = () => import.meta.env.DEV;
-export const isProduction = () => import.meta.env.PROD;
+// Environment detection
+export const isDevelopment = () => {
+  return import.meta.env.DEV;
+};
 
-/**
- * Optional server config (frontend only)
- */
+export const isProduction = () => {
+  return import.meta.env.PROD;
+};
+
+// Server configuration
 export const SERVER_CONFIG = {
-  port: import.meta.env.PORT || 3000,
-  host: "localhost",
-  protocol: "http",
+  port: isSeparatedMode() ? 3000 : (import.meta.env.PORT || 3000),
+  host: 'localhost',
+  protocol: 'http',
 };
