@@ -1,0 +1,66 @@
+________________________________________
+🗂 Category, Subcategory & Unit Management Module (Admin + Vendor)
+________________________________________
+1️⃣ Module Goals
+•	Admin: Can define global categories, subcategories, and units that all vendors can use.
+•	Vendor: Can define their own categories, subcategories, and units, or use admin-defined ones.
+•	Ensure every product, service, or offer links to category → subcategory → unit.
+•	Support custom vendor units without affecting other vendors.
+________________________________________
+2️⃣ Data Entities
+Category
+Field	Type	Notes
+id	uuid	Primary Key
+name	string	e.g., “Products”, “Services”, “Offers”
+description	string	Optional
+created_by	string	“admin” or vendor_id
+created_at	timestamp	Auto
+is_global	boolean	True if admin-defined global category
+Subcategory
+Field	Type	Notes
+id	uuid	Primary Key
+category_id	uuid	FK → Category
+name	string	e.g., “Stationery”, “Consultation”
+description	string	Optional
+created_by	string	“admin” or vendor_id
+created_at	timestamp	Auto
+is_global	boolean	True if admin-defined global subcategory
+Unit
+Field	Type	Notes
+id	uuid	Primary Key
+subcategory_id	uuid	FK → Subcategory
+name	string	e.g., pcs, kg, hour
+code	string	Short code for UI display
+created_by	string	“admin” or vendor_id
+is_global	boolean	True if admin-defined
+created_at	timestamp	Auto
+________________________________________
+3️⃣ Workflows
+Admin Workflow
+1.	Create / Edit / Delete global categories, subcategories, units
+2.	These appear as default choices for all vendors
+3.	Admin can mark any entity as global or editable by vendors
+Vendor Workflow
+1.	Use admin-defined categories, subcategories, and units
+2.	Create vendor-specific categories/subcategories/units
+3.	Link products/services/offers to any category/subcategory/unit (global or vendor-specific)
+4.	Vendors cannot edit global entities, only their own
+________________________________________
+4️⃣ UI Structure / Slots
+Admin Panel
+•	Categories Tab: List all categories → Add/Edit/Delete → mark as global
+•	Subcategories Tab: Select category → list subcategories → Add/Edit/Delete → mark as global
+•	Units Tab: Select subcategory → list units → Add/Edit/Delete → mark as global
+Vendor Panel
+•	Product / Service / Offer Form:
+o	Dropdown: Category → Subcategory → Unit (global + vendor-specific)
+o	Inline add option for vendor-specific category/subcategory/unit
+•	Custom Data: Vendors can manage only their own entries
+5 Key Features
+•	Admin Control: Can create global categories, subcategories, and units for all vendors
+•	Vendor Flexibility: Vendors can create their own entities and use global ones
+•	Dynamic Dropdowns: Category → Subcategory → Unit selection in listings
+•	Inline Creation: Vendors can add their own entries while creating products/services/offers
+•	Seamless Integration: Works for products, services, and offers modules
+________________________________________
+

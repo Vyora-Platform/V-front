@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Razorpay</title>
+    <!-- Razorpay Payment Gateway -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+    <h1>Test Razorpay Integration</h1>
+    <button id="payButton">Test Payment</button>
+
+    <script>
+        document.getElementById('payButton').addEventListener('click', async () => {
+            console.log('Testing Razorpay...');
+
+            try {
+                // Test API call
+                const response = await fetch('http://localhost:3000/api/vendor-subscriptions/create-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        planId: 'plan-monthly',
+                        vendorId: '3bb2830f-feff-4454-858d-67cf0fa447f6'
+                    })
+                });
+
+                const data = await response.json();
+                console.log('API Response:', data);
+
+                if (data.orderId) {
+                    // Test Razorpay modal
+                    console.log('Razorpay available:', !!window.Razorpay);
+
+                    const options = {
+                        key: data.razorpayKeyId,
+                        amount: data.amount,
+                        currency: data.currency,
+                        order_id: data.orderId,
+                        name: "VYORA Business",
+                        description: "Test Subscription",
+                        handler: function(response) {
+                            console.log('Payment successful:', response);
+                            alert('Payment successful!');
+                        },
+                        modal: {
+                            ondismiss: function() {
+                                console.log('Payment cancelled');
+                                alert('Payment cancelled');
+                            }
+                        }
+                    };
+
+                    console.log('Creating Razorpay instance...');
+                    const rzp = new window.Razorpay(options);
+                    console.log('Opening Razorpay modal...');
+                    rzp.open();
+                } else {
+                    console.error('Order creation failed:', data);
+                }
+            } catch (error) {
+                console.error('Test failed:', error);
+            }
+        });
+    </script>
+</body>
+</html>

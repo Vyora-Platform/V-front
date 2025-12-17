@@ -1,0 +1,198 @@
+
+Point Of Sell Module
+
+1. POS Entry Point (Home Screen)
+•	Buttons:
+o	🛒  Products(left)
+o	💇  Services(right)
+•	Quick Search Bar: Search item/service by name/code
+•	Frequent Sales Section: Auto-learns vendor’s top 10 items/services and displays for one-tap add.
+•	Pending Draft Bills: Option to resume unfinished bills.
+🔗 Integrations: Links directly with Catalogue Module + Stock Module.
+________________________________________
+2. Add Products / Services
+Product Flow
+•	Favorites products (most sold)
+•	One-tap add → Added to bill instantly(LIKE EZO BILLING) NO ADD OPTION, ADD THE PRODUCT BY TAPPING ON PRODUCT, TO ADD MORE TAP MORE, NO OF SELECTED QUINTY WILL BE SHOWN BY SIMPLE NO.
+•	Tap again → increases quantity.
+•	Long-press → opens detail popup
+•	Quantity adjust → +/– buttons (“3 soaps”).
+•	Auto-check stock:
+o	If stock < required → show ⚠️ warning with “Continue Anyway” option.
+•	Multiple unit support (e.g., kg, pcs, liters).
+Service Flow
+•	Tap service → Added with duration/price prefilled.
+•	Staff assignment (dropdown).
+•	Booking slot (choose now or later)
+•	Option to add extra charges (e.g., “facial + hair spa”).
+•	Exclusions/conditions shown (from Catalogue setup).
+Custom (Not Listed) Flow
+•	Vendor adds “custom product/service” → one-time use.
+•	Option: “Save to my catalogue” for future use.
+•	Auto-goes to Admin Approval Queue if added as new category/subcategory.
+System logic:
+•	Check stock before adding (warn if insufficient).
+•	Service items auto-block slots & staff availability.
+•	Consumables auto-deducted from stock.
+Cart Review Flow
+Cart sits on right (or bottom on mobile).
+•	Shows line items (Name, Qty, Unit Price, Total).
+•	Subtotal, Discount, Tax, Final Total.
+•	Each line has edit (qty, price, note).
+•	Option: “Convert to Quotation” or “Save as Order” before payment.
+💡 System logic: Auto-save cart every action → prevents data loss.
+
+🔗 Integrations:
+•	Product sale reduces Stock Turnover automatically.
+•	Service sale creates Booking Record if future-dated.
+
+________________________________________
+3. Customer Selection / Creation
+•	Prelisted Customer: Search by phone, name,, SLECTED BY DROP DOWN MENU
+•	Recent customers list (last prchage history , last visit,loyality points & dues shown)
+•	Customer Card View: Shows:
+o	Purchase history
+o	loyalty, 
+o	booking history.
+o	Credits/Dues
+o	Membership/Guarantee expiry
+•	New Customer Flow:
+o	Popup → add new customer like “add customer module” from “quick action section” then continiue the ongoing processes
+Customer Types (Auto-Classified):
+•	Walk-in
+•	Regular
+•	VIP (spends above X)
+•	Credit-pending
+🔗 Integrations:
+•	Links with Hisab-Kitab, , Lead Management.
+________________________________________
+
+4. Billing & Pricing
+•	Line Item View: Each product/service in rows.
+•	Options per row:
+o	Edit quantity
+o	Apply discount
+o	Add note (e.g., “Home Delivery”)
+•	Global Discounts:
+o	Percentage (10%) or Flat (₹50).
+o	Auto-suggest coupons/offers available.
+•	Additional Service Charges:
+o	Home Delivery Fee
+o	Packaging Fee
+o	Service Charge % (configurable)
+•	Tax Module:
+o	GST/VAT auto-applied (based on vendor settings).
+o	Supports tax inclusive and exclusive pricing.
+o	Option to toggle “Tax-exempt” for specific items
+o	Non-tax businesses → No extra fields (simplicity).
+
+•	🔗 Integrates with Offers Module & Tax Settings Module.
+
+________________________________________
+
+5. Payment Section
+•	Payment Options (One Screen):
+o	✅ Full Paid 
+o	🕒 Partial Paid (ask paid amount)
+o	❌ Credit (Unpaid → Ledger update)
+o	Split payment: add multiple methods (₹300 Cash + ₹200 UPI).
+o	advance payments: e.g., 20% advance for booking
+•	Methods Supported:
+o	Cash 
+o	UPI (GPay/PhonePe/Paytm) 
+o	Card
+o	Wallet
+o	Cheque
+o	Split Payment (multiple methods together)
+•	Auto Ledger Update:
+o	Paid → Added in cash/UPI register.
+o	Unpaid → Added to customer credit.
+o	advance payments: e.g., 20% advance for booking→ Added to customer paid in advance.
+🔗 Integrations:
+•	Expenses Module: Updates inflows/outflows.
+•	Hisab-Kitab: Tracks pending/paid in advance balance.
+•	Offers/Coupons Module: Adjusts discounts.
+•	Updates Customer Ledger
+________________________________________
+
+6. Checkout & Invoice
+•	Invoice Preview: Branded Invoice: Vendor name, logo, GSTIN, service charges, 
+•	Options:
+o	Print (Bluetooth printer)
+o	Send via WhatsApp/SMS/Email
+o	Save as PDF
+•	Smart Messages:
+o	“Thank you, visit again!”
+o	If credit → “You have pending ₹___”
+o	If Membership/Guarenty/warranty item → “Membership /Guarenty/Warranty valid till DD/MM/YY”
+🔗 Integrations:
+•	Quotation Module: Quotation → Convert to Bill in one click.
+•	Order Management: If delivery → auto create order.
+•	Booking Module: If appointment → auto schedule.
+________________________________________
+
+7. Post-Sale Automations
+•	Stock Updates: Auto reduce on sale, auto reorder suggestion if below threshold.
+•	Customer: Updates purchase history, loyalty points, credits.
+•	Guarantee/warrenty Tracking: Auto-set expiry dates.
+•	Membership Renewal Reminders: Auto notifications
+•	WhatsApp Follow-ups:
+o	Unpaid dues reminder
+o	Service follow-up reminder (e.g., haircut after 30 days)
+•	Feedback Links: Request ratings after sale.
+________________________________________
+
+8. Extra POS Features
+•	Offline Mode: Works without internet, syncs when online.
+•	 Multi-Bill Handling: Put bill on hold, switch, resume Useful for busy shops.
+•	Staff Accounts: Track sales per staff, commissions.
+•	Quotation → POS: Convert with 1 tap
+•	Upsell Suggestions:
+o	If “Printer” sold → Suggest “Cartridge”.
+o	If “Facial” sold → Suggest “Spa”.
+•	Quick Return/Exchange: Select old bill → reverse or exchange.
+•	Daily Settlement: One-tap “Day End” → Cash/UPI tally, report sent on WhatsApp.
+________________________________________
+9. POS Dashboard (Vendor View)
+•	Today’s Snapshot:
+o	Total Sales
+o	Paid / Pending / Partial
+o	Cash vs UPI vs Card
+•	Customer Insights: Top buyers, credits pending.
+•	Stock Alerts: Items running low.
+•	Upcoming Bookings: Services due today/tomorrow.
+•	Staff Performance: Top-selling staff members.
+•	Auto WhatsApp Report to owner/admin
+________________________________________
+10. Integrations with Other Modules
+•	Catalogue Management: Provides item/service database.
+•	Stock Turnover: Auto-updates stock in/out.
+•	Customer Management: Tracks history, credits, warranties.
+•	Quotation Module: Seamless quotation → invoice conversion.
+•	Order/Booking Link: POS bill → generate delivery/appointment schedule.
+: Handles services + deliveries.
+•	Hisab-Kitab: Updates credits, dues, partials.
+•	Offers & Coupons: Auto-discounts ,Smart discount suggestions.
+•	Lead Management: New customer leads enter POS database.
+•	Loyalty Integration: Auto apply loyalty discounts.
+•	Tax & Service Charges → Accurate billing
+•	Lead Management → New leads → convert to customers via POS
+•	Service Charges  (delivery, packaging, additional % charges).
+•	Tax Inclusive/Exclusive Handling (auto-calc).
+•	Advance Booking Payments (partial upfront).
+•	Offline Mode + Auto Sync.
+________________________________________
+⚡ Key Design Philosophy:
+•	1-tap simplicity → no typing unless necessary.
+•	Offline-first → because local businesses may face network issues.
+•	Everything interconnected → POS acts as the heart of the SaaS.
+•	Super-fast flows → Average transaction done in ≤ 20 seconds.
+
+
+________________________________________
+
+
+
+.
+.
+
