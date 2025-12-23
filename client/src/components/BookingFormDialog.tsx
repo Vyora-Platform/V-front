@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Trash2, Clock, IndianRupee } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,11 +38,27 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getVendorId } from "@/hooks/useVendor";
 import type { VendorCatalogue, Customer } from "@shared/schema";
+
+// Time slot options
+const TIME_SLOTS = [
+  "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+  "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM",
+  "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM",
+  "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM"
+];
+
+// Additional charge type
+interface AdditionalCharge {
+  name: string;
+  amount: number;
+  description?: string;
+}
 
 const bookingFormSchema = z.object({
   vendorCatalogueId: z.string().min(1, "Please select a service"),
@@ -52,9 +68,11 @@ const bookingFormSchema = z.object({
   patientAge: z.coerce.number().min(1).max(150).optional(),
   patientGender: z.enum(["male", "female", "other"]).optional(),
   bookingDate: z.date({ required_error: "Booking date is required" }),
+  timeSlot: z.string().optional(),
   isHomeCollection: z.boolean().default(false),
   collectionAddress: z.string().optional(),
   notes: z.string().optional(),
+  paymentStatus: z.enum(["pending", "paid", "refunded"]).default("pending"),
 }).refine(
   (data) => {
     // Require collection address when home collection is enabled
@@ -86,6 +104,9 @@ export function BookingFormDialog({
   const VENDOR_ID = getVendorId(); // Get real vendor ID from localStorage
   const [selectedService, setSelectedService] = useState<VendorCatalogue | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([]);
+  const [newChargeName, setNewChargeName] = useState("");
+  const [newChargeAmount, setNewChargeAmount] = useState("");
 
   // Fetch vendor's catalogue/services
   const { data: services = [], isLoading: servicesLoading } = useQuery<VendorCatalogue[]>({
@@ -109,11 +130,33 @@ export function BookingFormDialog({
       patientAge: undefined,
       patientGender: undefined,
       bookingDate: undefined,
+      timeSlot: "",
       isHomeCollection: false,
       collectionAddress: "",
       notes: "",
+      paymentStatus: "pending",
     },
   });
+
+  // Calculate total additional charges
+  const totalAdditionalCharges = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+
+  // Add additional charge
+  const handleAddCharge = () => {
+    if (newChargeName && newChargeAmount && parseFloat(newChargeAmount) > 0) {
+      setAdditionalCharges([
+        ...additionalCharges,
+        { name: newChargeName, amount: parseFloat(newChargeAmount) }
+      ]);
+      setNewChargeName("");
+      setNewChargeAmount("");
+    }
+  };
+
+  // Remove additional charge
+  const handleRemoveCharge = (index: number) => {
+    setAdditionalCharges(additionalCharges.filter((_, i) => i !== index));
+  };
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: BookingFormValues) => {
@@ -126,7 +169,7 @@ export function BookingFormDialog({
       const homeCollectionCharges = data.isHomeCollection 
         ? Number(selectedService.homeCollectionCharges ?? 0) 
         : 0;
-      const totalAmount = price + homeCollectionCharges;
+      const totalAmount = price + homeCollectionCharges + totalAdditionalCharges;
 
       const bookingData = {
         vendorId: VENDOR_ID,
@@ -137,15 +180,18 @@ export function BookingFormDialog({
         patientAge: data.patientAge || null,
         patientGender: data.patientGender || null,
         bookingDate: data.bookingDate.toISOString(),
+        timeSlot: data.timeSlot || null,
         isHomeCollection: data.isHomeCollection,
         collectionAddress: data.isHomeCollection ? data.collectionAddress : null,
         price,
         homeCollectionCharges,
+        additionalCharges: additionalCharges.length > 0 ? additionalCharges : [],
         totalAmount,
         status: "pending",
-        paymentStatus: "pending",
+        paymentStatus: data.paymentStatus || "pending",
         notes: data.notes || null,
         assignedTo: null,
+        source: "manual", // Manual booking from vendor portal
       };
 
       const response = await apiRequest("POST", "/api/bookings", bookingData);
@@ -159,6 +205,7 @@ export function BookingFormDialog({
       form.reset();
       setSelectedService(null);
       setSelectedCustomer(null);
+      setAdditionalCharges([]);
       onSuccess();
       onOpenChange(false);
     },
@@ -427,8 +474,142 @@ export function BookingFormDialog({
                     </FormItem>
                   )}
                 />
+
+                {/* Time Slot Selection */}
+                <FormField
+                  control={form.control}
+                  name="timeSlot"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5" />
+                        Time Slot
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select time slot" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {TIME_SLOTS.map((slot) => (
+                            <SelectItem key={slot} value={slot}>
+                              {slot}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Preferred time for the booking
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             </div>
+
+            {/* Additional Charges Section */}
+            <Card className="p-4 bg-muted/30">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <IndianRupee className="h-4 w-4" />
+                Additional Charges
+              </h3>
+              
+              {/* Existing charges list */}
+              {additionalCharges.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {additionalCharges.map((charge, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-background rounded border">
+                      <div>
+                        <p className="text-sm font-medium">{charge.name}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">₹{charge.amount}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleRemoveCharge(index)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add new charge form */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Charge name (e.g., Express Fee)"
+                  value={newChargeName}
+                  onChange={(e) => setNewChargeName(e.target.value)}
+                  className="flex-1 h-9 text-sm"
+                />
+                <Input
+                  type="number"
+                  placeholder="Amount"
+                  value={newChargeAmount}
+                  onChange={(e) => setNewChargeAmount(e.target.value)}
+                  className="w-24 h-9 text-sm"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={handleAddCharge}
+                  disabled={!newChargeName || !newChargeAmount}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Add any additional charges like express fees, special handling, etc.
+              </p>
+            </Card>
+
+            {/* Payment Status */}
+            <FormField
+              control={form.control}
+              name="paymentStatus"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payment Status</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select payment status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="pending">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-amber-500" />
+                          <span>Pending</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="paid">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-green-500" />
+                          <span>Paid</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="refunded">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-red-500" />
+                          <span>Refunded</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Home Service Section */}
             {selectedService?.homeCollectionAvailable && (
@@ -500,24 +681,37 @@ export function BookingFormDialog({
 
             {/* Pricing Summary */}
             {selectedService && (
-              <div className="rounded-lg border p-4 bg-muted/50">
-                <h4 className="font-semibold mb-2">Pricing Summary</h4>
-                <div className="space-y-1 text-sm">
+              <div className="rounded-lg border p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800">
+                <h4 className="font-semibold mb-3 text-green-800 dark:text-green-200">Pricing Summary</h4>
+                <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>Service Price:</span>
-                    <span>₹{Number(selectedService.offerPrice ?? selectedService.price)}</span>
+                    <span className="font-medium">₹{Number(selectedService.offerPrice ?? selectedService.price)}</span>
                   </div>
                   {isHomeCollection && (
                     <div className="flex justify-between">
                       <span>Home Service:</span>
-                      <span>₹{Number(selectedService.homeCollectionCharges ?? 0)}</span>
+                      <span className="font-medium">₹{Number(selectedService.homeCollectionCharges ?? 0)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between font-bold text-base pt-2 border-t">
-                    <span>Total Amount:</span>
-                    <span>
+                  {additionalCharges.map((charge, index) => (
+                    <div key={index} className="flex justify-between text-muted-foreground">
+                      <span>{charge.name}:</span>
+                      <span>₹{charge.amount}</span>
+                    </div>
+                  ))}
+                  {totalAdditionalCharges > 0 && (
+                    <div className="flex justify-between border-t pt-2">
+                      <span className="text-muted-foreground">Additional Charges Subtotal:</span>
+                      <span className="font-medium">₹{totalAdditionalCharges}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-lg pt-2 border-t border-green-300 dark:border-green-700">
+                    <span className="text-green-800 dark:text-green-200">Total Amount:</span>
+                    <span className="text-green-700 dark:text-green-300">
                       ₹{Number(selectedService.offerPrice ?? selectedService.price) + 
-                        (isHomeCollection ? Number(selectedService.homeCollectionCharges ?? 0) : 0)}
+                        (isHomeCollection ? Number(selectedService.homeCollectionCharges ?? 0) : 0) +
+                        totalAdditionalCharges}
                     </span>
                   </div>
                 </div>

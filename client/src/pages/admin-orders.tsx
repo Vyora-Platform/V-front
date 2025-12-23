@@ -261,47 +261,47 @@ export default function AdminOrders() {
   }, [searchTerm, selectedVendors, selectedStatuses, selectedPaymentStatuses, selectedPaymentMethods, selectedSources, prescriptionFilter, dateRange]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-[1800px] mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 overflow-y-auto pb-20 md:pb-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-              <ShoppingCart className="h-8 w-8 text-teal-600" />
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+              <ShoppingCart className="h-6 w-6 md:h-8 md:w-8 text-teal-600" />
               All Orders
             </h1>
-            <p className="text-slate-600 mt-1">Manage and track orders across all vendors</p>
+            <p className="text-sm text-slate-600 mt-1">Manage and track orders across all vendors</p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-slate-900">{ordersResponse?.total || 0}</div>
-            <div className="text-sm text-slate-600">Total Orders</div>
+          <div className="text-left sm:text-right">
+            <div className="text-xl md:text-2xl font-bold text-slate-900">{ordersResponse?.total || 0}</div>
+            <div className="text-xs md:text-sm text-slate-600">Total Orders</div>
           </div>
         </div>
 
         {/* Filters */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-6">
-            <div className="space-y-4">
+        <Card className="border-slate-200 shadow-sm rounded-xl">
+          <CardContent className="p-3 md:p-4 lg:p-6">
+            <div className="space-y-3 md:space-y-4">
               {/* Row 1: Search, Sort, Date Range */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* Search */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    placeholder="Search by customer name, phone, email, tracking..."
+                    placeholder="Search by customer name, phone, email..."
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
                       setPage(1);
                     }}
-                    className="pl-10"
+                    className="pl-10 h-10 text-sm"
                   />
                 </div>
 
                 {/* Sort */}
                 <div className="grid grid-cols-2 gap-2">
                   <Select value={sortBy} onValueChange={(value) => setSortBy(value)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10 text-sm">
                       <SelectValue placeholder="Sort by..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -312,7 +312,7 @@ export default function AdminOrders() {
                     </SelectContent>
                   </Select>
                   <Select value={sortOrder} onValueChange={(value: "asc" | "desc") => setSortOrder(value)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -355,11 +355,11 @@ export default function AdminOrders() {
               </div>
 
               {/* Row 2: Multi-select filters */}
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:grid md:grid-cols-6 md:pb-0">
                 {/* Vendors */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="justify-start">
+                    <Button variant="outline" className="justify-start h-10 text-sm shrink-0 min-w-[100px]">
                       <Building2 className="mr-2 h-4 w-4" />
                       Vendors {selectedVendors.length > 0 && `(${selectedVendors.length})`}
                     </Button>
@@ -385,7 +385,7 @@ export default function AdminOrders() {
                 {/* Order Status */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="justify-start">
+                    <Button variant="outline" className="justify-start h-10 text-sm shrink-0 min-w-[100px]">
                       <Package className="mr-2 h-4 w-4" />
                       Status {selectedStatuses.length > 0 && `(${selectedStatuses.length})`}
                     </Button>
@@ -411,7 +411,7 @@ export default function AdminOrders() {
                 {/* Payment Status */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="justify-start">
+                    <Button variant="outline" className="justify-start h-10 text-sm shrink-0 min-w-[100px]">
                       <CreditCard className="mr-2 h-4 w-4" />
                       Payment {selectedPaymentStatuses.length > 0 && `(${selectedPaymentStatuses.length})`}
                     </Button>
@@ -437,7 +437,7 @@ export default function AdminOrders() {
                 {/* Payment Method */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="justify-start">
+                    <Button variant="outline" className="justify-start h-10 text-sm shrink-0 min-w-[100px]">
                       <DollarSign className="mr-2 h-4 w-4" />
                       Method {selectedPaymentMethods.length > 0 && `(${selectedPaymentMethods.length})`}
                     </Button>
@@ -463,7 +463,7 @@ export default function AdminOrders() {
                 {/* Source */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="justify-start">
+                    <Button variant="outline" className="justify-start h-10 text-sm shrink-0 min-w-[100px]">
                       <Filter className="mr-2 h-4 w-4" />
                       Source {selectedSources.length > 0 && `(${selectedSources.length})`}
                     </Button>
@@ -491,7 +491,7 @@ export default function AdminOrders() {
                   setPrescriptionFilter(value);
                   setPage(1);
                 }}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10 text-sm shrink-0 min-w-[100px]">
                     <SelectValue placeholder="Prescription" />
                   </SelectTrigger>
                   <SelectContent>
@@ -519,10 +519,10 @@ export default function AdminOrders() {
 
         {/* Orders List */}
         {isLoading ? (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Card key={i}>
-                <CardContent className="p-6">
+              <Card key={i} className="rounded-xl">
+                <CardContent className="p-4 md:p-6">
                   <div className="space-y-3">
                     <Skeleton className="h-6 w-64" />
                     <Skeleton className="h-4 w-full" />
@@ -533,11 +533,11 @@ export default function AdminOrders() {
             ))}
           </div>
         ) : orders.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <ShoppingCart className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No orders found</h3>
-              <p className="text-slate-600">
+          <Card className="rounded-xl">
+            <CardContent className="p-8 md:p-12 text-center">
+              <ShoppingCart className="h-10 w-10 md:h-12 md:w-12 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-base md:text-lg font-semibold text-slate-900 mb-2">No orders found</h3>
+              <p className="text-sm text-slate-600">
                 {activeFiltersCount > 0
                   ? "Try adjusting your filters to see more results"
                   : "No orders have been created yet"}
@@ -545,20 +545,20 @@ export default function AdminOrders() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3">
             {orders.map((order) => {
               const PaymentIcon = getPaymentStatusIcon(order.paymentStatus);
               return (
-                <Card key={order.id} className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <Card key={order.id} className="border-slate-200 shadow-sm hover:shadow-md transition-shadow rounded-xl">
+                  <CardContent className="p-3 md:p-4 lg:p-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
                       {/* Left Column: Order Info */}
-                      <div className="lg:col-span-8 space-y-4">
+                      <div className="lg:col-span-8 space-y-3 md:space-y-4">
                         {/* Header */}
                         <div className="flex items-start justify-between">
                           <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-lg text-slate-900">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-semibold text-base md:text-lg text-slate-900">
                                 Order #{order.id.slice(0, 8)}
                               </h3>
                               <Badge className={getStatusBadgeClass(order.status)}>
@@ -741,10 +741,10 @@ export default function AdminOrders() {
 
         {/* Pagination */}
         {!isLoading && orders.length > 0 && (
-          <Card className="border-slate-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-slate-600">
+          <Card className="border-slate-200 rounded-xl">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="text-xs md:text-sm text-slate-600">
                   Showing page {page} of {totalPages} ({ordersResponse?.total || 0} total orders)
                 </div>
                 <div className="flex items-center gap-2">
@@ -753,6 +753,7 @@ export default function AdminOrders() {
                     size="sm"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
+                    className="h-9 text-sm"
                   >
                     <ChevronLeft className="h-4 w-4 mr-1" />
                     Previous
@@ -762,6 +763,7 @@ export default function AdminOrders() {
                     size="sm"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
+                    className="h-9 text-sm"
                   >
                     Next
                     <ChevronRight className="h-4 w-4 ml-1" />

@@ -193,72 +193,73 @@ export default function AdminDemoRequestsPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Demo Requests</h1>
-          <p className="text-gray-600 mt-1">
-            Manage demo booking requests from the landing page
-          </p>
+    <div className="min-h-screen bg-background overflow-y-auto pb-20 md:pb-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Demo Requests</h1>
+            <p className="text-sm md:text-base text-gray-600 mt-1">
+              Manage demo booking requests from the landing page
+            </p>
+          </div>
+          <Button onClick={() => refetch()} variant="outline" className="gap-2 h-10">
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
         </div>
-        <Button onClick={() => refetch()} variant="outline" className="gap-2">
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </Button>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
-          <CardContent className="pt-6">
-            <div className="text-3xl font-bold text-blue-700">{stats.total}</div>
-            <p className="text-sm text-blue-600 font-medium">Total Requests</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100">
-          <CardContent className="pt-6">
-            <div className="text-3xl font-bold text-yellow-700">{stats.new}</div>
-            <p className="text-sm text-yellow-600 font-medium">New</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100">
-          <CardContent className="pt-6">
-            <div className="text-3xl font-bold text-orange-700">{stats.contacted}</div>
-            <p className="text-sm text-orange-600 font-medium">Contacted</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
-          <CardContent className="pt-6">
-            <div className="text-3xl font-bold text-purple-700">{stats.scheduled}</div>
-            <p className="text-sm text-purple-600 font-medium">Scheduled</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-green-100">
-          <CardContent className="pt-6">
-            <div className="text-3xl font-bold text-green-700">{stats.completed}</div>
-            <p className="text-sm text-green-600 font-medium">Completed</p>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="text-xl md:text-2xl font-bold text-blue-700">{stats.total}</div>
+              <p className="text-xs text-blue-600 font-medium">Total Requests</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="text-xl md:text-2xl font-bold text-yellow-700">{stats.new}</div>
+              <p className="text-xs text-yellow-600 font-medium">New</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="text-xl md:text-2xl font-bold text-orange-700">{stats.contacted}</div>
+              <p className="text-xs text-orange-600 font-medium">Contacted</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="text-xl md:text-2xl font-bold text-purple-700">{stats.scheduled}</div>
+              <p className="text-xs text-purple-600 font-medium">Scheduled</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="text-xl md:text-2xl font-bold text-green-700">{stats.completed}</div>
+              <p className="text-xs text-green-600 font-medium">Completed</p>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Search by name, phone, email, or business..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
+        {/* Filters */}
+        <Card className="rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search by name, phone, email, or business..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 h-[var(--input-h)] text-sm"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-48 h-[var(--input-h)] text-sm">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 {STATUS_OPTIONS.map((status) => (
@@ -272,9 +273,9 @@ export default function AdminDemoRequestsPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="pt-6">
+        {/* Table */}
+        <Card className="rounded-xl">
+          <CardContent className="p-4">
           {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -459,9 +460,10 @@ export default function AdminDemoRequestsPage() {
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
               Close
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

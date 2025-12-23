@@ -598,15 +598,20 @@ export const bookings = pgTable("bookings", {
   patientAge: integer("patient_age"),
   patientGender: text("patient_gender"),
   bookingDate: timestamp("booking_date").notNull(),
+  timeSlot: text("time_slot"), // '09:00 AM', '10:00 AM', '02:30 PM', etc.
   status: text("status").notNull().default("pending"), // 'pending', 'confirmed', 'completed', 'cancelled'
   isHomeCollection: boolean("is_home_collection").default(false),
   collectionAddress: text("collection_address"),
   assignedTo: varchar("assigned_to").references(() => users.id),
   price: integer("price").notNull(),
   homeCollectionCharges: integer("home_collection_charges").default(0),
+  // Additional charges support
+  additionalCharges: json("additional_charges").$type<Array<{name: string; amount: number; description?: string}>>().default([]),
   totalAmount: integer("total_amount").notNull(),
   paymentStatus: text("payment_status").default("pending"), // 'pending', 'paid', 'refunded'
   notes: text("notes"),
+  // Source tracking
+  source: text("source").default("manual"), // 'manual', 'miniwebsite', 'pos', 'app'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -624,22 +629,42 @@ export type Booking = typeof bookings.$inferSelect;
 export const appointments = pgTable("appointments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  
+  // Customer details - can link to existing customer or walk-in
+  customerId: varchar("customer_id").references(() => customers.id), // Link to existing customer
   patientName: text("patient_name").notNull(),
   patientPhone: text("patient_phone").notNull(),
   patientEmail: text("patient_email"),
   patientAge: integer("patient_age"),
   patientGender: text("patient_gender"),
+  patientAddress: text("patient_address"), // For walk-in customers
+  
+  // Service selection
+  serviceId: varchar("service_id").references(() => vendorCatalogues.id), // Link to service
+  serviceName: text("service_name"), // Store service name for display
+  
+  // Appointment timing
   appointmentDate: timestamp("appointment_date").notNull(),
   appointmentTime: text("appointment_time").notNull(), // '10:00 AM', '2:30 PM', etc.
+  
+  // Purpose and details
   purpose: text("purpose").notNull(), // Reason for visit
   doctorName: text("doctor_name"), // For doctor consultations
   department: text("department"), // For hospital/clinic visits
   status: text("status").notNull().default("pending"), // 'pending', 'confirmed', 'completed', 'cancelled'
-  visitType: text("visit_type").notNull(), // 'consultation', 'follow-up', 'emergency', 'routine-checkup'
+  visitType: text("visit_type").notNull(), // 'first_visit', 'follow_up', 'emergency', 'routine'
   assignedTo: varchar("assigned_to").references(() => users.id),
   notes: text("notes"),
+  
+  // Payment
   paymentStatus: text("payment_status").default("pending"), // 'pending', 'paid', 'refunded'
-  consultationFee: integer("consultation_fee"), // Consultation charges
+  consultationFee: integer("consultation_fee"), // Base consultation charges
+  additionalCharges: json("additional_charges").$type<Array<{name: string; amount: number; description?: string}>>().default([]),
+  totalAmount: integer("total_amount"), // Total including additional charges
+  
+  // Source tracking
+  source: text("source").default("manual"), // 'manual', 'miniwebsite', 'pos', 'app'
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -714,7 +739,7 @@ export type Employee = typeof employees.$inferSelect;
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
-  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdBy: varchar("created_by").references(() => users.id),
   title: text("title").notNull(),
   description: text("description"),
   
@@ -1035,16 +1060,28 @@ export const masterProducts = pgTable("master_products", {
   
   brand: text("brand"),
   icon: text("icon").notNull(), // emoji or icon identifier
-  description: text("description").notNull(),
-  specifications: text("specifications").array().notNull().default(sql`ARRAY[]::text[]`),
+  description: text("description").notNull(), // Detailed product description
+  specifications: text("specifications").array().notNull().default(sql`ARRAY[]::text[]`), // Bullet highlights
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   
-  basePrice: integer("base_price"), // Reference price in rupees
+  // Pricing
+  mrp: integer("mrp"), // Maximum Retail Price in rupees
+  basePrice: integer("base_price"), // Reference/Cost price in rupees
+  sellingPrice: integer("selling_price"), // Selling price including taxes
   unit: text("unit").notNull(), // 'piece', 'box', 'bottle', 'strip', 'kg', etc.
+  
+  // Variants & Attributes - JSON object for variant options
+  variants: json("variants").$type<{
+    size?: string[];
+    color?: string[];
+    material?: string[];
+    style?: string[];
+    packSize?: string[];
+  }>().default({}),
   
   // Object storage image keys (not URLs)
   imageKeys: text("image_keys").array().default(sql`ARRAY[]::text[]`), // Object storage keys
-  images: text("images").array().default(sql`ARRAY[]::text[]`), // Legacy URL support
+  images: text("images").array().default(sql`ARRAY[]::text[]`), // Legacy URL support / Public URLs
   
   requiresPrescription: boolean("requires_prescription").default(false),
   isUniversal: boolean("is_universal").notNull().default(true),
@@ -1088,15 +1125,28 @@ export const vendorProducts = pgTable("vendor_products", {
   name: text("name").notNull(),
   brand: text("brand"),
   icon: text("icon").notNull(),
-  description: text("description").notNull(),
-  specifications: text("specifications").array().notNull().default(sql`ARRAY[]::text[]`),
+  description: text("description").notNull(), // Detailed product description
+  specifications: text("specifications").array().notNull().default(sql`ARRAY[]::text[]`), // Bullet highlights
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
-  price: integer("price").notNull(), // Vendor's selling price in rupees
+  
+  // Pricing
+  mrp: integer("mrp"), // Maximum Retail Price
+  price: integer("price").notNull(), // Vendor's selling price in rupees (legacy)
+  sellingPrice: integer("selling_price"), // Selling price including taxes
   unit: text("unit").notNull(),
+  
+  // Variants & Attributes - JSON object for variant options
+  variants: json("variants").$type<{
+    size?: string[];
+    color?: string[];
+    material?: string[];
+    style?: string[];
+    packSize?: string[];
+  }>().default({}),
   
   // Object storage image keys (not URLs)
   imageKeys: text("image_keys").array().default(sql`ARRAY[]::text[]`), // Object storage keys
-  images: text("images").array().default(sql`ARRAY[]::text[]`), // Legacy URL support
+  images: text("images").array().default(sql`ARRAY[]::text[]`), // Legacy URL support / Public URLs
   
   stock: integer("stock").notNull().default(0), // Available quantity
   requiresPrescription: boolean("requires_prescription").default(false),
@@ -1958,6 +2008,22 @@ export const miniWebsites = pgTable("mini_websites", {
     notificationEmails?: string[]; // Emails to notify on new orders
   }>(),
   
+  // Social Media Links (for footer)
+  socialMedia: json("social_media").$type<{
+    facebook?: string;
+    instagram?: string;
+    youtube?: string;
+    twitter?: string;
+  }>(),
+  
+  // Trust Numbers (displayed below hero)
+  trustNumbers: json("trust_numbers").$type<{
+    yearsInBusiness?: number;
+    happyCustomers?: number;
+    starRating?: number;
+    repeatCustomers?: number;
+  }>(),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -2584,3 +2650,25 @@ export const insertReferralWithdrawalSchema = createInsertSchema(referralWithdra
 
 export type InsertReferralWithdrawal = z.infer<typeof insertReferralWithdrawalSchema>;
 export type ReferralWithdrawal = typeof referralWithdrawals.$inferSelect;
+
+// ========== PASSWORD RESET OTP MODULE ==========
+
+// Password Reset Tokens table - stores OTP for password reset
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+  otp: text("otp").notNull(), // 6-digit OTP code
+  vendorId: varchar("vendor_id"), // For customer password resets (identifies which vendor's customer)
+  expiresAt: timestamp("expires_at").notNull(), // OTP expires in 10 minutes
+  verified: boolean("verified").notNull().default(false),
+  used: boolean("used").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;

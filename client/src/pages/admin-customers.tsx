@@ -156,44 +156,47 @@ export default function AdminCustomersPage() {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 pb-16 md:pb-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">All Customers</h1>
-          <p className="text-muted-foreground mt-1">
-            Aggregated customers from all vendors • {total} total
-          </p>
+    <div className="min-h-screen bg-background overflow-y-auto pb-20 md:pb-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">All Customers</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Aggregated customers from all vendors • {total} total
+            </p>
+          </div>
         </div>
-      </div>
 
       {/* Enterprise-Level Filters - Single Row */}
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="rounded-xl">
+        <CardContent className="p-3 md:p-4 lg:pt-6">
           {/* Top Row: Search + Main Filters */}
           <div className="flex flex-col lg:flex-row gap-3 mb-3">
             {/* Search */}
-            <div className="relative flex-1 min-w-[300px]">
+            <div className="relative flex-1 min-w-[200px] lg:min-w-[300px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name, phone, or email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-10 text-sm"
                 data-testid="input-search-customers"
               />
             </div>
 
-            {/* Vendor Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-[180px] justify-between" data-testid="dropdown-vendors">
-                  <span className="truncate">
-                    {selectedVendors.length > 0 ? `Vendors (${selectedVendors.length})` : "All Vendors"}
-                  </span>
-                  <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
-                </Button>
-              </PopoverTrigger>
+            {/* Filters Row */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide lg:pb-0">
+              {/* Vendor Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="shrink-0 h-10 text-sm lg:w-[180px] justify-between" data-testid="dropdown-vendors">
+                    <span className="truncate">
+                      {selectedVendors.length > 0 ? `Vendors (${selectedVendors.length})` : "All Vendors"}
+                    </span>
+                    <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
+                  </Button>
+                </PopoverTrigger>
               <PopoverContent className="w-[300px] p-3" align="start">
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {vendors.map((vendor) => (
@@ -213,16 +216,16 @@ export default function AdminCustomersPage() {
               </PopoverContent>
             </Popover>
 
-            {/* Customer Type Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-[160px] justify-between" data-testid="dropdown-customer-type">
-                  <span className="truncate">
-                    {selectedCustomerTypes.length > 0 ? `Type (${selectedCustomerTypes.length})` : "All Types"}
-                  </span>
-                  <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
-                </Button>
-              </PopoverTrigger>
+              {/* Customer Type Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="shrink-0 h-10 text-sm lg:w-[160px] justify-between" data-testid="dropdown-customer-type">
+                    <span className="truncate">
+                      {selectedCustomerTypes.length > 0 ? `Type (${selectedCustomerTypes.length})` : "All Types"}
+                    </span>
+                    <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
+                  </Button>
+                </PopoverTrigger>
               <PopoverContent className="w-[200px] p-3" align="start">
                 <div className="space-y-2">
                   {CUSTOMER_TYPE_OPTIONS.map((option) => (
@@ -242,16 +245,16 @@ export default function AdminCustomersPage() {
               </PopoverContent>
             </Popover>
 
-            {/* Status Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-[160px] justify-between" data-testid="dropdown-status">
-                  <span className="truncate">
-                    {selectedStatuses.length > 0 ? `Status (${selectedStatuses.length})` : "All Status"}
-                  </span>
-                  <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
-                </Button>
-              </PopoverTrigger>
+              {/* Status Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="shrink-0 h-10 text-sm lg:w-[160px] justify-between" data-testid="dropdown-status">
+                    <span className="truncate">
+                      {selectedStatuses.length > 0 ? `Status (${selectedStatuses.length})` : "All Status"}
+                    </span>
+                    <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
+                  </Button>
+                </PopoverTrigger>
               <PopoverContent className="w-[200px] p-3" align="start">
                 <div className="space-y-2">
                   {STATUS_OPTIONS.map((option) => (
@@ -271,14 +274,14 @@ export default function AdminCustomersPage() {
               </PopoverContent>
             </Popover>
 
-            {/* More Filters */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-[140px]" data-testid="button-more-filters">
-                  <Filter className="w-4 h-4 mr-2" />
-                  More
-                </Button>
-              </PopoverTrigger>
+              {/* More Filters */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="shrink-0 h-10 text-sm lg:w-[140px]" data-testid="button-more-filters">
+                    <Filter className="w-4 h-4 mr-2" />
+                    More
+                  </Button>
+                </PopoverTrigger>
               <PopoverContent className="w-[400px] p-4" align="start">
                 <div className="space-y-4">
                   {/* Subscription Status Filter */}
@@ -337,19 +340,20 @@ export default function AdminCustomersPage() {
               </PopoverContent>
             </Popover>
 
-            {/* Clear Filters Button */}
-            {(selectedVendors.length > 0 || selectedCustomerTypes.length > 0 || selectedStatuses.length > 0 || 
-              selectedSubscriptionStatuses.length > 0 || startDate || endDate || search) && (
-              <Button
-                variant="ghost"
-                onClick={clearFilters}
-                className="w-full lg:w-auto"
-                data-testid="button-clear-filters"
-              >
-                <X className="w-4 h-4 mr-2" />
-                Clear
-              </Button>
-            )}
+              {/* Clear Filters Button */}
+              {(selectedVendors.length > 0 || selectedCustomerTypes.length > 0 || selectedStatuses.length > 0 || 
+                selectedSubscriptionStatuses.length > 0 || startDate || endDate || search) && (
+                <Button
+                  variant="ghost"
+                  onClick={clearFilters}
+                  className="shrink-0 h-10 text-sm lg:w-auto"
+                  data-testid="button-clear-filters"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Bottom Row: Sort Options */}
@@ -380,7 +384,7 @@ export default function AdminCustomersPage() {
       </Card>
 
       {/* Customers Table */}
-      <Card>
+      <Card className="rounded-xl">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
@@ -473,6 +477,7 @@ export default function AdminCustomersPage() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

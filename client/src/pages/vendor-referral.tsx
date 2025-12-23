@@ -215,12 +215,12 @@ export default function VendorReferral() {
 
       <div className="max-w-4xl mx-auto pb-20 md:pb-6">
         {/* Hero Section */}
-        <div className="p-6 text-center">
-          <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-            <Gift className="w-12 h-12 text-white" />
+        <div className="p-4 md:p-6 text-center">
+          <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3 backdrop-blur-sm">
+            <Gift className="w-10 h-10 md:w-12 md:h-12 text-white" />
           </div>
           
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
             Earn ₹200 Per Referral
           </h2>
           
@@ -231,18 +231,18 @@ export default function VendorReferral() {
 
         {/* Balance Card with Withdraw */}
         <div className="px-4 py-2">
-          <Card className="border-0 shadow-xl bg-white dark:bg-background overflow-hidden">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
+          <Card className="border-0 shadow-xl bg-white dark:bg-background overflow-hidden rounded-xl">
+            <CardContent className="p-4 md:p-5">
+              <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Available Balance</p>
-                  <p className="text-3xl font-bold text-emerald-600">₹{availableBalance.toLocaleString()}</p>
+                  <p className="text-2xl md:text-3xl font-bold text-emerald-600">₹{availableBalance.toLocaleString()}</p>
                 </div>
                 <Button
                   onClick={() => setShowWithdrawModal(true)}
                   disabled={!canWithdraw}
                   className={cn(
-                    "rounded-xl px-6",
+                    "rounded-xl px-4 md:px-6 h-[var(--cta-h)] text-sm",
                     canWithdraw ? "bg-emerald-600 hover:bg-emerald-700" : "bg-muted text-muted-foreground"
                   )}
                 >
@@ -251,8 +251,8 @@ export default function VendorReferral() {
                 </Button>
               </div>
               {!canWithdraw && (
-                <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg">
-                  <AlertCircle className="w-4 h-4" />
+                <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-xl">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Minimum ₹400 required to withdraw (2 referrals)</span>
                 </div>
               )}
@@ -262,21 +262,21 @@ export default function VendorReferral() {
 
         {/* Referral Code Card */}
         <div className="px-4 py-2">
-          <Card className="border-0 shadow-lg bg-white dark:bg-background overflow-hidden">
-            <CardContent className="p-5">
+          <Card className="border-0 shadow-lg bg-white dark:bg-background overflow-hidden rounded-xl">
+            <CardContent className="p-4 md:p-5">
               <p className="text-xs text-muted-foreground mb-1">Your Referral Code</p>
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-2xl font-bold tracking-widest text-foreground">{referralCode}</span>
-                <Button variant="outline" size="icon" className="rounded-lg h-9 w-9" onClick={copyReferralCode}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-xl md:text-2xl font-bold tracking-widest text-foreground">{referralCode}</span>
+                <Button variant="outline" size="icon" className="rounded-xl h-9 w-9" onClick={copyReferralCode}>
                   {copied ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                 </Button>
               </div>
               <div className="flex gap-2">
-                <Button onClick={shareReferral} className="flex-1 bg-blue-600 hover:bg-blue-700 font-semibold rounded-xl">
+                <Button onClick={shareReferral} className="flex-1 bg-blue-600 hover:bg-blue-700 font-semibold rounded-xl h-[var(--cta-h)] text-sm">
                   <Share2 className="w-4 h-4 mr-2" />
                   Share Now
                 </Button>
-                <Button onClick={copyReferralLink} variant="outline" className="rounded-xl px-4">
+                <Button onClick={copyReferralLink} variant="outline" className="rounded-xl px-4 h-[var(--cta-h)]">
                   <Copy className="w-4 h-4" />
                 </Button>
               </div>
@@ -287,31 +287,31 @@ export default function VendorReferral() {
         {/* Stats Row */}
         <div className="px-4 py-3">
           <div className="grid grid-cols-3 gap-3">
-            <Card className="border-0 shadow-md bg-white dark:bg-background">
+            <Card className="border-0 shadow-md bg-white dark:bg-background rounded-xl min-h-[var(--card-min-h)]">
               <CardContent className="p-3 text-center">
                 <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-2">
                   <Coins className="w-5 h-5 text-emerald-600" />
                 </div>
-                <p className="text-lg font-bold">₹{availableBalance.toLocaleString()}</p>
-                <p className="text-[10px] text-muted-foreground">Total Earned</p>
+                <p className="text-lg md:text-xl font-bold">₹{availableBalance.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Total Earned</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-md bg-white dark:bg-background">
+            <Card className="border-0 shadow-md bg-white dark:bg-background rounded-xl min-h-[var(--card-min-h)]">
               <CardContent className="p-3 text-center">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-2">
                   <Users className="w-5 h-5 text-blue-600" />
                 </div>
-                <p className="text-lg font-bold">{stats?.successfulReferrals || 0}</p>
-                <p className="text-[10px] text-muted-foreground">Referrals</p>
+                <p className="text-lg md:text-xl font-bold">{stats?.successfulReferrals || 0}</p>
+                <p className="text-xs text-muted-foreground">Referrals</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-md bg-white dark:bg-background">
+            <Card className="border-0 shadow-md bg-white dark:bg-background rounded-xl min-h-[var(--card-min-h)]">
               <CardContent className="p-3 text-center">
                 <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-2">
                   <Clock className="w-5 h-5 text-amber-600" />
                 </div>
-                <p className="text-lg font-bold">₹{stats?.pendingEarnings ? Number(stats.pendingEarnings).toLocaleString() : 0}</p>
-                <p className="text-[10px] text-muted-foreground">Pending</p>
+                <p className="text-lg md:text-xl font-bold">₹{stats?.pendingEarnings ? Number(stats.pendingEarnings).toLocaleString() : 0}</p>
+                <p className="text-xs text-muted-foreground">Pending</p>
               </CardContent>
             </Card>
           </div>
@@ -319,14 +319,14 @@ export default function VendorReferral() {
 
         {/* Earnings Calculator */}
         <div className="px-4 py-2">
-          <Card className="border-0 shadow-md bg-white dark:bg-background overflow-hidden">
+          <Card className="border-0 shadow-md bg-white dark:bg-background overflow-hidden rounded-xl">
             <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-4 text-white">
-              <h3 className="font-bold flex items-center gap-2">
+              <h3 className="font-bold flex items-center gap-2 text-base">
                 <Calculator className="w-5 h-5" />
                 Earnings Calculator
               </h3>
             </div>
-            <CardContent className="p-5">
+            <CardContent className="p-4 md:p-5">
               <div className="text-center mb-4">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <Sparkles className="w-5 h-5 text-amber-500" />
@@ -360,7 +360,7 @@ export default function VendorReferral() {
 
         {/* How It Works */}
         <div className="px-4 py-4">
-          <Card className="border-0 shadow-md bg-white dark:bg-background">
+          <Card className="border-0 shadow-md bg-white dark:bg-background rounded-xl">
             <CardContent className="p-4">
               <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-blue-500" />
@@ -372,13 +372,13 @@ export default function VendorReferral() {
                   return (
                     <div key={item.step} className="text-center">
                       <div className={cn(
-                        "w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center mx-auto mb-2 shadow-lg",
+                        "w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br flex items-center justify-center mx-auto mb-2 shadow-lg",
                         item.color
                       )}>
                         <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                       </div>
-                      <p className="text-[10px] font-bold text-foreground leading-tight">{item.title}</p>
-                      <p className="text-[9px] text-muted-foreground leading-tight">{item.desc}</p>
+                      <p className="text-xs font-bold text-foreground leading-tight">{item.title}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight">{item.desc}</p>
                     </div>
                   );
                 })}
@@ -390,7 +390,7 @@ export default function VendorReferral() {
         {/* Withdrawal History */}
         {withdrawals.length > 0 && (
           <div className="px-4 py-2">
-            <Card className="border-0 shadow-sm bg-white dark:bg-background">
+            <Card className="border-0 shadow-sm bg-white dark:bg-background rounded-xl">
               <CardContent className="p-4">
                 <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-emerald-500" />
@@ -432,7 +432,7 @@ export default function VendorReferral() {
 
         {/* Referral History */}
         <div className="px-4 py-2">
-          <Card className="border-0 shadow-sm bg-white dark:bg-background">
+          <Card className="border-0 shadow-sm bg-white dark:bg-background rounded-xl">
             <CardContent className="p-4">
               <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                 <Users className="w-4 h-4 text-blue-500" />
@@ -615,7 +615,7 @@ export default function VendorReferral() {
               <Button
                 onClick={handleWithdraw}
                 disabled={withdrawMutation.isPending}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 rounded-xl py-6"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 rounded-xl h-[var(--cta-h)] text-sm"
               >
                 {withdrawMutation.isPending ? "Processing..." : "Request Withdrawal"}
               </Button>

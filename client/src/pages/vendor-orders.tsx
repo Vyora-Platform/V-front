@@ -184,37 +184,37 @@ export default function VendorOrders() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col min-h-full bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-background border-b">
-        <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setLocation("/vendor/dashboard")}
-              className="md:hidden"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-              <h1 className="text-xl font-bold">Orders</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">Manage all your orders in one place</p>
-          </div>
+      <div className="sticky top-0 z-20 bg-background border-b shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 max-w-[1440px] mx-auto">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation("/vendor/dashboard")}
+              className="md:hidden h-10 w-10"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold">Orders</h1>
+              <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Manage all your orders in one place</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => refetch()}>
+            <Button variant="ghost" size="icon" onClick={() => refetch()} className="h-10 w-10">
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" className="hidden sm:flex">
+            <Button variant="outline" size="sm" className="hidden sm:flex h-10 px-4">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
+          </div>
         </div>
-      </div>
 
         {/* Search & Filter Bar */}
-        <div className="px-4 pb-3 space-y-3">
+        <div className="px-4 md:px-6 pb-4 space-y-3 max-w-[1440px] mx-auto">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -222,34 +222,34 @@ export default function VendorOrders() {
                 placeholder="Search orders, customers, tracking..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-10"
+                className="pl-10 h-11 rounded-xl"
               />
               {searchQuery && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9"
                   onClick={() => setSearchQuery("")}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               )}
-        </div>
+            </div>
             <Button
               variant={showFilters ? "default" : "outline"}
               size="icon"
               onClick={() => setShowFilters(!showFilters)}
-              className="h-10 w-10"
+              className="h-11 w-11 rounded-xl"
             >
               <Filter className="h-4 w-4" />
             </Button>
-      </div>
+          </div>
 
           {/* Expandable Filters */}
           {showFilters && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:grid md:grid-cols-4">
               <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-10 min-w-[120px] shrink-0 rounded-lg">
                   <Calendar className="h-3 w-3 mr-2" />
                   <SelectValue placeholder="Date" />
                 </SelectTrigger>
@@ -264,23 +264,23 @@ export default function VendorOrders() {
                 </SelectContent>
               </Select>
               
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-10 min-w-[120px] shrink-0 rounded-lg">
                   <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="processing">Processing</SelectItem>
-              <SelectItem value="shipped">Shipped</SelectItem>
-              <SelectItem value="delivered">Delivered</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
               
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-10 min-w-[120px] shrink-0 rounded-lg">
                   <SelectValue placeholder="Source" />
                 </SelectTrigger>
                 <SelectContent>
@@ -293,7 +293,7 @@ export default function VendorOrders() {
               </Select>
               
               <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-10 min-w-[120px] shrink-0 rounded-lg">
                   <SelectValue placeholder="Payment" />
                 </SelectTrigger>
                 <SelectContent>
@@ -310,7 +310,7 @@ export default function VendorOrders() {
           {hasActiveFilters && (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-muted-foreground">Active filters:</span>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={clearFilters}>
+              <Button variant="ghost" size="sm" className="h-7 px-3 text-xs" onClick={clearFilters}>
                 Clear all
               </Button>
             </div>
@@ -319,135 +319,135 @@ export default function VendorOrders() {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1">
         {/* Stats Cards - 2 per row on mobile, 6 on desktop */}
-        <div className="px-4 py-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="px-4 md:px-6 py-4 max-w-[1440px] mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
             {/* Today's Orders */}
-            <Card className="border-0 shadow-md bg-gradient-to-br from-blue-500 to-blue-600 text-white overflow-hidden relative">
+            <Card className="border-0 shadow-md bg-gradient-to-br from-blue-500 to-blue-600 text-white overflow-hidden relative rounded-xl min-h-[100px]">
               <div className="absolute top-0 right-0 w-16 h-16 rounded-full bg-white/10 -mr-4 -mt-4" />
               <CardContent className="p-4 relative">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
                     <ShoppingCart className="w-5 h-5" />
-        </div>
-                      <div>
-                    <p className="text-2xl font-bold">{stats.todayOrders}</p>
+                  </div>
+                  <div>
+                    <p className="text-xl md:text-2xl font-bold">{stats.todayOrders}</p>
                     <p className="text-xs text-white/80">Today's Orders</p>
-                      </div>
-                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
             {/* Today's Revenue */}
-            <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden relative">
+            <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden relative rounded-xl min-h-[100px]">
               <div className="absolute top-0 right-0 w-16 h-16 rounded-full bg-white/10 -mr-4 -mt-4" />
               <CardContent className="p-4 relative">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
                     <IndianRupee className="w-5 h-5" />
-                        </div>
-                        <div>
-                    <p className="text-2xl font-bold">₹{stats.todayRevenue.toLocaleString()}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl md:text-2xl font-bold truncate">₹{stats.todayRevenue.toLocaleString()}</p>
                     <p className="text-xs text-white/80">Today's Revenue</p>
-                          </div>
-                        </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
             
             {/* Pending */}
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10">
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 rounded-xl min-h-[100px]">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
                     <Timer className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+                    <p className="text-xl md:text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.pending}</p>
                     <p className="text-xs text-muted-foreground">Pending</p>
-                      </div>
-                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
             
             {/* Processing */}
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10">
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-xl min-h-[100px]">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center shrink-0">
                     <Box className="w-5 h-5 text-white" />
-                    </div>
+                  </div>
                   <div>
-                    <p className="text-2xl font-bold text-purple-600">{stats.processing}</p>
+                    <p className="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.processing}</p>
                     <p className="text-xs text-muted-foreground">Processing</p>
-                      </div>
-                      </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
             
             {/* Shipped */}
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-cyan-50 to-cyan-100/50 dark:from-cyan-900/20 dark:to-cyan-800/10">
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-cyan-50 to-cyan-100/50 dark:from-cyan-900/20 dark:to-cyan-800/10 rounded-xl min-h-[100px]">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500 flex items-center justify-center shrink-0">
                     <Truck className="w-5 h-5 text-white" />
-                      </div>
-                        <div>
-                    <p className="text-2xl font-bold text-cyan-600">{stats.shipped}</p>
+                  </div>
+                  <div>
+                    <p className="text-xl md:text-2xl font-bold text-cyan-600 dark:text-cyan-400">{stats.shipped}</p>
                     <p className="text-xs text-muted-foreground">Shipped</p>
-                        </div>
-                      </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
             
             {/* Delivered */}
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/10">
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/10 rounded-xl min-h-[100px]">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
                     <CheckCircle className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-emerald-600">{stats.delivered}</p>
+                    <p className="text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.delivered}</p>
                     <p className="text-xs text-muted-foreground">Delivered</p>
                   </div>
-                      </div>
+                </div>
               </CardContent>
             </Card>
-                      </div>
-                      </div>
+          </div>
+        </div>
 
         {/* Orders List */}
-        <div className="px-4 pb-4">
-        <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm text-muted-foreground">
-            {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''} found
-          </p>
-          {/* Source Stats */}
-          <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><Store className="w-3 h-3" /> POS: {stats.posOrders}</span>
-            <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> Web: {stats.websiteOrders}</span>
-            <span className="flex items-center gap-1"><Package className="w-3 h-3" /> Manual: {stats.manualOrders}</span>
-          </div>
-                    </div>
-
-        {filteredOrders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <ShoppingCart className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-1">No orders found</h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              {hasActiveFilters ? "Try adjusting your filters" : "Orders from your POS and website will appear here"}
+        <div className="px-4 md:px-6 pb-6 max-w-[1440px] mx-auto">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted-foreground">
+              {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''} found
             </p>
-            {hasActiveFilters && (
-              <Button variant="outline" size="sm" onClick={clearFilters} className="mt-4">
-                Clear Filters
-                          </Button>
-            )}
-                                      </div>
-        ) : (
-          <div className="space-y-3">
+            {/* Source Stats */}
+            <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5"><Store className="w-3.5 h-3.5" /> POS: {stats.posOrders}</span>
+              <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Web: {stats.websiteOrders}</span>
+              <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Manual: {stats.manualOrders}</span>
+            </div>
+          </div>
+
+          {filteredOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <ShoppingCart className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold mb-1">No orders found</h3>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                {hasActiveFilters ? "Try adjusting your filters" : "Orders from your POS and website will appear here"}
+              </p>
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" onClick={clearFilters} className="mt-4 h-10 px-5">
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredOrders.map((order) => {
               const statusConfig = getStatusConfig(order.status);
               const StatusIcon = statusConfig.icon;
@@ -455,13 +455,13 @@ export default function VendorOrders() {
               
               return (
                 <Link key={order.id} href={`/vendor/orders/${order.id}`}>
-                  <Card className="border-0 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99]">
+                  <Card className="border-0 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99] rounded-xl">
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         {/* Status Indicator */}
-                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", statusConfig.bgColor)}>
+                        <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0", statusConfig.bgColor)}>
                           <StatusIcon className={cn("w-5 h-5", statusConfig.textColor)} />
-                                    </div>
+                        </div>
                         
                         {/* Order Info */}
                         <div className="flex-1 min-w-0">
@@ -473,21 +473,21 @@ export default function VendorOrders() {
                                   <SourceIcon className="w-3 h-3 mr-1" />
                                   {getSourceLabel(order.source)}
                                 </Badge>
-                                  </div>
+                              </div>
                               <p className="text-xs text-muted-foreground mt-0.5">
                                 #{order.id.slice(-8).toUpperCase()}
                               </p>
-                                    </div>
+                            </div>
                             <div className="text-right shrink-0">
-                              <p className="font-bold">₹{order.totalAmount.toLocaleString()}</p>
-                              <p className="text-[10px] text-muted-foreground">
+                              <p className="font-bold text-base">₹{order.totalAmount.toLocaleString()}</p>
+                              <p className="text-[11px] text-muted-foreground">
                                 {format(new Date(order.createdAt), "dd MMM, h:mm a")}
                               </p>
-                                  </div>
-                                </div>
+                            </div>
+                          </div>
                           
                           {/* Quick Info */}
-                          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-3 mt-2.5 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Phone className="w-3 h-3" />
                               {order.customerPhone}
@@ -499,7 +499,7 @@ export default function VendorOrders() {
                           </div>
                           
                           {/* Status Badges */}
-                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                             <Badge className={cn("text-[10px] h-5", statusConfig.bgColor, statusConfig.textColor)}>
                               {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                             </Badge>
@@ -519,19 +519,19 @@ export default function VendorOrders() {
                                 <Truck className="w-3 h-3 mr-1" />
                                 {order.trackingNumber}
                               </Badge>
-                      )}
-                    </div>
-                  </div>
+                            )}
+                          </div>
+                        </div>
                         
                         <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 self-center" />
-                </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </Link>
               );
             })}
-              </div>
-        )}
+            </div>
+          )}
         </div>
       </div>
     </div>

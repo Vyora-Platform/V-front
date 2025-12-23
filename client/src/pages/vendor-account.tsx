@@ -143,18 +143,18 @@ function LogoUploadModal({ isOpen, onClose, onSave, currentLogo }: any) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="w-[95vw] max-w-sm max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-base">
             <Camera className="w-5 h-5 text-blue-500" />
             Update Business Logo
           </DialogTitle>
-          <DialogDescription>Drag to reposition, pinch or use slider to zoom</DialogDescription>
+          <DialogDescription className="text-sm">Drag to reposition, pinch or use slider to zoom</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div 
             className={cn(
-              "relative mx-auto w-36 h-36 rounded-full border-4 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center",
+              "relative mx-auto w-32 h-32 md:w-36 md:h-36 rounded-full border-4 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center",
               image ? "border-blue-500 cursor-move" : "border-dashed border-muted-foreground/30"
             )}
             onMouseDown={handleMouseDown}
@@ -182,7 +182,7 @@ function LogoUploadModal({ isOpen, onClose, onSave, currentLogo }: any) {
           </div>
 
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-          <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
+          <Button variant="outline" className="w-full h-[var(--input-h)] text-sm" onClick={() => fileInputRef.current?.click()}>
             <Upload className="w-4 h-4 mr-2" />
             {image ? "Change Image" : "Upload Image"}
           </Button>
@@ -192,11 +192,11 @@ function LogoUploadModal({ isOpen, onClose, onSave, currentLogo }: any) {
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Zoom</Label>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}>
+                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}>
                     <ZoomOut className="w-4 h-4" />
                   </Button>
                   <span className="text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom(Math.min(3, zoom + 0.1))}>
+                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setZoom(Math.min(3, zoom + 0.1))}>
                     <ZoomIn className="w-4 h-4" />
                   </Button>
                 </div>
@@ -206,8 +206,8 @@ function LogoUploadModal({ isOpen, onClose, onSave, currentLogo }: any) {
           )}
           
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button onClick={() => { onSave(image); onClose(); }} className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={!image}>
+            <Button variant="outline" onClick={onClose} className="flex-1 h-[var(--cta-h)] text-sm">Cancel</Button>
+            <Button onClick={() => { onSave(image); onClose(); }} className="flex-1 h-[var(--cta-h)] text-sm bg-blue-600 hover:bg-blue-700" disabled={!image}>
               <Check className="w-4 h-4 mr-2" />Save
             </Button>
           </div>
@@ -254,37 +254,37 @@ function ChangePasswordModal({ isOpen, onClose }: any) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="w-[95vw] max-w-sm max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-base">
             <Lock className="w-5 h-5 text-blue-500" />
             Change Password
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Current Password</Label>
+            <Label className="text-sm">Current Password</Label>
             <div className="relative mt-1">
-              <Input type={showCurrent ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••" />
-              <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowCurrent(!showCurrent)}>
+              <Input type={showCurrent ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••" className="h-[var(--input-h)] text-sm" />
+              <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full w-10" onClick={() => setShowCurrent(!showCurrent)}>
                 {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
             </div>
           </div>
           <div>
-            <Label>New Password</Label>
+            <Label className="text-sm">New Password</Label>
             <div className="relative mt-1">
-              <Input type={showNew ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
-              <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowNew(!showNew)}>
+              <Input type={showNew ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="h-[var(--input-h)] text-sm" />
+              <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full w-10" onClick={() => setShowNew(!showNew)}>
                 {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
             </div>
           </div>
           <div>
-            <Label>Confirm New Password</Label>
-            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="mt-1" />
+            <Label className="text-sm">Confirm New Password</Label>
+            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="mt-1 h-[var(--input-h)] text-sm" />
           </div>
-          <Button onClick={handleSubmit} className="w-full bg-blue-600" disabled={isLoading || !currentPassword || !newPassword || !confirmPassword}>
+          <Button onClick={handleSubmit} className="w-full h-[var(--cta-h)] text-sm bg-blue-600" disabled={isLoading || !currentPassword || !newPassword || !confirmPassword}>
             {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
             Change Password
           </Button>
@@ -313,11 +313,11 @@ function FAQsModal({ isOpen, onClose }: any) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-4 border-b shrink-0">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={onClose}><ArrowLeft className="w-5 h-5" /></Button>
-            <DialogTitle>Frequently Asked Questions</DialogTitle>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9"><ArrowLeft className="w-5 h-5" /></Button>
+            <DialogTitle className="text-base">Frequently Asked Questions</DialogTitle>
           </div>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -325,13 +325,13 @@ function FAQsModal({ isOpen, onClose }: any) {
             <div key={idx} className="border rounded-xl overflow-hidden">
               <button
                 onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                className="w-full p-4 flex items-center justify-between text-left hover:bg-muted/50 transition-colors"
+                className="w-full p-3 md:p-4 flex items-center justify-between text-left hover:bg-muted/50 transition-colors min-h-[var(--input-h)]"
               >
                 <span className="font-medium text-sm pr-4">{faq.q}</span>
                 <ChevronDown className={cn("w-5 h-5 shrink-0 transition-transform", openFaq === idx && "rotate-180")} />
               </button>
               {openFaq === idx && (
-                <div className="px-4 pb-4 text-sm text-muted-foreground">{faq.a}</div>
+                <div className="px-3 md:px-4 pb-3 md:pb-4 text-sm text-muted-foreground">{faq.a}</div>
               )}
             </div>
           ))}
@@ -345,11 +345,11 @@ function FAQsModal({ isOpen, onClose }: any) {
 function PrivacyPolicyModal({ isOpen, onClose }: any) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-4 border-b shrink-0">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={onClose}><ArrowLeft className="w-5 h-5" /></Button>
-            <DialogTitle>Privacy Policy</DialogTitle>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9"><ArrowLeft className="w-5 h-5" /></Button>
+            <DialogTitle className="text-base">Privacy Policy</DialogTitle>
           </div>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto p-6 prose prose-sm dark:prose-invert max-w-none">
@@ -399,11 +399,11 @@ function PrivacyPolicyModal({ isOpen, onClose }: any) {
 function RefundPolicyModal({ isOpen, onClose }: any) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-4 border-b shrink-0">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={onClose}><ArrowLeft className="w-5 h-5" /></Button>
-            <DialogTitle>Refund Policy</DialogTitle>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9"><ArrowLeft className="w-5 h-5" /></Button>
+            <DialogTitle className="text-base">Refund Policy</DialogTitle>
           </div>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -495,40 +495,40 @@ function PaymentDetailsModal({ isOpen, onClose }: any) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-4 border-b shrink-0">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={onClose}><ArrowLeft className="w-5 h-5" /></Button>
-            <DialogTitle>Payment Methods</DialogTitle>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9"><ArrowLeft className="w-5 h-5" /></Button>
+            <DialogTitle className="text-base">Payment Methods</DialogTitle>
           </div>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="upi" className="flex items-center gap-2"><Smartphone className="w-4 h-4" />UPI</TabsTrigger>
-              <TabsTrigger value="card" className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Card</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 h-[var(--input-h)]">
+              <TabsTrigger value="upi" className="flex items-center gap-2 text-sm"><Smartphone className="w-4 h-4" />UPI</TabsTrigger>
+              <TabsTrigger value="card" className="flex items-center gap-2 text-sm"><CreditCard className="w-4 h-4" />Card</TabsTrigger>
             </TabsList>
             
             <TabsContent value="upi" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label>Add UPI ID</Label>
+                <Label className="text-sm">Add UPI ID</Label>
                 <div className="flex gap-2">
-                  <Input placeholder="yourname@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} />
-                  <Button onClick={handleAddUpi} disabled={!upiId}><Plus className="w-4 h-4" /></Button>
+                  <Input placeholder="yourname@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} className="h-[var(--input-h)] text-sm" />
+                  <Button onClick={handleAddUpi} disabled={!upiId} className="h-[var(--input-h)]"><Plus className="w-4 h-4" /></Button>
                 </div>
               </div>
               
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">Saved UPI IDs</Label>
                 {savedUpi.map((upi, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900 flex items-center justify-center">
                         <Smartphone className="w-5 h-5 text-green-600" />
                       </div>
-                      <span className="font-medium">{upi}</span>
+                      <span className="font-medium text-sm">{upi}</span>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setSavedUpi(savedUpi.filter((_, i) => i !== idx))}>
+                    <Button variant="ghost" size="icon" onClick={() => setSavedUpi(savedUpi.filter((_, i) => i !== idx))} className="h-9 w-9">
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>
@@ -539,24 +539,24 @@ function PaymentDetailsModal({ isOpen, onClose }: any) {
             <TabsContent value="card" className="space-y-4 mt-4">
               <div className="space-y-3">
                 <div>
-                  <Label>Card Number</Label>
-                  <Input placeholder="1234 5678 9012 3456" value={cardNumber} onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, "").slice(0, 16))} className="mt-1" />
+                  <Label className="text-sm">Card Number</Label>
+                  <Input placeholder="1234 5678 9012 3456" value={cardNumber} onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, "").slice(0, 16))} className="mt-1 h-[var(--input-h)] text-sm" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label>Expiry</Label>
-                    <Input placeholder="MM/YY" value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)} className="mt-1" />
+                    <Label className="text-sm">Expiry</Label>
+                    <Input placeholder="MM/YY" value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)} className="mt-1 h-[var(--input-h)] text-sm" />
                   </div>
                   <div>
-                    <Label>CVV</Label>
-                    <Input type="password" placeholder="•••" value={cardCvv} onChange={(e) => setCardCvv(e.target.value.slice(0, 4))} className="mt-1" />
+                    <Label className="text-sm">CVV</Label>
+                    <Input type="password" placeholder="•••" value={cardCvv} onChange={(e) => setCardCvv(e.target.value.slice(0, 4))} className="mt-1 h-[var(--input-h)] text-sm" />
                   </div>
                 </div>
                 <div>
-                  <Label>Cardholder Name</Label>
-                  <Input placeholder="Name on card" value={cardName} onChange={(e) => setCardName(e.target.value)} className="mt-1" />
+                  <Label className="text-sm">Cardholder Name</Label>
+                  <Input placeholder="Name on card" value={cardName} onChange={(e) => setCardName(e.target.value)} className="mt-1 h-[var(--input-h)] text-sm" />
                 </div>
-                <Button onClick={handleAddCard} className="w-full" disabled={!cardNumber || !cardExpiry || !cardCvv}>
+                <Button onClick={handleAddCard} className="w-full h-[var(--cta-h)] text-sm" disabled={!cardNumber || !cardExpiry || !cardCvv}>
                   <Plus className="w-4 h-4 mr-2" />Add Card
                 </Button>
               </div>
@@ -564,17 +564,17 @@ function PaymentDetailsModal({ isOpen, onClose }: any) {
               <div className="space-y-2 pt-4 border-t">
                 <Label className="text-sm text-muted-foreground">Saved Cards</Label>
                 {savedCards.map((card, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
                         <CreditCard className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="font-medium">{card.brand} •••• {card.last4}</p>
+                        <p className="font-medium text-sm">{card.brand} •••• {card.last4}</p>
                         <p className="text-xs text-muted-foreground">Expires {card.expiry}</p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setSavedCards(savedCards.filter((_, i) => i !== idx))}>
+                    <Button variant="ghost" size="icon" onClick={() => setSavedCards(savedCards.filter((_, i) => i !== idx))} className="h-9 w-9">
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>
@@ -756,25 +756,25 @@ function SubscriptionModal({ isOpen, onClose, vendorId, vendor }: { isOpen: bool
   if (isPro) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-md p-0 overflow-hidden">
+        <DialogContent className="w-[95vw] max-w-md p-0 overflow-hidden">
           <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-6 text-white text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
-              <CheckCircle2 className="w-10 h-10" />
+            <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
+              <CheckCircle2 className="w-8 h-8 md:w-10 md:h-10" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">You're on Vyora Pro!</h2>
-            <p className="text-green-100">All features are unlocked</p>
+            <h2 className="text-xl md:text-2xl font-bold mb-2">You're on Vyora Pro!</h2>
+            <p className="text-green-100 text-sm">All features are unlocked</p>
           </div>
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="p-4 md:p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-2 md:gap-3">
               {allFeatures.filter(f => f.included.pro).slice(0, 6).map((feature, idx) => (
                 <div key={idx} className="flex items-center gap-2 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                  <span className="text-sm">{feature.name}</span>
+                  <span className="text-xs md:text-sm">{feature.name}</span>
                 </div>
               ))}
             </div>
             <p className="text-xs text-center text-muted-foreground">+ {allFeatures.filter(f => f.included.pro).length - 6} more features</p>
-            <Button onClick={onClose} className="w-full bg-green-600 hover:bg-green-700">
+            <Button onClick={onClose} className="w-full h-[var(--cta-h)] text-sm bg-green-600 hover:bg-green-700">
               Continue
             </Button>
           </div>
@@ -785,14 +785,14 @@ function SubscriptionModal({ isOpen, onClose, vendorId, vendor }: { isOpen: bool
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
         {/* Header */}
         <DialogHeader className="p-4 border-b shrink-0 bg-gradient-to-r from-blue-600 to-blue-700">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
+            <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20 h-9 w-9">
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <DialogTitle className="text-white flex items-center gap-2">
+            <DialogTitle className="text-white flex items-center gap-2 text-base">
               <Crown className="w-5 h-5 text-amber-400" />Upgrade to Pro
             </DialogTitle>
           </div>
@@ -801,25 +801,25 @@ function SubscriptionModal({ isOpen, onClose, vendorId, vendor }: { isOpen: bool
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Pro Plan Highlight */}
-          <div className="relative p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-2 border-amber-400">
+          <div className="relative p-4 md:p-5 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-2 border-amber-400">
             <div className="absolute -top-3 left-4">
-              <Badge className="bg-amber-500 text-white px-3">RECOMMENDED</Badge>
+              <Badge className="bg-amber-500 text-white px-3 text-xs">RECOMMENDED</Badge>
             </div>
             <div className="flex items-center justify-between mb-4 pt-2">
               <div>
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <Crown className="w-6 h-6 text-amber-500" />
+                <h3 className="text-lg md:text-xl font-bold flex items-center gap-2">
+                  <Crown className="w-5 h-5 md:w-6 md:h-6 text-amber-500" />
                   Vyora Pro
                 </h3>
-                <p className="text-sm text-muted-foreground">All features unlocked</p>
+                <p className="text-xs md:text-sm text-muted-foreground">All features unlocked</p>
               </div>
               <div className="text-right">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-amber-600">₹399</span>
-                  <span className="text-muted-foreground">/mo</span>
+                  <span className="text-2xl md:text-3xl font-bold text-amber-600">₹399</span>
+                  <span className="text-muted-foreground text-sm">/mo</span>
                 </div>
                 <p className="text-xs text-muted-foreground line-through">₹499/month</p>
-                <Badge variant="outline" className="text-green-600 border-green-600 mt-1">Save 20%</Badge>
+                <Badge variant="outline" className="text-green-600 border-green-600 mt-1 text-xs">Save 20%</Badge>
               </div>
             </div>
           </div>
@@ -861,7 +861,7 @@ function SubscriptionModal({ isOpen, onClose, vendorId, vendor }: { isOpen: bool
           <Button 
             onClick={handleDirectUpgrade}
             disabled={isProcessing}
-            className="w-full h-12 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-lg font-semibold shadow-lg"
+            className="w-full h-[var(--cta-h)] bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-base font-semibold shadow-lg"
           >
             {isProcessing ? (
               <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Processing...</>
@@ -933,7 +933,7 @@ export default function VendorAccount() {
 
   if (!vendorId || isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center max-w-[1440px] mx-auto">
         <LoadingSpinner />
       </div>
     );
@@ -941,12 +941,12 @@ export default function VendorAccount() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
-        <Card className="max-w-md mx-auto p-6 text-center space-y-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 max-w-[1440px] mx-auto">
+        <Card className="max-w-md mx-auto p-6 text-center space-y-4 rounded-xl">
           <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
-          <p>Failed to load account information</p>
-              <Button onClick={() => window.location.reload()}>Retry</Button>
-          </Card>
+          <p className="text-sm md:text-base">Failed to load account information</p>
+          <Button onClick={() => window.location.reload()} className="h-[var(--cta-h)]">Retry</Button>
+        </Card>
       </div>
     );
   }
@@ -954,27 +954,27 @@ export default function VendorAccount() {
   const savedLogo = localStorage.getItem(`vendor_logo_${vendorId}`);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-600 to-blue-700 dark:from-gray-900 dark:to-gray-950">
+    <div className="min-h-screen bg-gradient-to-b from-blue-600 to-blue-700 dark:from-gray-900 dark:to-gray-950 overflow-y-auto max-w-[1440px] mx-auto">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-blue-600 dark:bg-gray-900">
-        <div className="px-4 py-3 flex items-center gap-4">
+        <div className="px-4 py-3 md:px-6 md:py-4 flex items-center gap-4">
           <Link href="/vendor/dashboard">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-9 w-9">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <h1 className="text-lg font-semibold text-white">Profile</h1>
+          <h1 className="text-lg md:text-xl font-semibold text-white">Profile</h1>
         </div>
       </div>
 
       {/* Profile Header - Centered */}
-      <div className="px-4 pt-4 pb-8 flex flex-col items-center text-center">
+      <div className="px-4 md:px-6 pt-4 pb-8 flex flex-col items-center text-center">
         <div className="relative">
-          <Avatar className="h-24 w-24 border-4 border-white shadow-xl">
+          <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white shadow-xl">
             {(savedLogo || vendor?.logo) ? (
               <AvatarImage src={savedLogo || vendor?.logo} alt={vendor?.businessName} />
               ) : null}
-            <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-400 to-blue-600 text-white">
+            <AvatarFallback className="text-xl md:text-2xl bg-gradient-to-br from-blue-400 to-blue-600 text-white">
                 {vendor?.businessName ? getInitials(vendor.businessName) : "VH"}
               </AvatarFallback>
             </Avatar>
@@ -985,7 +985,7 @@ export default function VendorAccount() {
             <Camera className="w-4 h-4 text-blue-600" />
           </button>
         </div>
-        <h2 className="mt-4 text-xl font-bold text-white text-center w-full px-4">{vendor?.businessName || "Business Name"}</h2>
+        <h2 className="mt-4 text-lg md:text-xl font-bold text-white text-center w-full px-4">{vendor?.businessName || "Business Name"}</h2>
         <p className="text-blue-100 text-sm text-center">{vendor?.email || "email@example.com"}</p>
         {vendor?.phone && <p className="text-blue-100 text-sm text-center">{vendor.phone}</p>}
         
@@ -1013,11 +1013,11 @@ export default function VendorAccount() {
       </div>
 
       {/* Content */}
-      <div className="bg-gray-50 dark:bg-gray-900 rounded-t-3xl min-h-[60vh] px-4 py-6 space-y-4">
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-t-3xl min-h-[60vh] px-4 md:px-6 py-6 space-y-4">
         {/* Account Settings */}
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-muted-foreground px-1 uppercase tracking-wider">Account Settings</h3>
-          <Card className="divide-y overflow-hidden">
+          <Card className="divide-y overflow-hidden rounded-xl">
             <MenuItem icon={Building2} label="Business Details" onClick={() => setLocation("/vendor/account/business-details")} color="blue" />
             <MenuItem icon={CreditCard} label="Payment Methods" onClick={() => setShowPaymentDetails(true)} color="green" />
             <MenuItem icon={Crown} label="Subscription" onClick={() => setShowSubscription(true)} color="amber" badge={subscriptionLoading ? "..." : isPro ? "Pro" : "Free"} />
@@ -1028,41 +1028,41 @@ export default function VendorAccount() {
         {/* Appearance */}
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-muted-foreground px-1 uppercase tracking-wider">Appearance</h3>
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden rounded-xl">
             <div className="flex items-center gap-4 p-4">
               <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900">
                 <Palette className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
-              <span className="flex-1 font-medium">Theme</span>
+              <span className="flex-1 font-medium text-sm md:text-base">Theme</span>
               <ThemeToggle />
             </div>
           </Card>
-          </div>
+        </div>
 
         {/* Security */}
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-muted-foreground px-1 uppercase tracking-wider">Security</h3>
-          <Card className="divide-y overflow-hidden">
+          <Card className="divide-y overflow-hidden rounded-xl">
             <MenuItem icon={Lock} label="Change Password" onClick={() => setShowChangePassword(true)} color="red" />
             <MenuItem icon={Shield} label="Security Settings" onClick={() => setLocation("/vendor/account/security")} color="orange" />
-        </Card>
-                    </div>
+          </Card>
+        </div>
 
         {/* Support & Legal */}
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-muted-foreground px-1 uppercase tracking-wider">Support & Legal</h3>
-          <Card className="divide-y overflow-hidden">
+          <Card className="divide-y overflow-hidden rounded-xl">
             <MenuItem icon={HelpCircle} label="FAQs" onClick={() => setShowFaqs(true)} color="cyan" />
             <MenuItem icon={FileText} label="Privacy Policy" onClick={() => setShowPrivacyPolicy(true)} color="indigo" />
             <MenuItem icon={FileText} label="Refund Policy" onClick={() => setShowRefundPolicy(true)} color="pink" />
             <MenuItem icon={Headphones} label="Help & Support" onClick={() => setLocation("/vendor/account/help-support")} color="teal" />
-            </Card>
-          </div>
+          </Card>
+        </div>
 
         {/* Logout */}
         <Button
           variant="outline"
-          className="w-full h-12 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 mt-4"
+          className="w-full h-[var(--cta-h)] border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 mt-4 text-sm"
           onClick={handleLogout}
         >
           <LogOut className="h-5 w-5 mr-2" />
@@ -1103,13 +1103,13 @@ function MenuItem({ icon: Icon, label, onClick, color, badge }: { icon: any; lab
   };
 
   return (
-    <button onClick={onClick} className="w-full flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors text-left">
-      <div className={cn("p-2.5 rounded-xl", colors[color])}>
-        <Icon className="h-5 w-5" />
+    <button onClick={onClick} className="w-full flex items-center gap-3 md:gap-4 p-4 hover:bg-muted/50 transition-colors text-left min-h-[var(--input-h)]">
+      <div className={cn("p-2 md:p-2.5 rounded-xl shrink-0", colors[color])}>
+        <Icon className="h-4 w-4 md:h-5 md:w-5" />
       </div>
-      <span className="flex-1 font-medium">{label}</span>
-      {badge && <Badge variant="secondary" className="text-xs">{badge}</Badge>}
-      <ChevronRight className="h-5 w-5 text-muted-foreground" />
+      <span className="flex-1 font-medium text-sm md:text-base">{label}</span>
+      {badge && <Badge variant="secondary" className="text-xs shrink-0">{badge}</Badge>}
+      <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
     </button>
   );
 }

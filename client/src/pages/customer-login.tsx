@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,18 +6,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft } from "lucide-react";
+import { UserPlus, ArrowLeft, KeyRound } from "lucide-react";
 
 export default function CustomerLogin() {
-  const [, params] = useRoute("/site/:subdomain/login");
+  const [, params] = useRoute("/:subdomain/login");
   const subdomain = params?.subdomain || "";
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +80,7 @@ export default function CustomerLogin() {
 
       // Small delay to ensure localStorage is written before redirect
       setTimeout(() => {
-        window.location.href = `/site/${subdomain}`;
+        window.location.href = `/${subdomain}`;
       }, 100);
     } catch (error: any) {
       toast({
@@ -92,7 +101,7 @@ export default function CustomerLogin() {
           variant="ghost"
           size="sm"
           className="mb-4"
-          onClick={() => window.location.href = `/site/${subdomain}`}
+          onClick={() => window.location.href = `/${subdomain}`}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to website
@@ -116,11 +125,20 @@ export default function CustomerLogin() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
+                  className={isMobile ? "h-12" : ""}
                 />
               </div>
 
               <div className="space-y-2">
+                <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
+                  <a
+                    href={`/${subdomain}/forgot-password`}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Forgot Password?
+                  </a>
+                </div>
                 <Input
                   id="password"
                   type="password"
@@ -128,10 +146,15 @@ export default function CustomerLogin() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
+                  className={isMobile ? "h-12" : ""}
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className={`w-full ${isMobile ? "h-12 text-base font-semibold" : ""}`} 
+                disabled={isLoading}
+              >
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
@@ -139,7 +162,7 @@ export default function CustomerLogin() {
             <div className="mt-6 text-center text-sm">
               <span className="text-muted-foreground">Don't have an account?</span>{" "}
               <a
-                href={`/site/${subdomain}/signup`}
+                href={`/${subdomain}/signup`}
                 className="text-primary hover:underline font-semibold"
               >
                 <UserPlus className="inline h-4 w-4 mr-1" />

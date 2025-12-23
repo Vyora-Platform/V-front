@@ -1,17 +1,21 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Edit, Trash2, Plus, Search, Copy, ArrowLeft } from "lucide-react";
+import { 
+  Edit, Trash2, Plus, Search, Copy, ArrowLeft, Eye, 
+  ToggleLeft, ToggleRight, Star, Clock, MapPin, Package,
+  ChevronRight, Filter, SlidersHorizontal, ImageIcon, Grid3X3, List
+} from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ComprehensiveServiceForm from "@/components/ComprehensiveServiceForm";
+import ServiceListingForm from "@/components/ServiceListingForm";
 import type { VendorCatalogue, MasterService, Category, Subcategory } from "@shared/schema";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -19,41 +23,42 @@ import { LoadingSpinner } from "@/components/AuthGuard";
 
 export default function VendorServicesCatalogue() {
   const [, setLocation] = useLocation();
-  
-  // Get real vendor ID from localStorage
   const { vendorId } = useAuth();
   
   return (
-    <div className="flex h-full w-full flex-col">
-      {/* Header */}
-      <div className="px-4 py-3 border-b flex items-center justify-between gap-3">
+    <div className="flex h-full w-full flex-col bg-background">
+      {/* Header - Mobile Optimized */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setLocation("/vendor/dashboard")}
-          className="md:hidden flex-shrink-0"
-          data-testid="button-back-to-dashboard"
+            className="md:hidden shrink-0 -ml-2"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h1 className="text-xl font-bold">Services</h1>
-          <p className="text-xs text-muted-foreground">Manage catalogue</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold truncate">Services</h1>
+            <p className="text-xs text-muted-foreground hidden sm:block">Manage your service catalogue</p>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
-        <Tabs defaultValue="my-catalogue" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="my-catalogue" data-testid="tab-my-catalogue">My Catalogue</TabsTrigger>
-          <TabsTrigger value="browse-services" data-testid="tab-browse-services">Browse Services</TabsTrigger>
+      <div className="flex-1 overflow-auto">
+        <Tabs defaultValue="my-catalogue" className="h-full flex flex-col">
+          <div className="px-4 pt-4">
+            <TabsList className="grid w-full grid-cols-2 h-11">
+              <TabsTrigger value="my-catalogue" className="text-sm">My Catalogue</TabsTrigger>
+              <TabsTrigger value="browse-services" className="text-sm">Browse Services</TabsTrigger>
         </TabsList>
+          </div>
         
-        <TabsContent value="my-catalogue">
+          <TabsContent value="my-catalogue" className="flex-1 mt-0">
           <MyCatalogueTab vendorId={vendorId} />
         </TabsContent>
         
-        <TabsContent value="browse-services">
+          <TabsContent value="browse-services" className="flex-1 mt-0">
           <BrowseServicesTab vendorId={vendorId} />
         </TabsContent>
         </Tabs>
@@ -72,6 +77,7 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const { data: catalogue = [] } = useQuery<VendorCatalogue[]>({
     queryKey: [`/api/vendors/${vendorId}/catalogue`],
@@ -197,8 +203,6 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
     setLocation(`/vendor/services/${id}`);
   };
 
-
-  // Show loading while vendor ID initializes
   if (!vendorId) { return <LoadingSpinner />; }
 
   const filteredSubcategoriesForFilter = categoryFilter !== "all"
@@ -223,59 +227,45 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
   const inactiveServices = catalogue.filter(item => !item.isActive);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-semibold">My Services</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">Manage your services and pricing</p>
-        </div>
-        <Button onClick={handleCreateNew} data-testid="button-create-service" className="w-full sm:w-auto">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Service
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4">
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1">Total Services</p>
-          <p className="text-xl sm:text-2xl font-bold">{catalogue.length}</p>
+    <div className="p-4 space-y-4 pb-24 md:pb-4">
+      {/* Stats Cards - Desktop Optimized */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card className="p-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-0 shadow-sm rounded-xl min-h-[var(--card-min-h)]">
+          <p className="text-xs text-muted-foreground font-medium mb-1">Total Services</p>
+          <p className="text-xl md:text-2xl font-bold">{catalogue.length}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1">Active Services</p>
-          <p className="text-xl sm:text-2xl font-bold text-chart-2">{activeServices.length}</p>
+        <Card className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900 border-0 shadow-sm rounded-xl min-h-[var(--card-min-h)]">
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1">Active</p>
+          <p className="text-xl md:text-2xl font-bold text-emerald-700 dark:text-emerald-300">{activeServices.length}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1">Inactive Services</p>
-          <p className="text-xl sm:text-2xl font-bold text-muted-foreground">{inactiveServices.length}</p>
+        <Card className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border-0 shadow-sm rounded-xl min-h-[var(--card-min-h)]">
+          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">Inactive</p>
+          <p className="text-xl md:text-2xl font-bold text-amber-700 dark:text-amber-300">{inactiveServices.length}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1">Filtered Results</p>
-          <p className="text-xl sm:text-2xl font-bold text-primary">{filteredServices.length}</p>
+        <Card className="p-4 bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950 dark:to-violet-900 border-0 shadow-sm rounded-xl min-h-[var(--card-min-h)]">
+          <p className="text-xs text-violet-600 dark:text-violet-400 font-medium mb-1">Filtered</p>
+          <p className="text-xl md:text-2xl font-bold text-violet-700 dark:text-violet-300">{filteredServices.length}</p>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="sm:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+      {/* Action Bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search services..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-                data-testid="input-search"
+            className="pl-10 h-[var(--input-h)] text-sm"
               />
             </div>
-          </div>
-          <div>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <Select value={categoryFilter} onValueChange={(value) => {
               setCategoryFilter(value);
               setSubcategoryFilter("all");
             }}>
-              <SelectTrigger data-testid="select-category-filter">
-                <SelectValue placeholder="All Categories" />
+            <SelectTrigger className="w-[140px] h-[var(--input-h)] text-sm shrink-0">
+              <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
@@ -284,28 +274,9 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Select 
-              value={subcategoryFilter} 
-              onValueChange={setSubcategoryFilter}
-              disabled={categoryFilter === "all"}
-            >
-              <SelectTrigger data-testid="select-subcategory-filter">
-                <SelectValue placeholder="All Subcategories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Subcategories</SelectItem>
-                {filteredSubcategoriesForFilter.map(sub => (
-                  <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger data-testid="select-status-filter">
-                <SelectValue />
+            <SelectTrigger className="w-[120px] h-[var(--input-h)] text-sm shrink-0">
+              <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -313,66 +284,213 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
+          <div className="hidden md:flex border rounded-xl">
+            <Button 
+              variant={viewMode === "grid" ? "secondary" : "ghost"} 
+              size="icon" 
+              className="h-[var(--input-h)] w-11 rounded-r-none"
+              onClick={() => setViewMode("grid")}
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === "list" ? "secondary" : "ghost"} 
+              size="icon" 
+              className="h-[var(--input-h)] w-11 rounded-l-none"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button onClick={handleCreateNew} className="h-[var(--input-h)] px-4 shrink-0 text-sm">
+            <Plus className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Add Service</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Services Grid */}
+        {filteredServices.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="max-w-md mx-auto">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <Package className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="font-semibold text-lg mb-2">
+              {catalogue.length === 0 ? "No services yet" : "No matching services"}
+            </h3>
+            <p className="text-muted-foreground text-sm mb-4">
+              {catalogue.length === 0 
+                ? "Start by adding your first service to the catalogue" 
+                : "Try adjusting your filters or search term"}
+            </p>
+            {catalogue.length === 0 && (
+              <Button onClick={handleCreateNew}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Service
+              </Button>
+            )}
+          </div>
+          </Card>
+      ) : viewMode === "grid" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredServices.map((service) => (
+            <ServiceCard 
+              key={service.id}
+              service={service}
+              onView={() => handleViewDetails(service.id)}
+              onEdit={() => handleEdit(service)}
+              onDuplicate={() => handleDuplicate(service.id)}
+              onDelete={() => handleDelete(service.id)}
+              onToggle={() => toggleActiveMutation.mutate({ id: service.id, isActive: !service.isActive })}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredServices.map((service) => (
+            <ServiceListItem 
+              key={service.id}
+              service={service}
+              onView={() => handleViewDetails(service.id)}
+              onEdit={() => handleEdit(service)}
+              onDuplicate={() => handleDuplicate(service.id)}
+              onDelete={() => handleDelete(service.id)}
+              onToggle={() => toggleActiveMutation.mutate({ id: service.id, isActive: !service.isActive })}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Create/Edit Dialog - Full Screen on Mobile */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[100vh] md:max-h-[95vh] h-full md:h-auto overflow-hidden p-0 md:p-6 gap-0">
+          <DialogHeader className="hidden md:block px-0 pb-4">
+            <DialogTitle className="text-2xl">
+              {editingService ? "Edit Service" : "Create New Service"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto md:overflow-visible">
+            <ServiceListingForm
+              initialData={editingService || {}}
+              onSubmit={handleFormSubmit}
+              onCancel={() => {
+                setIsDialogOpen(false);
+                setEditingService(null);
+              }}
+              isSubmitting={createMutation.isPending || updateMutation.isPending}
+              mode={editingService ? "edit" : "create"}
+              userType="vendor"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Service Card Component
+function ServiceCard({ 
+  service, 
+  onView, 
+  onEdit, 
+  onDuplicate, 
+  onDelete, 
+  onToggle 
+}: {
+  service: VendorCatalogue;
+  onView: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onToggle: () => void;
+}) {
+  const hasImage = service.images && service.images.length > 0;
+  const displayImage = hasImage ? service.images[0] : null;
+
+  return (
+    <Card 
+      className="group overflow-hidden hover:shadow-lg transition-all cursor-pointer border-0 shadow-sm rounded-xl"
+      onClick={onView}
+    >
+      {/* Image Section */}
+      <div className="relative aspect-[4/3] bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 overflow-hidden">
+        {displayImage ? (
+          <img
+            src={displayImage}
+            alt={service.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            {service.icon ? (
+              <span className="text-5xl">{service.icon}</span>
+            ) : (
+              <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+            )}
+          </div>
+        )}
+        
+        {/* Status Badge */}
+        <div className="absolute top-3 right-3">
+          <Badge 
+            className={service.isActive 
+              ? "bg-emerald-500 hover:bg-emerald-600 text-white border-0" 
+              : "bg-slate-500 hover:bg-slate-600 text-white border-0"
+            }
+          >
+            {service.isActive ? "Active" : "Inactive"}
+          </Badge>
+        </div>
+
+        {/* Overlay on Hover */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors">
+          <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8 bg-white/90 hover:bg-white"
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8 bg-white/90 hover:bg-white"
+              onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
-      </Card>
-
-      {/* Services Grid - Urban Company Style */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredServices.length === 0 ? (
-          <Card className="p-8 text-center col-span-full">
-            <p className="text-muted-foreground">
-              {catalogue.length === 0 ? "No services in your catalogue yet" : "No services match your filters"}
-            </p>
-          </Card>
-        ) : (
-          filteredServices.map((service) => (
-            <Card 
-              key={service.id} 
-              className="hover:shadow-lg cursor-pointer transition-all overflow-hidden group" 
-              onClick={() => handleViewDetails(service.id)}
-              data-testid={`service-card-${service.id}`}
-            >
-              {/* Service Image/Icon */}
-              <div className="relative h-40 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                <div className="text-6xl">{service.icon}</div>
-                {service.isActive ? (
-                  <Badge className="absolute top-2 right-2 bg-green-600 hover:bg-green-700">
-                    Active
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="absolute top-2 right-2">
-                    Inactive
-                  </Badge>
-                )}
-                {service.serviceType === "package" && (
-                  <Badge className="absolute top-2 left-2 bg-orange-500 hover:bg-orange-600">
-                    Package
-                  </Badge>
-                )}
               </div>
 
               <CardContent className="p-4 space-y-3">
-                {/* Service Name */}
-                <div>
-                  <h3 className="font-semibold text-base line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+        {/* Category */}
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs font-normal">
+            {service.category}
+          </Badge>
+        </div>
+
+        {/* Title */}
+        <h3 className="font-semibold text-base line-clamp-2 group-hover:text-primary transition-colors">
                     {service.name}
                   </h3>
-                  <p className="text-xs text-muted-foreground">{service.category}</p>
-                </div>
 
                 {/* Rating */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <span className="text-yellow-500 text-sm">★</span>
-                    <span className="text-sm font-medium">4.8</span>
+        <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-1 text-amber-500">
+            <Star className="h-3.5 w-3.5 fill-current" />
+            <span className="font-medium">4.8</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">(2.5K)</span>
+          <span className="text-muted-foreground text-xs">(2.5K)</span>
                 </div>
 
                 {/* Description */}
                 <p className="text-sm text-muted-foreground line-clamp-2">
-                  {service.shortDescription || service.description}
+          {service.shortDescription || service.description || "No description available"}
                 </p>
 
                 {/* Price */}
@@ -387,86 +505,134 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
                   )}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-2 pt-2">
-                  <div className="flex gap-2">
+        {/* Actions */}
+        <div className="flex gap-2 pt-2">
                     <Button
-                      variant="outline"
+            variant={service.isActive ? "outline" : "default"}
                       size="sm"
-                      className="flex-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(service);
-                      }}
-                      data-testid={`button-edit-${service.id}`}
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Edit
+            className="flex-1 h-9 text-xs"
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          >
+            {service.isActive ? "Deactivate" : "Activate"}
                     </Button>
                     <Button
                       variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDuplicate(service.id);
-                      }}
-                      data-testid={`button-duplicate-${service.id}`}
+            size="icon"
+            className="h-9 w-9"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
                     >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(service.id);
-                      }}
-                      data-testid={`button-delete-${service.id}`}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={service.isActive ? "outline" : "default"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleActiveMutation.mutate({ id: service.id, isActive: !service.isActive });
-                    }}
-                    data-testid={`button-toggle-${service.id}`}
-                    className="w-full"
-                  >
-                    {service.isActive ? "Deactivate" : "Activate"}
+            <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          ))
+  );
+}
+
+// Service List Item Component
+function ServiceListItem({ 
+  service, 
+  onView, 
+  onEdit, 
+  onDuplicate, 
+  onDelete, 
+  onToggle 
+}: {
+  service: VendorCatalogue;
+  onView: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onToggle: () => void;
+}) {
+  const hasImage = service.images && service.images.length > 0;
+  const displayImage = hasImage ? service.images[0] : null;
+
+  return (
+    <Card 
+      className="group overflow-hidden hover:shadow-md transition-all cursor-pointer rounded-xl"
+      onClick={onView}
+    >
+      <div className="flex gap-4 p-4">
+        {/* Image */}
+        <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-xl bg-muted overflow-hidden shrink-0">
+          {displayImage ? (
+            <img
+              src={displayImage}
+              alt={service.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              {service.icon ? (
+                <span className="text-3xl">{service.icon}</span>
+              ) : (
+                <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+              )}
+            </div>
         )}
       </div>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingService ? "Edit Service" : "Create New Service"}
-            </DialogTitle>
-          </DialogHeader>
-          <ComprehensiveServiceForm
-            initialData={editingService || {}}
-            onSubmit={handleFormSubmit}
-            onCancel={() => {
-              setIsDialogOpen(false);
-              setEditingService(null);
-            }}
-            isSubmitting={createMutation.isPending || updateMutation.isPending}
-            mode={editingService ? "edit" : "create"}
-            userType="vendor"
-          />
-        </DialogContent>
-      </Dialog>
+        {/* Content */}
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="text-xs font-normal">
+                  {service.category}
+                </Badge>
+                <Badge 
+                  className={service.isActive 
+                    ? "bg-emerald-500 text-white text-xs" 
+                    : "bg-slate-500 text-white text-xs"
+                  }
+                >
+                  {service.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+              <h3 className="font-semibold text-base line-clamp-1 group-hover:text-primary transition-colors">
+                {service.name}
+              </h3>
+            </div>
+            <div className="text-right">
+              {service.offerPrice && service.offerPrice < service.price ? (
+                <div>
+                  <span className="text-lg font-bold text-primary">₹{service.offerPrice}</span>
+                  <span className="text-sm text-muted-foreground line-through ml-2">₹{service.price}</span>
+                </div>
+              ) : (
+                <span className="text-lg font-bold">₹{service.price}</span>
+              )}
+            </div>
+          </div>
+
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {service.shortDescription || service.description || "No description available"}
+          </p>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+              <span>4.8 (2.5K)</span>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onDuplicate(); }}>
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+                {service.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
     </div>
+    </Card>
   );
 }
 
@@ -476,7 +642,6 @@ function BrowseServicesTab({ vendorId }: { vendorId: string }) {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [subcategoryFilter, setSubcategoryFilter] = useState<string>("all");
 
   const { data: masterServices = [] } = useQuery<MasterService[]>({
     queryKey: ["/api/master-services"],
@@ -489,10 +654,6 @@ function BrowseServicesTab({ vendorId }: { vendorId: string }) {
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
-  });
-
-  const { data: subcategories = [] } = useQuery<Subcategory[]>({
-    queryKey: ["/api/subcategories"],
   });
 
   const addToCatalogueMutation = useMutation({
@@ -539,7 +700,7 @@ function BrowseServicesTab({ vendorId }: { vendorId: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/catalogue`] });
-      toast({ title: "Service added to your catalogue successfully!" });
+      toast({ title: "Service added to your catalogue!" });
     },
     onError: () => {
       toast({ title: "Failed to add service", variant: "destructive" });
@@ -550,20 +711,12 @@ function BrowseServicesTab({ vendorId }: { vendorId: string }) {
     setLocation(`/vendor/services/${id}`);
   };
 
-  const filteredSubcategoriesForFilter = categoryFilter !== "all"
-    ? subcategories.filter(sub => sub.categoryId === categoryFilter)
-    : subcategories;
-
   const filteredServices = masterServices
     .filter(service => {
       const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (service.tags || []).some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-      
+        service.category.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = categoryFilter === "all" || service.categoryId === categoryFilter;
-      const matchesSubcategory = subcategoryFilter === "all" || service.subcategoryId === subcategoryFilter;
-
-      return matchesSearch && matchesCategory && matchesSubcategory;
+      return matchesSearch && matchesCategory;
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -572,33 +725,20 @@ function BrowseServicesTab({ vendorId }: { vendorId: string }) {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-semibold">Browse Master Catalogue</h2>
-        <p className="text-xs sm:text-sm text-muted-foreground">Add services from the platform catalogue</p>
-      </div>
-
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+    <div className="p-4 space-y-4 pb-24 md:pb-4">
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search services..."
+            placeholder="Search master services..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-master"
+            className="pl-10 h-[var(--input-h)] text-sm"
               />
             </div>
-          </div>
-          <div>
-            <Select value={categoryFilter} onValueChange={(value) => {
-              setCategoryFilter(value);
-              setSubcategoryFilter("all");
-            }}>
-              <SelectTrigger data-testid="select-category-filter-master">
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-full sm:w-[160px] h-[var(--input-h)] text-sm">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
@@ -609,87 +749,68 @@ function BrowseServicesTab({ vendorId }: { vendorId: string }) {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Select 
-              value={subcategoryFilter} 
-              onValueChange={setSubcategoryFilter}
-              disabled={categoryFilter === "all"}
-            >
-              <SelectTrigger data-testid="select-subcategory-filter-master">
-                <SelectValue placeholder="All Subcategories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Subcategories</SelectItem>
-                {filteredSubcategoriesForFilter.map(sub => (
-                  <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </Card>
 
-      {/* Services Grid - Urban Company Style */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {/* Services Grid */}
         {filteredServices.length === 0 ? (
-          <Card className="p-8 text-center col-span-full">
+        <Card className="p-12 text-center">
             <p className="text-muted-foreground">No services found in master catalogue</p>
           </Card>
         ) : (
-          filteredServices.map((service) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredServices.map((service) => {
             const added = isServiceAdded(service.id);
+            const hasImage = service.images && service.images.length > 0;
+            const displayImage = hasImage ? service.images[0] : null;
+
             return (
               <Card 
                 key={service.id} 
-                className="hover:shadow-lg cursor-pointer transition-all overflow-hidden group" 
+                className="group overflow-hidden hover:shadow-lg transition-all cursor-pointer border-0 shadow-sm rounded-xl"
                 onClick={() => handleViewDetails(service.id)}
-                data-testid={`master-service-card-${service.id}`}
               >
-                {/* Service Image/Icon */}
-                <div className="relative h-40 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                  <div className="text-6xl">{service.icon}</div>
-                  {added && (
-                    <Badge className="absolute top-2 right-2 bg-green-600 hover:bg-green-700">
-                      ✓ Added
-                    </Badge>
+                {/* Image Section */}
+                <div className="relative aspect-[4/3] bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 overflow-hidden">
+                  {displayImage ? (
+                    <img
+                      src={displayImage}
+                      alt={service.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {service.icon ? (
+                        <span className="text-5xl">{service.icon}</span>
+                      ) : (
+                        <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+                      )}
+                    </div>
                   )}
-                  {service.serviceType === "package" && (
-                    <Badge className="absolute top-2 left-2 bg-orange-500 hover:bg-orange-600">
-                      Package
+                  
+                  {added && (
+                    <Badge className="absolute top-3 right-3 bg-emerald-500 text-white">
+                      ✓ Added
                     </Badge>
                   )}
                 </div>
 
                 <CardContent className="p-4 space-y-3">
-                  {/* Service Name */}
-                  <div>
-                    <h3 className="font-semibold text-base line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {service.category}
+                  </Badge>
+
+                  <h3 className="font-semibold text-base line-clamp-2 group-hover:text-primary transition-colors">
                       {service.name}
                     </h3>
-                    <p className="text-xs text-muted-foreground">{service.category}</p>
-                  </div>
 
-                  {/* Rating */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      <span className="text-yellow-500 text-sm">★</span>
-                      <span className="text-sm font-medium">4.8</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">(2.5K)</span>
-                  </div>
-
-                  {/* Description */}
                   <p className="text-sm text-muted-foreground line-clamp-2">
                     {service.shortDescription || service.description}
                   </p>
 
-                  {/* Price */}
                   <div className="flex items-baseline gap-2">
                     <span className="text-xl font-bold">₹{service.basePrice}</span>
                     <span className="text-xs text-muted-foreground">base price</span>
                   </div>
 
-                  {/* Add to Catalogue Button */}
                   <Button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -697,17 +818,16 @@ function BrowseServicesTab({ vendorId }: { vendorId: string }) {
                     }}
                     disabled={added || addToCatalogueMutation.isPending}
                     variant={added ? "secondary" : "default"}
-                    className="w-full"
-                    data-testid={`button-add-service-${service.id}`}
+                    className="w-full h-[var(--cta-h)] text-sm"
                   >
-                    {added ? "✓ Added to Catalogue" : "Add to My Catalogue"}
+                    {added ? "✓ Added" : "Add to Catalogue"}
                   </Button>
                 </CardContent>
               </Card>
             );
-          })
+          })}
+        </div>
         )}
-      </div>
     </div>
   );
 }

@@ -186,26 +186,27 @@ export default function AdminPromoBanners() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Promo Banners</h1>
-          <p className="text-muted-foreground">Manage promotional banners shown on vendor dashboard</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) {
-            setEditingBanner(null);
-            resetForm();
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Banner
-            </Button>
-          </DialogTrigger>
+    <div className="min-h-screen bg-background overflow-y-auto pb-20 md:pb-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Promo Banners</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Manage promotional banners shown on vendor dashboard</p>
+          </div>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingBanner(null);
+              resetForm();
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 h-10">
+                <Plus className="w-4 h-4" />
+                Add Banner
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingBanner ? 'Edit Banner' : 'Create New Banner'}</DialogTitle>
@@ -328,9 +329,9 @@ export default function AdminPromoBanners() {
         </Dialog>
       </div>
 
-      {/* Banners List */}
-      {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* Banners List */}
+        {isLoading ? (
+          <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-0">
@@ -343,20 +344,20 @@ export default function AdminPromoBanners() {
             </Card>
           ))}
         </div>
-      ) : banners.length === 0 ? (
-        <Card className="p-12 text-center">
-          <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">No Banners Yet</h3>
-          <p className="text-muted-foreground mb-4">Create your first promotional banner to display on vendor dashboards</p>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Create Banner
-          </Button>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {banners.map((banner: PromoBanner) => (
-            <Card key={banner.id} className="overflow-hidden">
+        ) : banners.length === 0 ? (
+          <Card className="p-12 text-center rounded-xl">
+            <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Banners Yet</h3>
+            <p className="text-muted-foreground mb-4">Create your first promotional banner to display on vendor dashboards</p>
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Banner
+            </Button>
+          </Card>
+        ) : (
+          <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-3">
+            {banners.map((banner: PromoBanner) => (
+              <Card key={banner.id} className="overflow-hidden rounded-xl">
               <CardContent className="p-0">
                 {/* Banner Preview */}
                 <div className="relative">
@@ -428,13 +429,14 @@ export default function AdminPromoBanners() {
                     <Badge variant="outline" className="text-xs">
                       Order: {banner.displayOrder}
                     </Badge>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

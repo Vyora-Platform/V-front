@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { X, Upload, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -8,9 +9,17 @@ interface ProductImageUploaderProps {
   value: string[];
   onChange: (images: string[]) => void;
   maxImages?: number;
+  vendorId?: string;
+  category?: string;
 }
 
-export function ProductImageUploader({ value, onChange, maxImages = 5 }: ProductImageUploaderProps) {
+export function ProductImageUploader({ 
+  value, 
+  onChange, 
+  maxImages = 4,
+  vendorId = "admin",
+  category = "products"
+}: ProductImageUploaderProps) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -57,28 +66,57 @@ export function ProductImageUploader({ value, onChange, maxImages = 5 }: Product
           continue;
         }
 
-        // Convert to data URL for now (until object storage is configured)
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+        // Upload to Supabase S3
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('vendorId', vendorId);
+        formData.append('category', category);
+        formData.append('isPublic', 'true');
 
-        uploadedUrls.push(dataUrl);
+        try {
+          const response = await fetch('/api/upload/public', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.url) {
+              uploadedUrls.push(data.url);
+            }
+          } else {
+            // Fallback to data URL if upload fails
+            const reader = new FileReader();
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+            uploadedUrls.push(dataUrl);
+          }
+        } catch {
+          // Fallback to data URL
+          const reader = new FileReader();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          uploadedUrls.push(dataUrl);
+        }
       }
 
       if (uploadedUrls.length > 0) {
         onChange([...value, ...uploadedUrls]);
         toast({
-          title: "Images added",
+          title: "Images uploaded",
           description: `${uploadedUrls.length} image(s) added`,
         });
       }
     } catch (error) {
       console.error("Upload error:", error);
       toast({
-        title: "Failed to add images",
+        title: "Failed to upload images",
         description: "Please try again.",
         variant: "destructive",
       });
@@ -168,31 +206,25 @@ export function ProductImageUploader({ value, onChange, maxImages = 5 }: Product
       </div>
 
       {value.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          {value.map((imageKey, index) => (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {value.map((imageUrl, index) => (
             <div
               key={index}
-              className="relative aspect-square rounded-lg border bg-muted overflow-hidden group"
+              className="relative aspect-square rounded-lg border-2 border-dashed bg-muted overflow-hidden group"
               data-testid={`image-preview-${index}`}
             >
               <img
-                src={imageKey}
+                src={imageUrl}
                 alt={`Product image ${index + 1}`}
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
-                  // Show fallback icon when image fails to load
-                  const fallback = target.nextElementSibling?.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-                onLoad={(e) => {
-                  // Hide fallback icon when image loads successfully
-                  const target = e.target as HTMLImageElement;
-                  const fallback = target.nextElementSibling?.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = 'none';
                 }}
               />
+              {index === 0 && (
+                <Badge className="absolute top-2 left-2 text-xs">Main</Badge>
+              )}
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <Button
                   type="button"
@@ -205,12 +237,16 @@ export function ProductImageUploader({ value, onChange, maxImages = 5 }: Product
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              {/* Fallback icon if image doesn't load (hidden by default) */}
-              <div className="absolute inset-0 flex items-center justify-center" style={{ display: 'none' }}>
-                <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
-              </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {value.length === 0 && (
+        <div className="border-2 border-dashed rounded-lg p-8 text-center">
+          <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">No images uploaded yet</p>
+          <p className="text-xs text-muted-foreground mt-1">Upload up to {maxImages} product images</p>
         </div>
       )}
     </div>

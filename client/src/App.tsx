@@ -24,21 +24,27 @@ import Catalogue from "@/pages/catalogue";
 import VendorCatalogueCreate from "@/pages/vendor-catalogue-create";
 import VendorCatalogueEdit from "@/pages/vendor-catalogue-edit";
 import VendorBookings from "@/pages/vendor-bookings";
+import VendorBookingDetail from "@/pages/vendor-booking-detail";
 import VendorAppointments from "@/pages/vendor-appointments";
+import VendorAppointmentDetail from "@/pages/vendor-appointment-detail";
 import VendorOrders from "@/pages/vendor-orders";
 import VendorOrderDetail from "@/pages/vendor-order-detail";
 import VendorEmployees from "@/pages/vendor-employees";
 import VendorEmployeeDetail from "@/pages/vendor-employee-detail";
 import VendorAttendance from "@/pages/vendor-attendance";
+import VendorAttendanceDetail from "@/pages/vendor-attendance-detail";
 import VendorLeaves from "@/pages/vendor-leaves";
+import VendorLeaveDetail from "@/pages/vendor-leave-detail";
 import VendorTasks from "@/pages/vendor-tasks";
 import VendorTasksCreate from "@/pages/vendor-tasks-create";
 import VendorTasksEdit from "@/pages/vendor-tasks-edit";
+import VendorTaskDetail from "@/pages/vendor-task-detail";
 import VendorCustomers from "@/pages/vendor-customers";
 import VendorCustomerDetail from "@/pages/vendor-customer-detail";
 import VendorSuppliers from "@/pages/vendor-suppliers";
 import VendorSupplierDetail from "@/pages/vendor-supplier-detail";
 import VendorExpenses from "@/pages/vendor-expenses";
+import VendorExpenseDetail from "@/pages/vendor-expense-detail";
 import VendorLeads from "@/pages/vendor-leads";
 import VendorQuotations from "@/pages/vendor-quotations";
 import VendorQuotationDetail from "@/pages/vendor-quotation-detail";
@@ -46,15 +52,21 @@ import VendorMiniWebsite from "@/pages/vendor-mini-website";
 import VendorMiniWebsiteDashboard from "@/pages/vendor-mini-website-dashboard";
 import MiniWebsitePublic from "@/pages/mini-website-public";
 import MiniWebsiteProducts from "@/pages/mini-website-products";
+import MiniWebsiteServices from "@/pages/mini-website-services";
 import MiniWebsiteProductDetail from "@/pages/mini-website-product-detail";
+import MiniWebsiteServiceDetail from "@/pages/mini-website-service-detail";
 import CustomerLogin from "@/pages/customer-login";
 import CustomerSignup from "@/pages/customer-signup";
+import CustomerForgotPassword from "@/pages/customer-forgot-password";
 import MiniWebsiteMyOrders from "@/pages/mini-website-my-orders";
+import MiniWebsiteCheckout from "@/pages/mini-website-checkout";
 import AdminMasterCatalogue from "@/pages/admin-master-catalogue";
 import AdminMasterData from "@/pages/admin-master-data";
 import AdminMasterProducts from "@/pages/admin-master-products";
 import VendorProductsCatalogue from "@/pages/vendor-products-catalogue";
 import VendorProductsBrowse from "@/pages/vendor-products-browse";
+import VendorProductForm from "@/pages/vendor-product-form";
+import VendorProductDetail from "@/pages/vendor-product-detail";
 import VendorServicesCatalogue from "@/pages/vendor-services-catalogue";
 import VendorCategories from "@/pages/vendor-categories";
 import VendorServiceDetail from "@/pages/vendor-service-detail";
@@ -81,6 +93,7 @@ import AdminSettings from "@/pages/admin-settings";
 import AdminAdditionalServices from "@/pages/admin-additional-services";
 import AdminPromoBanners from "@/pages/admin-promo-banners";
 import VendorAdditionalServices from "@/pages/vendor-additional-services";
+import VendorAdditionalServiceDetail from "@/pages/vendor-additional-service-detail";
 import VendorSubscription from "@/pages/vendor-subscription";
 import VendorAccount from "@/pages/vendor-account";
 import VendorAccountBusinessDetails from "@/pages/vendor-account-business-details";
@@ -212,32 +225,32 @@ function VendorLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
+      <div className="flex min-h-screen w-full">
         {/* Hide sidebar on mobile */}
         <div className="hidden md:block">
           <AppSidebar userRole="vendor" vendorId={vendorId} />
         </div>
-        <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between px-3 py-2 md:px-6 md:py-4 bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-10 shadow-md">
-            <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex flex-col flex-1 min-w-0 min-h-screen">
+          <header className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-20 shadow-md shrink-0">
+            <div className="flex items-center gap-3">
               {/* Hide sidebar toggle on mobile */}
               <div className="hidden md:block">
                 <SidebarTrigger data-testid="button-sidebar-toggle" className="text-white hover:bg-white/20 [&>svg]:w-6 [&>svg]:h-6" />
               </div>
               
               {/* Vyora Logo + Welcome Message */}
-              <div className="flex items-center gap-2 md:gap-3 md:pl-3 md:border-l border-white/30">
+              <div className="flex items-center gap-3 md:pl-3 md:border-l border-white/30">
                 {/* Vyora Logo */}
-                <div className="w-8 h-8 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white flex items-center justify-center shadow-lg">
-                  <span className="text-blue-600 font-bold text-sm md:text-xl">V</span>
+                <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-white flex items-center justify-center shadow-lg shrink-0">
+                  <span className="text-blue-600 font-bold text-base md:text-xl">V</span>
                 </div>
                 {/* Welcome Message */}
                 <div className="flex flex-col">
-                  <span className="text-sm md:text-lg font-semibold text-white leading-tight" data-testid="text-welcome">
+                  <span className="text-[15px] md:text-lg font-semibold text-white leading-tight" data-testid="text-welcome">
                     Welcome, {vendor?.ownerName ? getFirstName(vendor.ownerName) : (vendor?.businessName ? getFirstName(vendor.businessName) : "User")} ji!
-                    </span>
-                  </div>
+                  </span>
                 </div>
+              </div>
             </div>
             <div className="flex items-center">
               {/* Notification Bell - visible on both mobile and desktop */}
@@ -245,7 +258,7 @@ function VendorLayout({ children }: { children: React.ReactNode }) {
               <NotificationBell className="hidden md:flex text-white" />
             </div>
           </header>
-          <main className="flex-1 overflow-auto pb-16 md:pb-0">
+          <main className="flex-1 overflow-y-auto overscroll-contain pb-20 md:pb-6">
             {children}
           </main>
           {/* Mobile Bottom Navigation */}
@@ -331,13 +344,13 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
+      <div className="flex min-h-screen w-full">
         {/* Hide sidebar on mobile */}
         <div className="hidden md:block">
           <AppSidebar userRole={userRole === "employee" ? "employee" : "admin"} modulePermissions={modulePermissions} />
         </div>
-        <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 border-b border-border bg-background sticky top-0 z-10">
+        <div className="flex flex-col flex-1 min-w-0 min-h-screen">
+          <header className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-border bg-background sticky top-0 z-20 shrink-0">
             {/* Hide sidebar toggle on mobile */}
             <div className="hidden md:block">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
@@ -347,7 +360,7 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
             </div>
             <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-y-auto overscroll-contain pb-6">
             {children}
           </main>
         </div>
@@ -380,14 +393,6 @@ function Router() {
       <Route path="/auth/signup">
         {() => <Redirect to="/signup" />}
       </Route>
-
-      {/* Public Mini-Website Routes - No Protection */}
-      <Route path="/site/:subdomain" component={MiniWebsitePublic} />
-      <Route path="/site/:subdomain/products" component={MiniWebsiteProducts} />
-      <Route path="/site/:subdomain/products/:productId" component={MiniWebsiteProductDetail} />
-      <Route path="/site/:subdomain/login" component={CustomerLogin} />
-      <Route path="/site/:subdomain/signup" component={CustomerSignup} />
-      <Route path="/site/:subdomain/my-orders" component={MiniWebsiteMyOrders} />
 
       {/* Protected Routes - Onboarding */}
       <Route path="/onboarding">
@@ -440,9 +445,19 @@ function Router() {
           <VendorBookings />
         </VendorLayout>
       </Route>
+      <Route path="/vendor/bookings/:id">
+        <VendorLayout>
+          <VendorBookingDetail />
+        </VendorLayout>
+      </Route>
       <Route path="/vendor/appointments">
         <VendorLayout>
           <VendorAppointments />
+        </VendorLayout>
+      </Route>
+      <Route path="/vendor/appointments/:id">
+        <VendorLayout>
+          <VendorAppointmentDetail />
         </VendorLayout>
       </Route>
       <Route path="/vendor/orders">
@@ -485,6 +500,21 @@ function Router() {
           <VendorProductsCatalogue />
         </VendorLayout>
       </Route>
+      <Route path="/vendor/products/new">
+        <VendorLayout>
+          <VendorProductForm />
+        </VendorLayout>
+      </Route>
+      <Route path="/vendor/products/edit/:id">
+        <VendorLayout>
+          <VendorProductForm />
+        </VendorLayout>
+      </Route>
+      <Route path="/vendor/products/:id">
+        <VendorLayout>
+          <VendorProductDetail />
+        </VendorLayout>
+      </Route>
       <Route path="/vendor/stock-turnover">
         <VendorLayout>
           <VendorStockTurnover />
@@ -505,9 +535,19 @@ function Router() {
           <VendorAttendance />
         </VendorLayout>
       </Route>
+      <Route path="/vendor/attendance/:type/:id">
+        <VendorLayout>
+          <VendorAttendanceDetail />
+        </VendorLayout>
+      </Route>
       <Route path="/vendor/leaves">
         <VendorLayout>
           <VendorLeaves />
+        </VendorLayout>
+      </Route>
+      <Route path="/vendor/leaves/:id">
+        <VendorLayout>
+          <VendorLeaveDetail />
         </VendorLayout>
       </Route>
       <Route path="/vendor/tasks">
@@ -523,6 +563,11 @@ function Router() {
       <Route path="/vendor/tasks/edit/:id">
         <VendorLayout>
           <VendorTasksEdit />
+        </VendorLayout>
+      </Route>
+      <Route path="/vendor/tasks/:id">
+        <VendorLayout>
+          <VendorTaskDetail />
         </VendorLayout>
       </Route>
       <Route path="/vendor/customers">
@@ -548,6 +593,11 @@ function Router() {
       <Route path="/vendor/expenses">
         <VendorLayout>
           <VendorExpenses />
+        </VendorLayout>
+      </Route>
+      <Route path="/vendor/expenses/:id">
+        <VendorLayout>
+          <VendorExpenseDetail />
         </VendorLayout>
       </Route>
       <Route path="/vendor/leads">
@@ -849,6 +899,25 @@ function Router() {
           <VendorAdditionalServices />
         </VendorLayout>
       </Route>
+      <Route path="/vendor/additional-services/:id">
+        <VendorLayout>
+          <VendorAdditionalServiceDetail />
+        </VendorLayout>
+      </Route>
+
+      {/* Public Mini-Website Routes - No Protection */}
+      {/* These are placed at the end to act as catch-all for vendor subdomains */}
+      {/* Direct subdomain URLs (e.g., /gymbuddy) */}
+      <Route path="/:subdomain/products/:productId" component={MiniWebsiteProductDetail} />
+      <Route path="/:subdomain/products" component={MiniWebsiteProducts} />
+      <Route path="/:subdomain/services/:serviceId" component={MiniWebsiteServiceDetail} />
+      <Route path="/:subdomain/services" component={MiniWebsiteServices} />
+      <Route path="/:subdomain/login" component={CustomerLogin} />
+      <Route path="/:subdomain/signup" component={CustomerSignup} />
+      <Route path="/:subdomain/forgot-password" component={CustomerForgotPassword} />
+      <Route path="/:subdomain/my-orders" component={MiniWebsiteMyOrders} />
+      <Route path="/:subdomain/checkout" component={MiniWebsiteCheckout} />
+      <Route path="/:subdomain" component={MiniWebsitePublic} />
 
       {/* 404 Fallback */}
       <Route component={NotFound} />

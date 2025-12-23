@@ -68,7 +68,7 @@ export default function VendorCoupons() {
         vendorId: vendorId,
         code: data.code,
         description: data.description,
-        image: null,
+        image: data.image || null,
         discountType: data.discountType,
         discountValue: Number(data.discountValue),
         minOrderAmount: Number(data.minOrderAmount || 0),
@@ -169,31 +169,32 @@ export default function VendorCoupons() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full w-full flex-col bg-background overflow-y-auto pb-20 md:pb-6">
       {/* Header */}
-      <div className="px-4 py-3 border-b flex items-center justify-between gap-3">
+      <div className="px-4 py-3 md:px-6 md:py-4 border-b flex items-center justify-between gap-3 sticky top-0 z-10 bg-background">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setLocation("/vendor/dashboard")}
-            className="md:hidden flex-shrink-0"
+            className="md:hidden flex-shrink-0 h-9 w-9"
             data-testid="button-back-to-dashboard"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Coupons</h1>
-            <p className="text-xs text-muted-foreground">Manage discount offers</p>
+            <h1 className="text-lg md:text-xl font-bold text-foreground">Coupons</h1>
+            <p className="text-xs text-muted-foreground hidden sm:block">Manage discount offers</p>
           </div>
         </div>
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" data-testid="button-create-coupon">
+            <Button size="sm" className="h-9" data-testid="button-create-coupon">
               <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline ml-1">Create</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Coupon</DialogTitle>
               <DialogDescription>
@@ -210,23 +211,24 @@ export default function VendorCoupons() {
         </Dialog>
       </div>
 
-      {loadingCoupons ? (
-        <div className="text-center py-12 text-muted-foreground">Loading coupons...</div>
-      ) : coupons.length === 0 ? (
-        <Card className="p-12 text-center">
-          <Tag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No coupons yet</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Create your first coupon to offer discounts to your customers
-          </p>
-          <Button onClick={() => setCreateDialogOpen(true)} data-testid="button-create-first-coupon">
-            <Plus className="w-4 h-4 mr-2" />
-            Create Your First Coupon
-          </Button>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {coupons.map((coupon: any) => (
+      <div className="px-4 md:px-6 py-4 flex-1">
+        {loadingCoupons ? (
+          <div className="text-center py-12 text-muted-foreground">Loading coupons...</div>
+        ) : coupons.length === 0 ? (
+          <Card className="p-8 md:p-12 text-center rounded-xl">
+            <Tag className="w-10 h-10 md:w-12 md:h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-base md:text-lg font-semibold text-foreground mb-2">No coupons yet</h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
+              Create your first coupon to offer discounts to your customers
+            </p>
+            <Button onClick={() => setCreateDialogOpen(true)} className="h-[var(--cta-h)]" data-testid="button-create-first-coupon">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Your First Coupon
+            </Button>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+            {coupons.map((coupon: any) => (
             <CouponCard
               key={coupon.id}
               coupon={coupon}
@@ -236,13 +238,14 @@ export default function VendorCoupons() {
               onToggleStatus={() => toggleStatusMutation.mutate({ id: coupon.id, status: coupon.status })}
               onDelete={() => deleteMutation.mutate(coupon.id)}
             />
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {editingCoupon && (
         <Dialog open={!!editingCoupon} onOpenChange={() => setEditingCoupon(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Coupon</DialogTitle>
               <DialogDescription>
@@ -634,9 +637,9 @@ function CouponCard({ coupon, services, products, onEdit, onToggleStatus, onDele
   };
 
   return (
-    <Card className="hover-elevate" data-testid={`coupon-card-${coupon.id}`}>
+    <Card className="hover-elevate rounded-xl min-h-[var(--card-min-h)]" data-testid={`coupon-card-${coupon.id}`}>
       {coupon.image && (
-        <div className="relative h-32 w-full overflow-hidden rounded-t-md">
+        <div className="relative h-28 md:h-32 w-full overflow-hidden rounded-t-xl">
           <img
             src={coupon.image}
             alt={coupon.code}
@@ -644,14 +647,14 @@ function CouponCard({ coupon, services, products, onEdit, onToggleStatus, onDele
           />
         </div>
       )}
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-primary/10">
+      <CardContent className="p-3 md:p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-2 rounded-xl bg-primary/10 flex-shrink-0">
               <Tag className="w-4 h-4 text-primary" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-foreground font-mono" data-testid="text-coupon-code">
+            <div className="min-w-0">
+              <h3 className="text-sm md:text-base font-bold text-foreground font-mono truncate" data-testid="text-coupon-code">
                 {coupon.code}
               </h3>
               <p className="text-xs text-muted-foreground line-clamp-1">{coupon.description}</p>
@@ -666,21 +669,21 @@ function CouponCard({ coupon, services, products, onEdit, onToggleStatus, onDele
           </Badge>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 md:gap-3">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-3 h-3 text-muted-foreground" />
-            <div>
-              <p className="text-lg font-bold text-foreground">
+            <TrendingUp className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-base md:text-lg font-bold text-foreground">
                 {coupon.discountType === "percentage" ? `${coupon.discountValue}%` : `₹${coupon.discountValue}`}
               </p>
-              <p className="text-xs text-muted-foreground">Discount</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">Discount</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Users className="w-3 h-3 text-muted-foreground" />
-            <div>
-              <p className="text-lg font-bold text-foreground">{coupon.usedCount}/{coupon.maxUsage}</p>
-              <p className="text-xs text-muted-foreground">Used</p>
+            <Users className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-base md:text-lg font-bold text-foreground">{coupon.usedCount}/{coupon.maxUsage}</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">Used</p>
             </div>
           </div>
         </div>
@@ -726,7 +729,7 @@ function CouponCard({ coupon, services, products, onEdit, onToggleStatus, onDele
             size="sm"
             variant="outline"
             onClick={onEdit}
-            className="flex-1"
+            className="flex-1 h-9 text-xs"
             data-testid="button-edit-coupon"
           >
             Edit
@@ -736,7 +739,7 @@ function CouponCard({ coupon, services, products, onEdit, onToggleStatus, onDele
               size="sm"
               variant={coupon.status === "active" ? "outline" : "default"}
               onClick={onToggleStatus}
-              className="flex-1"
+              className="flex-1 h-9 text-xs"
               data-testid="button-toggle-status"
             >
               {coupon.status === "active" ? "Deactivate" : "Activate"}
@@ -747,6 +750,7 @@ function CouponCard({ coupon, services, products, onEdit, onToggleStatus, onDele
               <Button
                 size="sm"
                 variant="destructive"
+                className="h-9 w-9 p-0"
                 data-testid="button-delete-coupon"
               >
                 <Trash2 className="w-3 h-3" />

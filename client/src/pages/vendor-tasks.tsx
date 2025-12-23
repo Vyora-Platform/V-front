@@ -63,7 +63,7 @@ export default function VendorTasks() {
 
   // Fetch customers for sharing
   const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/vendors", vendorId, "customers"],
+    queryKey: [`/api/vendors/${vendorId}/customers`],
     enabled: !!vendorId,
   });
 
@@ -184,9 +184,9 @@ export default function VendorTasks() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30 items-center justify-center">
-        <div className="w-10 h-10 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
-        <p className="mt-4 text-slate-500">Loading tasks...</p>
+      <div className="flex flex-col min-h-screen bg-background items-center justify-center">
+        <div className="w-10 h-10 border-4 border-muted border-t-primary rounded-full animate-spin" />
+        <p className="mt-4 text-muted-foreground">Loading tasks...</p>
       </div>
     );
   }
@@ -194,125 +194,140 @@ export default function VendorTasks() {
   return (
     <div 
       ref={mainContainerRef}
-      className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30 overflow-y-auto"
+      className="flex flex-col min-h-screen bg-background"
     >
-      {/* Hero Header - Fully Scrollable */}
-      <div className="bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-800 text-white">
-        <div className="px-4 py-4 safe-area-inset-top">
-          {/* Top Navigation */}
-          <div className="flex items-center justify-between mb-4">
+      {/* Header - Clean Design Like Other Modules */}
+      <div className="bg-background border-b sticky top-0 z-20">
+        <div className="px-4 py-3 md:px-6 md:py-4 flex items-center justify-between gap-3 max-w-[1440px] mx-auto">
+          <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setLocation("/vendor/dashboard")}
-              className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white"
+              className="shrink-0 h-10 w-10 md:hidden"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-xl font-bold">Tasks</h1>
-            <Button
-              onClick={() => setShowCreateDialog(true)}
-              className="h-10 px-4 rounded-full bg-white text-teal-700 hover:bg-white/90 shadow-lg"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              New
-            </Button>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold">Tasks</h1>
+              <p className="text-xs text-muted-foreground hidden md:block">Manage your tasks</p>
+            </div>
           </div>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            size="sm"
+            className="gap-1.5 h-10 px-4"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Task</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        </div>
 
-          {/* Stats Cards - Horizontal Scroll */}
-          <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[120px]">
-              <div className="flex items-center gap-2 mb-1">
-                <ListTodo className="h-4 w-4 text-white/70" />
-                <span className="text-xs text-white/70">Total</span>
-              </div>
-              <p className="text-2xl font-bold">{stats.total}</p>
-            </div>
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[120px]">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock className="h-4 w-4 text-white/70" />
-                <span className="text-xs text-white/70">Pending</span>
-              </div>
-              <p className="text-2xl font-bold">{stats.pending}</p>
-            </div>
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[120px]">
-              <div className="flex items-center gap-2 mb-1">
-                <Timer className="h-4 w-4 text-blue-300" />
-                <span className="text-xs text-white/70">In Progress</span>
-              </div>
-              <p className="text-2xl font-bold text-blue-300">{stats.inProgress}</p>
-            </div>
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[120px]">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                <span className="text-xs text-white/70">Completed</span>
-              </div>
-              <p className="text-2xl font-bold text-emerald-300">{stats.completed}</p>
-            </div>
-            {stats.overdue > 0 && (
-              <div className="flex-shrink-0 bg-red-500/20 backdrop-blur-sm rounded-2xl p-4 min-w-[120px]">
-                <div className="flex items-center gap-2 mb-1">
-                  <AlertTriangle className="h-4 w-4 text-red-300" />
-                  <span className="text-xs text-white/70">Overdue</span>
+        {/* Stats Cards - Horizontal Scroll */}
+        <div className="px-4 md:px-6 pb-4 overflow-x-auto scrollbar-hide max-w-[1440px] mx-auto">
+          <div className="flex gap-3 md:grid md:grid-cols-5">
+            <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-blue-200 dark:border-blue-800 min-h-[var(--card-min-h)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-500/20">
+                  <ListTodo className="h-5 w-5 text-blue-600" />
                 </div>
-                <p className="text-2xl font-bold text-red-300">{stats.overdue}</p>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Total</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-700 dark:text-blue-400">{stats.total}</p>
+                </div>
               </div>
+            </Card>
+            <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/30 dark:to-slate-800/30 border-slate-200 dark:border-slate-800 min-h-[var(--card-min-h)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-slate-500/20">
+                  <Clock className="h-5 w-5 text-slate-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Pending</p>
+                  <p className="text-xl md:text-2xl font-bold text-slate-700 dark:text-slate-400">{stats.pending}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 border-amber-200 dark:border-amber-800 min-h-[var(--card-min-h)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/20">
+                  <Timer className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">In Progress</p>
+                  <p className="text-xl md:text-2xl font-bold text-amber-700 dark:text-amber-400">{stats.inProgress}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800 min-h-[var(--card-min-h)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-green-500/20">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Completed</p>
+                  <p className="text-xl md:text-2xl font-bold text-green-700 dark:text-green-400">{stats.completed}</p>
+                </div>
+              </div>
+            </Card>
+            {stats.overdue > 0 && (
+              <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 border-red-200 dark:border-red-800 min-h-[var(--card-min-h)]">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-red-500/20">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Overdue</p>
+                    <p className="text-xl md:text-2xl font-bold text-red-700 dark:text-red-400">{stats.overdue}</p>
+                  </div>
+                </div>
+              </Card>
             )}
           </div>
         </div>
       </div>
 
-      {/* Main Content - White Card with Rounded Top */}
-      <div className="flex-1 bg-white rounded-t-3xl -mt-4 shadow-xl">
+      {/* Main Content */}
+      <div className="flex-1 bg-background max-w-[1440px] mx-auto w-full">
         {/* Search & Filters */}
-        <div className="p-4 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <Input
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
-            />
-          </div>
-
-          {/* Status Filter Pills */}
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {[
-              { value: "all", label: "All", count: stats.total },
-              { value: "pending", label: "Pending", count: stats.pending },
-              { value: "in_progress", label: "In Progress", count: stats.inProgress },
-              { value: "completed", label: "Completed", count: stats.completed },
-            ].map((status) => (
-              <Button
-                key={status.value}
-                variant={statusFilter === status.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter(status.value)}
-                className={`rounded-full flex-shrink-0 ${
-                  statusFilter === status.value 
-                    ? "bg-teal-600 hover:bg-teal-700" 
-                    : "bg-white hover:bg-slate-50"
-                }`}
-              >
-                {status.label} ({status.count})
-              </Button>
-            ))}
+        <div className="px-4 md:px-6 py-3 md:py-4 bg-background border-b">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 rounded-xl bg-muted/50"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px] h-10 shrink-0 rounded-lg text-sm">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All ({stats.total})</SelectItem>
+                <SelectItem value="pending">Pending ({stats.pending})</SelectItem>
+                <SelectItem value="in_progress">In Progress ({stats.inProgress})</SelectItem>
+                <SelectItem value="completed">Completed ({stats.completed})</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         {/* Overdue Tasks Alert */}
         {overdueTasks.length > 0 && statusFilter === "all" && (
-          <div className="px-4 mb-4">
-            <Card className="bg-red-50 border-red-200">
+          <div className="px-4 md:px-6 pt-4">
+            <Card className="bg-destructive/10 border-destructive/30 rounded-xl">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center">
-                    <AlertTriangle className="h-5 w-5 text-white" />
+                  <div className="w-10 h-10 rounded-full bg-destructive flex items-center justify-center shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-destructive-foreground" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-red-800">{overdueTasks.length} Overdue Task{overdueTasks.length > 1 ? 's' : ''}</h3>
-                    <p className="text-sm text-red-600">Please complete these tasks ASAP</p>
+                    <h3 className="font-semibold text-destructive">{overdueTasks.length} Overdue Task{overdueTasks.length > 1 ? 's' : ''}</h3>
+                    <p className="text-sm text-muted-foreground">Please complete these tasks ASAP</p>
                   </div>
                 </div>
               </CardContent>
@@ -321,27 +336,24 @@ export default function VendorTasks() {
         )}
 
         {/* Tasks List */}
-        <div className="px-4 pb-24">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-slate-800">
-              Tasks ({filteredTasks.length})
-            </h2>
-          </div>
-
+        <div className="flex-1 px-4 md:px-6 py-4">
           {filteredTasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                <ListTodo className="h-10 w-10 text-slate-400" />
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+                <ListTodo className="h-10 w-10 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-700 mb-2">No tasks found</h3>
-              <p className="text-slate-500 text-center mb-6">Create your first task to get started</p>
-              <Button 
-                onClick={() => setShowCreateDialog(true)}
-                className="rounded-full bg-teal-600 hover:bg-teal-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Task
-              </Button>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No tasks found</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-xs">
+                {statusFilter !== 'all' || searchQuery 
+                  ? "Try adjusting your search or filters"
+                  : "Create your first task to get started"}
+              </p>
+              {!searchQuery && statusFilter === 'all' && (
+                <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create Task
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -355,91 +367,96 @@ export default function VendorTasks() {
                 return (
                   <Card 
                     key={task.id} 
-                    className={`border hover:shadow-lg transition-all duration-200 overflow-hidden ${
-                      isOverdue ? "border-red-300 bg-red-50/50" : "border-slate-200"
+                    className={`overflow-hidden hover:shadow-md transition-all cursor-pointer ${
+                      isOverdue ? "border-destructive/50 bg-destructive/5" : ""
                     }`}
+                    onClick={() => setLocation(`/vendor/tasks/${task.id}`)}
                   >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          {/* Checkbox */}
-                        <div className="pt-1">
-          <Checkbox
-            checked={task.status === "completed"}
-            onCheckedChange={() => toggleTaskComplete(task)}
-                            className={`h-6 w-6 rounded-full ${
-                              task.status === "completed" ? "bg-emerald-500 border-emerald-500" : ""
-                            }`}
-          />
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        {/* Checkbox */}
+                        <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={task.status === "completed"}
+                            onCheckedChange={() => toggleTaskComplete(task)}
+                            className="h-5 w-5 rounded-full"
+                          />
                         </div>
 
-          {/* Task Content */}
+                        {/* Task Content */}
                         <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-start justify-between gap-2">
                             <h3 className={`font-semibold ${
-                              task.status === "completed" ? "line-through text-slate-400" : "text-slate-800"
+                              task.status === "completed" ? "line-through text-muted-foreground" : "text-foreground"
                             }`}>
-                {task.title}
-              </h3>
+                              {task.title}
+                            </h3>
 
                             {/* Actions Menu */}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                                  <MoreVertical className="h-4 w-4" />
-                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => setLocation(`/vendor/tasks/edit/${task.id}`)}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => {
-                                  setSelectedTask(task);
-                                  setShowShareDialog(true);
-                                }}>
-                                  <Share2 className="h-4 w-4 mr-2" />
-                                  Share via WhatsApp
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                  onClick={() => deleteTaskMutation.mutate(task.id)}
-                                  className="text-red-600"
-                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-            </div>
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => setLocation(`/vendor/tasks/${task.id}`)}>
+                                    <ChevronRight className="h-4 w-4 mr-2" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setLocation(`/vendor/tasks/edit/${task.id}`)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedTask(task);
+                                    setShowShareDialog(true);
+                                  }}>
+                                    <Share2 className="h-4 w-4 mr-2" />
+                                    Share via WhatsApp
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    onClick={() => deleteTaskMutation.mutate(task.id)}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
 
-            {/* Description */}
-            {task.description && (
-                            <p className="text-sm text-slate-500 mb-3 line-clamp-2">{task.description}</p>
-            )}
+                          {/* Description */}
+                          {task.description && (
+                            <p className="text-sm text-muted-foreground mt-1 mb-2 line-clamp-2">{task.description}</p>
+                          )}
 
                           {/* Badges Row */}
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <Badge className={`${priorityConfig.color} border text-xs`}>
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <Badge className={`${priorityConfig.color} border text-[10px] px-1.5 py-0 h-5`}>
                               <span className="mr-1">{priorityConfig.icon}</span>
                               {priorityConfig.label}
                             </Badge>
-                            <Badge className={`${statusConfig.color} text-xs`}>
+                            <Badge className={`${statusConfig.color} text-[10px] px-1.5 py-0 h-5`}>
                               <StatusIcon className="h-3 w-3 mr-1" />
                               {statusConfig.label}
                             </Badge>
                             {task.category && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
                                 <Tag className="h-3 w-3 mr-1" />
                                 {task.category}
-                </Badge>
+                              </Badge>
                             )}
-              </div>
+                          </div>
 
                           {/* Footer Row */}
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-              {/* Due Date */}
-              {task.dueDate && (
-                              <div className={`flex items-center gap-1 ${isOverdue ? "text-red-600 font-medium" : ""}`}>
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-2">
+                            {/* Due Date */}
+                            {task.dueDate && (
+                              <div className={`flex items-center gap-1 ${isOverdue ? "text-destructive font-medium" : ""}`}>
                                 <Calendar className="h-3 w-3" />
                                 {isOverdue ? (
                                   <span>Overdue: {format(new Date(task.dueDate), "dd MMM")}</span>
@@ -450,29 +467,29 @@ export default function VendorTasks() {
                                 ) : (
                                   <span>Due: {format(new Date(task.dueDate), "dd MMM")}</span>
                                 )}
-                </div>
-              )}
+                              </div>
+                            )}
 
-              {/* Reminder */}
-              {task.reminderDate && !isPast(new Date(task.reminderDate)) && (
-                              <div className="flex items-center gap-1 text-teal-600">
+                            {/* Reminder */}
+                            {task.reminderDate && !isPast(new Date(task.reminderDate)) && (
+                              <div className="flex items-center gap-1 text-primary">
                                 <Bell className="h-3 w-3" />
                                 <span>{format(new Date(task.reminderDate), "dd MMM, h:mm a")}</span>
-                </div>
-              )}
+                              </div>
+                            )}
 
                             {/* Assigned To */}
                             {assignedEmployee && (
                               <div className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
                                 <span>{assignedEmployee.name}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
   );
               })}
             </div>
@@ -531,7 +548,7 @@ function CreateTaskDialog({
   const [priority, setPriority] = useState("medium");
   const [category, setCategory] = useState("general");
   const [dueDate, setDueDate] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
+  const [assignedTo, setAssignedTo] = useState("unassigned");
 
   const createTaskMutation = useMutation({
     mutationFn: async () => {
@@ -543,7 +560,7 @@ function CreateTaskDialog({
         category,
         status: "pending",
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-        assignedTo: assignedTo || null,
+        assignedTo: assignedTo === "unassigned" ? null : assignedTo,
       };
       return await apiRequest("POST", `/api/vendors/${vendorId}/tasks`, taskData);
     },
@@ -563,24 +580,24 @@ function CreateTaskDialog({
     setPriority("medium");
     setCategory("general");
     setDueDate("");
-    setAssignedTo("");
+    setAssignedTo("unassigned");
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
-      {/* Header */}
-        <div className="px-4 py-3 border-b bg-gradient-to-r from-teal-50 to-emerald-50">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
+        {/* Header */}
+        <div className="px-4 py-3 border-b bg-muted/50">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onClose}
               className="h-9 w-9 rounded-full"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
               <DialogTitle className="text-lg font-semibold">Create Task</DialogTitle>
               <DialogDescription className="text-xs">Add a new task to your list</DialogDescription>
             </div>
@@ -662,7 +679,7 @@ function CreateTaskDialog({
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {employees.map(emp => (
                     <SelectItem key={emp.id} value={emp.id}>
                       {emp.name} - {emp.role}
@@ -675,11 +692,11 @@ function CreateTaskDialog({
         </div>
 
         {/* Footer */}
-        <div className="border-t bg-white p-4">
+        <div className="border-t bg-background p-4">
           <Button
             onClick={() => createTaskMutation.mutate()}
             disabled={!title.trim() || createTaskMutation.isPending}
-            className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700"
+            className="w-full h-12 rounded-xl"
           >
             {createTaskMutation.isPending ? (
               <>
@@ -774,7 +791,7 @@ function ShareTaskDialog({
               variant={shareType === "employee" ? "default" : "outline"}
               size="sm"
               onClick={() => setShareType("employee")}
-              className={`rounded-full flex-1 ${shareType === "employee" ? "bg-teal-600" : ""}`}
+              className="rounded-full flex-1"
             >
               <Users className="h-4 w-4 mr-1" />
               Employees
@@ -783,7 +800,7 @@ function ShareTaskDialog({
               variant={shareType === "customer" ? "default" : "outline"}
               size="sm"
               onClick={() => setShareType("customer")}
-              className={`rounded-full flex-1 ${shareType === "customer" ? "bg-teal-600" : ""}`}
+              className="rounded-full flex-1"
             >
               <User className="h-4 w-4 mr-1" />
               Customers
@@ -792,7 +809,7 @@ function ShareTaskDialog({
               variant={shareType === "supplier" ? "default" : "outline"}
               size="sm"
               onClick={() => setShareType("supplier")}
-              className={`rounded-full flex-1 ${shareType === "supplier" ? "bg-teal-600" : ""}`}
+              className="rounded-full flex-1"
             >
               <Truck className="h-4 w-4 mr-1" />
               Suppliers

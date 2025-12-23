@@ -170,72 +170,72 @@ export default function VendorSubscription() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6 pb-20 md:pb-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Crown className="h-8 w-8 text-yellow-500" />
+        <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+          <Crown className="h-6 w-6 md:h-7 md:w-7 text-yellow-500" />
           Subscription & Billing
         </h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Manage your subscription plan and view billing history
         </p>
       </div>
 
       {/* Current Plan Overview */}
       {currentPlan && currentSubscription && (
-        <div className="grid md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2">
-            <CardHeader>
+        <div className="grid md:grid-cols-3 gap-3 md:gap-4">
+          <Card className="md:col-span-2 rounded-xl">
+            <CardHeader className="p-4 md:p-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                     {currentPlan.isPopular && <Crown className="h-5 w-5 text-yellow-500" />}
                     {currentPlan.displayName}
                   </CardTitle>
-                  <CardDescription className="mt-1">{currentPlan.description}</CardDescription>
+                  <CardDescription className="mt-1 text-sm">{currentPlan.description}</CardDescription>
                 </div>
                 {isTrialActive && (
-                  <Badge className="bg-blue-500">Trial Period</Badge>
+                  <Badge className="bg-blue-500 text-xs">Trial Period</Badge>
                 )}
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 p-4 md:p-6 pt-0 md:pt-0">
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold">₹{currentPlan.price}</span>
-                <span className="text-muted-foreground">/ {currentPlan.billingInterval}</span>
+                <span className="text-2xl md:text-3xl font-bold">₹{currentPlan.price}</span>
+                <span className="text-sm text-muted-foreground">/ {currentPlan.billingInterval}</span>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4 pt-4">
+              <div className="grid grid-cols-2 gap-3 md:gap-4 pt-3">
                 <div>
-                  <div className="text-sm text-muted-foreground">Status</div>
-                  <div className="font-medium capitalize">{currentSubscription.status}</div>
+                  <div className="text-xs text-muted-foreground">Status</div>
+                  <div className="font-medium capitalize text-sm">{currentSubscription.status}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">Renewal Date</div>
-                  <div className="font-medium">
+                  <div className="text-xs text-muted-foreground">Renewal Date</div>
+                  <div className="font-medium text-sm">
                     {format(new Date(currentSubscription.currentPeriodEnd), "MMM dd, yyyy")}
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">Days Remaining</div>
-                  <div className="font-medium text-orange-600">{daysRemaining} days</div>
+                  <div className="text-xs text-muted-foreground">Days Remaining</div>
+                  <div className="font-medium text-orange-600 text-sm">{daysRemaining} days</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">Auto-Renew</div>
-                  <div className="font-medium">{currentSubscription.autoRenew ? "Enabled" : "Disabled"}</div>
+                  <div className="text-xs text-muted-foreground">Auto-Renew</div>
+                  <div className="font-medium text-sm">{currentSubscription.autoRenew ? "Enabled" : "Disabled"}</div>
                 </div>
               </div>
 
               {isTrialActive && currentSubscription.trialEndDate && (
-                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-xl">
                   <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
                     <div>
-                      <div className="font-medium text-blue-900 dark:text-blue-100">
+                      <div className="font-medium text-blue-900 dark:text-blue-100 text-sm">
                         Trial ends on {format(new Date(currentSubscription.trialEndDate), "MMM dd, yyyy")}
                       </div>
-                      <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                         Upgrade now to continue using Vyora without interruption
                       </div>
                     </div>
@@ -245,39 +245,39 @@ export default function VendorSubscription() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Current Usage</CardTitle>
+          <Card className="rounded-xl">
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="text-base">Current Usage</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 p-4 md:p-6 pt-0 md:pt-0">
               <div>
-                <div className="flex justify-between text-sm mb-1">
+                <div className="flex justify-between text-xs mb-1">
                   <span>Orders This Month</span>
                   <span className="font-medium">{currentSubscription?.currentMonthOrders ?? 0} / {(currentPlan?.maxOrders ?? 0) === -1 ? "∞" : (currentPlan?.maxOrders ?? 0)}</span>
                 </div>
                 <Progress 
                   value={(currentPlan?.maxOrders ?? 0) === -1 ? 0 : ((currentSubscription?.currentMonthOrders ?? 0) / (currentPlan?.maxOrders ?? 1)) * 100} 
-                  className="h-2"
+                  className="h-1.5"
                 />
               </div>
               <div>
-                <div className="flex justify-between text-sm mb-1">
+                <div className="flex justify-between text-xs mb-1">
                   <span>Bookings This Month</span>
                   <span className="font-medium">{currentSubscription?.currentMonthBookings ?? 0} / {(currentPlan?.maxBookings ?? 0) === -1 ? "∞" : (currentPlan?.maxBookings ?? 0)}</span>
                 </div>
                 <Progress 
                   value={(currentPlan?.maxBookings ?? 0) === -1 ? 0 : ((currentSubscription?.currentMonthBookings ?? 0) / (currentPlan?.maxBookings ?? 1)) * 100} 
-                  className="h-2"
+                  className="h-1.5"
                 />
               </div>
               <div>
-                <div className="flex justify-between text-sm mb-1">
+                <div className="flex justify-between text-xs mb-1">
                   <span>Appointments This Month</span>
                   <span className="font-medium">{currentSubscription?.currentMonthAppointments ?? 0} / {(currentPlan?.maxAppointments ?? 0) === -1 ? "∞" : (currentPlan?.maxAppointments ?? 0)}</span>
                 </div>
                 <Progress 
                   value={(currentPlan?.maxAppointments ?? 0) === -1 ? 0 : ((currentSubscription?.currentMonthAppointments ?? 0) / (currentPlan?.maxAppointments ?? 1)) * 100} 
-                  className="h-2"
+                  className="h-1.5"
                 />
               </div>
             </CardContent>
@@ -287,8 +287,8 @@ export default function VendorSubscription() {
 
       {/* Available Plans */}
       <div>
-        <h2 className="text-2xl font-bold mb-4">Available Plans</h2>
-        <div className="grid md:grid-cols-3 gap-6">
+        <h2 className="text-lg md:text-xl font-bold mb-3">Available Plans</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {allPlans
             .filter(p => p.isActive)
             .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
@@ -299,52 +299,52 @@ export default function VendorSubscription() {
               return (
                 <Card 
                   key={plan.id} 
-                  className={`relative ${plan.isPopular ? "border-2 border-yellow-500 shadow-lg" : ""} ${isCurrentPlan ? "bg-muted/50" : ""}`}
+                  className={`relative rounded-xl ${plan.isPopular ? "border-2 border-yellow-500 shadow-lg" : ""} ${isCurrentPlan ? "bg-muted/50" : ""}`}
                   data-testid={`card-plan-${plan.name}`}
                 >
                   {plan.isPopular && (
                     <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                      <Badge className="bg-yellow-500 px-4">Most Popular</Badge>
+                      <Badge className="bg-yellow-500 px-3 text-xs">Most Popular</Badge>
                     </div>
                   )}
                   
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                  <CardHeader className="p-4 md:p-6">
+                    <CardTitle className="flex items-center gap-2 text-base">
                       {plan.isPopular && <Crown className="h-5 w-5 text-yellow-500" />}
                       {plan.displayName}
                     </CardTitle>
-                    <CardDescription>{plan.description}</CardDescription>
+                    <CardDescription className="text-sm">{plan.description}</CardDescription>
                   </CardHeader>
                   
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3 p-4 md:p-6 pt-0 md:pt-0">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold">₹{plan.price}</span>
-                      <span className="text-muted-foreground">/ {plan.billingInterval}</span>
+                      <span className="text-xl md:text-2xl font-bold">₹{plan.price}</span>
+                      <span className="text-sm text-muted-foreground">/ {plan.billingInterval}</span>
                     </div>
 
                     {(plan.trialDays ?? 0) > 0 && (
-                      <div className="text-sm text-green-600 font-medium">
+                      <div className="text-xs text-green-600 font-medium">
                         {plan.trialDays} days free trial
                       </div>
                     )}
 
-                    <div className="space-y-2 pt-4">
+                    <div className="space-y-2 pt-3">
                       {features.map((feature, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-sm">
-                          <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <div key={idx} className="flex items-start gap-2 text-xs md:text-sm">
+                          <Check className="h-3.5 w-3.5 text-green-600 mt-0.5 flex-shrink-0" />
                           <span>{feature}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="pt-4">
+                    <div className="pt-3">
                       {isCurrentPlan ? (
-                        <Button className="w-full" disabled data-testid={`button-current-${plan.name}`}>
+                        <Button className="w-full h-[var(--cta-h)] text-sm" disabled data-testid={`button-current-${plan.name}`}>
                           Current Plan
                         </Button>
                       ) : (
                         <Button 
-                          className="w-full" 
+                          className="w-full h-[var(--cta-h)] text-sm" 
                           variant={plan.isPopular ? "default" : "outline"}
                           onClick={() => handleUpgrade(plan)}
                           data-testid={`button-upgrade-${plan.name}`}
@@ -362,89 +362,91 @@ export default function VendorSubscription() {
       </div>
 
       {/* Billing History */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <Card className="rounded-xl">
+        <CardHeader className="p-4 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base">
             <CreditCard className="h-5 w-5" />
             Billing History
           </CardTitle>
-          <CardDescription>Your payment transaction history</CardDescription>
+          <CardDescription className="text-sm">Your payment transaction history</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {billingHistory.length === 0 ? (
+        <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+          <div className="border rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No billing history yet
-                    </TableCell>
+                    <TableHead className="text-xs font-semibold">Date</TableHead>
+                    <TableHead className="text-xs font-semibold">Description</TableHead>
+                    <TableHead className="text-xs font-semibold">Invoice</TableHead>
+                    <TableHead className="text-xs font-semibold">Amount</TableHead>
+                    <TableHead className="text-xs font-semibold">Status</TableHead>
                   </TableRow>
-                ) : (
-                  billingHistory.map((bill) => (
-                    <TableRow key={bill.id} data-testid={`row-billing-${bill.id}`}>
-                      <TableCell>{format(new Date(bill.createdAt), "MMM dd, yyyy")}</TableCell>
-                      <TableCell>{bill.description || "Subscription Payment"}</TableCell>
-                      <TableCell className="font-mono text-sm">{bill.invoiceNumber || "-"}</TableCell>
-                      <TableCell className="font-medium">₹{bill.amount}</TableCell>
-                      <TableCell>
-                        {bill.status === "succeeded" && <Badge variant="default">Paid</Badge>}
-                        {bill.status === "pending" && <Badge variant="secondary">Pending</Badge>}
-                        {bill.status === "failed" && <Badge variant="destructive">Failed</Badge>}
-                        {bill.status === "refunded" && <Badge variant="outline">Refunded</Badge>}
+                </TableHeader>
+                <TableBody>
+                  {billingHistory.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-sm text-muted-foreground">
+                        No billing history yet
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    billingHistory.map((bill) => (
+                      <TableRow key={bill.id} data-testid={`row-billing-${bill.id}`}>
+                        <TableCell className="text-sm">{format(new Date(bill.createdAt), "MMM dd, yyyy")}</TableCell>
+                        <TableCell className="text-sm">{bill.description || "Subscription Payment"}</TableCell>
+                        <TableCell className="font-mono text-xs">{bill.invoiceNumber || "-"}</TableCell>
+                        <TableCell className="font-medium text-sm">₹{bill.amount}</TableCell>
+                        <TableCell>
+                          {bill.status === "succeeded" && <Badge variant="default" className="text-xs">Paid</Badge>}
+                          {bill.status === "pending" && <Badge variant="secondary" className="text-xs">Pending</Badge>}
+                          {bill.status === "failed" && <Badge variant="destructive" className="text-xs">Failed</Badge>}
+                          {bill.status === "refunded" && <Badge variant="outline" className="text-xs">Refunded</Badge>}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Upgrade Dialog */}
       <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
-        <DialogContent>
+        <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Upgrade to {selectedPlan?.displayName}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-lg">Upgrade to {selectedPlan?.displayName}</DialogTitle>
+            <DialogDescription className="text-sm">
               Complete your payment to activate your new subscription
             </DialogDescription>
           </DialogHeader>
           
           {selectedPlan && (
-            <div className="space-y-4 py-4">
-              <div className="flex justify-between items-center">
+            <div className="space-y-3 py-3">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Plan:</span>
                 <span className="font-semibold">{selectedPlan.displayName}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Amount:</span>
-                <span className="text-2xl font-bold">₹{selectedPlan.price}</span>
+                <span className="text-sm text-muted-foreground">Amount:</span>
+                <span className="text-xl font-bold">₹{selectedPlan.price}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Billing:</span>
                 <span className="capitalize">{selectedPlan.billingInterval}ly</span>
               </div>
               
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground">
+              <div className="bg-muted p-3 rounded-xl">
+                <p className="text-xs text-muted-foreground">
                   You'll be redirected to PayU payment gateway to complete your purchase securely.
                 </p>
               </div>
             </div>
           )}
 
-          <DialogFooter className="flex-col gap-4">
+          <DialogFooter className="flex-col gap-3">
             {paymentProcessing && selectedPlan ? (
               <div className="w-full">
                 <SubscriptionPayment
@@ -456,8 +458,8 @@ export default function VendorSubscription() {
               </div>
             ) : (
               <>
-                <div className="bg-muted p-4 rounded-lg w-full">
-                  <p className="text-sm text-muted-foreground">
+                <div className="bg-muted p-3 rounded-xl w-full">
+                  <p className="text-xs text-muted-foreground">
                     You'll be redirected to Razorpay to complete your payment securely.
                     Your subscription will be activated once payment is confirmed.
                   </p>
@@ -467,14 +469,14 @@ export default function VendorSubscription() {
                     variant="outline"
                     onClick={() => setUpgradeDialogOpen(false)}
                     disabled={paymentProcessing}
-                    className="flex-1"
+                    className="flex-1 h-[var(--cta-h)] text-sm"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={confirmUpgrade}
                     disabled={paymentProcessing}
-                    className="flex-1"
+                    className="flex-1 h-[var(--cta-h)] text-sm"
                   >
                     {paymentProcessing ? "Processing..." : "Proceed to Payment"}
                   </Button>

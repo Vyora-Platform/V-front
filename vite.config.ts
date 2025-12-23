@@ -36,8 +36,6 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-    port: 5173,
-    host: true,
   },
   define: {
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(
@@ -48,4 +46,3 @@ export default defineConfig({
     ),
   },
 });
-

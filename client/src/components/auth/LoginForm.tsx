@@ -6,12 +6,14 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { ForgotPasswordModal } from './ForgotPasswordModal';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { signIn } = useAuth();
   const { toast } = useToast();
 
@@ -49,7 +51,7 @@ export function LoginForm() {
       </div>
       
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="space-y-2">
+          <div className="space-y-2">
           <Label htmlFor="email" className="text-gray-700 font-medium" data-testid="label-email">
             Email Address
           </Label>
@@ -68,10 +70,19 @@ export function LoginForm() {
           </div>
         </div>
         
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-gray-700 font-medium" data-testid="label-password">
-            Password
-          </Label>
+          <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password" className="text-gray-700 font-medium" data-testid="label-password">
+              Password
+            </Label>
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Forgot Password?
+            </button>
+          </div>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
@@ -94,12 +105,12 @@ export function LoginForm() {
           </div>
         </div>
         
-        <Button
-          type="submit"
+          <Button
+            type="submit"
           className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 transition-all"
-          disabled={loading}
-          data-testid="button-login"
-        >
+            disabled={loading}
+            data-testid="button-login"
+          >
           {loading ? (
             <span className="flex items-center gap-2">
               <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -108,17 +119,23 @@ export function LoginForm() {
           ) : (
             'Sign In'
           )}
-        </Button>
+          </Button>
         
         <p className="text-sm text-center text-gray-600 pt-2" data-testid="text-signup-link">
-          Don't have an account?{' '}
+            Don't have an account?{' '}
           <Link href="/signup" data-testid="link-signup">
             <span className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer">
               Create Account
             </span>
-          </Link>
-        </p>
-      </form>
+            </Link>
+          </p>
+        </form>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        open={showForgotPassword}
+        onOpenChange={setShowForgotPassword}
+      />
     </div>
   );
 }
