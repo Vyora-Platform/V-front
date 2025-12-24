@@ -17,12 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, Copy, Search, Filter, X, ChevronDown, ArrowUpDown, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, Copy, Search, Filter, X, ChevronDown, ArrowUpDown, Eye, ImageIcon, Star } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import ComprehensiveServiceForm from "@/components/ComprehensiveServiceForm";
+import ServiceListingForm from "@/components/ServiceListingForm";
 import ServiceDetailDialog from "@/components/ServiceDetailDialog";
 import type { MasterService, Category, Subcategory, Unit, Vendor } from "@shared/schema";
 
@@ -279,65 +279,66 @@ export default function AdminMasterCatalogue() {
     : subcategories;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Master Services</h1>
-          <p className="text-muted-foreground">
-            {isLoading ? "Loading..." : `${total} service${total !== 1 ? 's' : ''} found`}
-          </p>
+    <div className="min-h-screen bg-background overflow-y-auto pb-20 md:pb-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Master Services</h1>
+            <p className="text-sm text-muted-foreground">
+              {isLoading ? "Loading..." : `${total} service${total !== 1 ? 's' : ''} found`}
+            </p>
+          </div>
+          <Button onClick={handleCreateNew} className="h-10">
+            <Plus className="w-4 h-4 mr-2" />
+            Create Service
+          </Button>
         </div>
-        <Button onClick={handleCreateNew}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Service
-        </Button>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Total Services</p>
-          {isLoading ? (
-            <Skeleton className="h-8 w-16" />
-          ) : (
-            <p className="text-2xl font-bold">{total}</p>
-          )}
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Categories</p>
-          <p className="text-2xl font-bold">{categories.length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Subcategories</p>
-          <p className="text-2xl font-bold">{subcategories.length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Units</p>
-          <p className="text-2xl font-bold">{units.length}</p>
-        </Card>
-      </div>
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Card className="p-3 md:p-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-0 shadow-sm rounded-xl">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">Total Services</p>
+            {isLoading ? (
+              <Skeleton className="h-6 w-16" />
+            ) : (
+              <p className="text-xl sm:text-2xl font-bold">{total}</p>
+            )}
+          </Card>
+          <Card className="p-3 md:p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-0 shadow-sm rounded-xl">
+            <p className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400 mb-1">Categories</p>
+            <p className="text-xl sm:text-2xl font-bold text-blue-700 dark:text-blue-300">{categories.length}</p>
+          </Card>
+            <Card className="p-3 md:p-4 bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950 dark:to-violet-900 border-0 shadow-sm rounded-xl min-h-[var(--card-min-h)]">
+            <p className="text-[10px] sm:text-xs text-violet-600 dark:text-violet-400 mb-1">Subcategories</p>
+            <p className="text-xl sm:text-2xl font-bold text-violet-700 dark:text-violet-300">{subcategories.length}</p>
+          </Card>
+          <Card className="p-3 md:p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900 border-0 shadow-sm rounded-xl min-h-[var(--card-min-h)]">
+            <p className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 mb-1">Units</p>
+            <p className="text-xl sm:text-2xl font-bold text-emerald-700 dark:text-emerald-300">{units.length}</p>
+          </Card>
+        </div>
 
-      {/* Filters - Enterprise Level Single Row */}
-      <Card className="p-4">
-        <div className="space-y-4">
-          {/* Primary Filters Row */}
-          <div className="flex flex-wrap gap-3 items-center">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[250px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search services..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
+        {/* Filters - Enterprise Level Single Row */}
+        <Card className="p-4 rounded-xl">
+          <div className="space-y-4">
+            {/* Primary Filters Row */}
+            <div className="flex flex-wrap gap-3 items-center">
+              {/* Search */}
+              <div className="relative flex-1 min-w-[250px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search services..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 h-[var(--input-h)] text-sm"
+                />
             </div>
 
-            {/* Vendors Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="min-w-[140px] justify-between">
+              {/* Vendors Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="min-w-[140px] justify-between h-[var(--input-h)] text-sm">
                   <span className="truncate">
                     {selectedVendors.length > 0 
                       ? `${selectedVendors.length} Vendor${selectedVendors.length > 1 ? 's' : ''}`
@@ -370,10 +371,10 @@ export default function AdminMasterCatalogue() {
               </PopoverContent>
             </Popover>
 
-            {/* Categories Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="min-w-[140px] justify-between">
+              {/* Categories Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="min-w-[140px] justify-between h-[var(--input-h)] text-sm">
                   <span className="truncate">
                     {selectedCategories.length > 0 
                       ? `${selectedCategories.length} Category${selectedCategories.length > 1 ? 'ies' : ''}`
@@ -409,14 +410,14 @@ export default function AdminMasterCatalogue() {
               </PopoverContent>
             </Popover>
 
-            {/* Subcategories Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="min-w-[140px] justify-between"
-                  disabled={selectedCategories.length === 0}
-                >
+              {/* Subcategories Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="min-w-[140px] justify-between h-[var(--input-h)] text-sm"
+                    disabled={selectedCategories.length === 0}
+                  >
                   <span className="truncate">
                     {selectedSubcategories.length > 0 
                       ? `${selectedSubcategories.length} Subcat${selectedSubcategories.length > 1 ? 's' : ''}`
@@ -449,10 +450,10 @@ export default function AdminMasterCatalogue() {
               </PopoverContent>
             </Popover>
 
-            {/* Service Type Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="min-w-[140px] justify-between">
+              {/* Service Type Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="min-w-[140px] justify-between h-[var(--input-h)] text-sm">
                   <span className="truncate">
                     {selectedServiceTypes.length > 0 
                       ? `${selectedServiceTypes.length} Type${selectedServiceTypes.length > 1 ? 's' : ''}`
@@ -485,14 +486,14 @@ export default function AdminMasterCatalogue() {
               </PopoverContent>
             </Popover>
 
-            {/* More Filters */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline">
-                  <Filter className="h-4 w-4 mr-2" />
-                  More
-                </Button>
-              </PopoverTrigger>
+              {/* More Filters */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="h-[var(--input-h)] text-sm">
+                    <Filter className="h-4 w-4 mr-2" />
+                    More
+                  </Button>
+                </PopoverTrigger>
               <PopoverContent className="w-[350px] p-4">
                 <div className="space-y-4">
                   <div>
@@ -556,22 +557,22 @@ export default function AdminMasterCatalogue() {
               </PopoverContent>
             </Popover>
 
-            {/* Clear Filters Button */}
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-1" />
-                Clear
-              </Button>
-            )}
-          </div>
+              {/* Clear Filters Button */}
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 text-sm">
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
 
-          {/* Sorting Row */}
-          <div className="flex gap-3 items-center border-t pt-3">
-            <span className="text-sm text-muted-foreground">Sort by:</span>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
+            {/* Sorting Row */}
+            <div className="flex gap-3 items-center border-t pt-3">
+              <span className="text-sm text-muted-foreground">Sort by:</span>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[180px] h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
               <SelectContent>
                 {SORT_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
@@ -580,21 +581,22 @@ export default function AdminMasterCatalogue() {
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-            >
-              <ArrowUpDown className="h-4 w-4 mr-2" />
-              {sortOrder === "asc" ? "Ascending" : "Descending"}
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                className="h-9 text-sm"
+              >
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                {sortOrder === "asc" ? "Ascending" : "Descending"}
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
 
-      {/* Services Grid - Urban Company Style */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {/* Services Grid - Urban Company Style */}
+        {isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
           {[...Array(8)].map((_, i) => (
             <Card key={i} className="overflow-hidden">
               <Skeleton className="h-40 w-full" />
@@ -607,118 +609,148 @@ export default function AdminMasterCatalogue() {
             </Card>
           ))}
         </div>
-      ) : services.length === 0 ? (
-        <Card className="p-12 text-center">
-          <p className="text-muted-foreground text-lg">No services found</p>
-          <p className="text-sm text-muted-foreground mt-2">Try adjusting your filters</p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {services.map((service) => (
-            <Card 
-              key={service.id} 
-              className="hover:shadow-lg transition-all overflow-hidden group"
-            >
+        ) : services.length === 0 ? (
+          <Card className="p-12 text-center rounded-xl">
+            <p className="text-muted-foreground text-lg">No services found</p>
+            <p className="text-sm text-muted-foreground mt-2">Try adjusting your filters</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+          {services.map((service) => {
+            const hasImage = service.images && service.images.length > 0;
+            const displayImage = hasImage ? service.images[0] : null;
+            const basePrice = service.basePrice || 0;
+            
+            return (
+              <Card 
+                key={service.id} 
+                className="hover:shadow-lg transition-all overflow-hidden group cursor-pointer border-0 shadow-sm rounded-xl"
+                onClick={() => handleViewDetails(service)}
+              >
               {/* Service Image/Icon */}
-              <div className="relative h-40 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                <div className="text-6xl">{service.icon}</div>
+                <div className="relative aspect-[4/3] bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 overflow-hidden">
+                  {displayImage ? (
+                    <img
+                      src={displayImage}
+                      alt={service.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {service.icon ? (
+                        <span className="text-5xl">{service.icon}</span>
+                      ) : (
+                        <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+                      )}
+                    </div>
+                  )}
+                  
                 {service.serviceType === "package" && (
-                  <Badge className="absolute top-2 right-2 bg-orange-500 hover:bg-orange-600">
+                    <Badge className="absolute top-3 left-3 bg-orange-500 hover:bg-orange-600 text-white border-0">
                     Package
                   </Badge>
                 )}
+
+                  {/* Overlay on Hover */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors">
+                    <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8 bg-white/90 hover:bg-white"
+                        onClick={(e) => { e.stopPropagation(); handlePreview(service); }}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8 bg-white/90 hover:bg-white"
+                        onClick={(e) => { e.stopPropagation(); handleEdit(service); }}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
               </div>
 
               <CardContent className="p-4 space-y-3">
+                  {/* Category */}
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {service.category}
+                  </Badge>
+
                 {/* Service Name */}
-                <div>
-                  <h3 className="font-semibold text-base line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+                  <h3 className="font-semibold text-base line-clamp-2 group-hover:text-primary transition-colors">
                     {service.name}
                   </h3>
-                  <p className="text-xs text-muted-foreground">{service.category}</p>
-                </div>
 
-                {/* Rating (Mock data for now) */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <span className="text-yellow-500 text-sm">★</span>
-                    <span className="text-sm font-medium">4.8</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">(2.5K reviews)</span>
+                  {/* Rating */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-1 text-amber-500">
+                      <Star className="h-3.5 w-3.5 fill-current" />
+                      <span className="font-medium">4.8</span>
+                </div>
+                    <span className="text-muted-foreground text-xs">(2.5K)</span>
                 </div>
 
                 {/* Description */}
                 <p className="text-sm text-muted-foreground line-clamp-2">
-                  {service.shortDescription || service.description}
+                    {service.shortDescription || service.description || "No description available"}
                 </p>
 
                 {/* Price */}
                 <div className="flex items-baseline gap-2">
-                  {service.offerPrice && service.offerPrice < (service.price || service.basePrice) ? (
+                  {service.offerPrice && service.offerPrice < basePrice ? (
                     <>
                       <span className="text-xl font-bold text-primary">₹{service.offerPrice}</span>
-                      <span className="text-sm text-muted-foreground line-through">₹{service.price || service.basePrice}</span>
+                      <span className="text-sm text-muted-foreground line-through">₹{basePrice}</span>
                     </>
                   ) : (
-                    <span className="text-xl font-bold">₹{service.price || service.basePrice || 0}</span>
+                    <span className="text-xl font-bold">₹{basePrice}</span>
                   )}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2 pt-3 border-t mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handlePreview(service)}
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    Preview
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleEdit(service)}
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleDuplicate(service)}
-                    disabled={duplicateMutation.isPending}
-                  >
-                    <Copy className="h-4 w-4 mr-1" />
-                    Duplicate
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleDelete(service)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 text-xs"
+                      onClick={(e) => { e.stopPropagation(); handleDuplicate(service); }}
+                      disabled={duplicateMutation.isPending}
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-1.5" />
+                      Duplicate
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 text-xs text-destructive hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(service); }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-      {/* Create/Edit Dialog */}
+      {/* Create/Edit Dialog - Full Screen on Mobile */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-w-5xl max-h-[100vh] md:max-h-[95vh] h-full md:h-auto overflow-hidden p-0 md:p-6 gap-0">
+          <DialogHeader className="hidden md:block px-0 pb-4">
+            <DialogTitle className="text-2xl">
               {editingService ? "Edit Service" : "Create New Service"}
             </DialogTitle>
           </DialogHeader>
-          <ComprehensiveServiceForm
+          <div className="flex-1 overflow-y-auto md:overflow-visible">
+            <ServiceListingForm
             initialData={editingService || {}}
             onSubmit={handleFormSubmit}
             onCancel={() => {
@@ -729,6 +761,7 @@ export default function AdminMasterCatalogue() {
             mode={editingService ? "edit" : "create"}
             userType="admin"
           />
+          </div>
         </DialogContent>
       </Dialog>
 

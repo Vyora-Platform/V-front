@@ -248,24 +248,25 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Settings</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage role-based access control for your employees
-          </p>
+    <div className="min-h-screen bg-background overflow-y-auto pb-20 md:pb-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Admin Settings</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage role-based access control for your employees
+            </p>
+          </div>
+          <Button onClick={() => setCreateDialogOpen(true)} className="h-10">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Employee
+          </Button>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Employee
-        </Button>
-      </div>
 
-      {/* Role-Based Access Control Section */}
-      <Card>
-        <CardHeader>
+        {/* Role-Based Access Control Section */}
+        <Card className="rounded-xl">
+          <CardHeader>
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
             <CardTitle>Role-Based Access Control</CardTitle>
@@ -415,10 +416,10 @@ export default function AdminSettings() {
             </div>
           </div>
         </CardContent>
-      </Card>
+        </Card>
 
-      {/* Create Employee Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        {/* Create Employee Dialog */}
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Employee</DialogTitle>
@@ -607,7 +608,8 @@ export default function AdminSettings() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      </div>
     </div>
   );
 }

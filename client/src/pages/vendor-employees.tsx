@@ -415,26 +415,26 @@ export default function VendorEmployees() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-gray-50/50 overflow-hidden">
+    <div className="flex min-h-full w-full flex-col bg-gray-50/50 dark:bg-background">
       {/* Header - Fixed */}
-      <div className="px-3 sm:px-4 py-3 bg-white border-b shadow-sm flex-shrink-0">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+      <div className="px-4 py-3 md:px-6 md:py-4 bg-white dark:bg-card border-b shadow-sm shrink-0 sticky top-0 z-20">
+        <div className="flex items-center justify-between gap-3 max-w-[1440px] mx-auto">
+          <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setLocation("/vendor/dashboard")}
-              className="h-9 w-9 flex-shrink-0"
+              className="h-10 w-10 shrink-0 md:hidden"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-600 hidden sm:block" />
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Employees</h1>
+              <Users className="h-5 w-5 text-blue-600 hidden md:block" />
+              <h1 className="text-xl md:text-2xl font-bold">Employees</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => refetch()} className="h-9 w-9">
+            <Button variant="ghost" size="icon" onClick={() => refetch()} className="h-10 w-10">
               <RefreshCw className="h-4 w-4" />
             </Button>
             <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
@@ -445,9 +445,9 @@ export default function VendorEmployees() {
               }
             }}>
               <DialogTrigger asChild>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-9">
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-10 px-4">
                   <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-1">Add</span>
+                  <span className="hidden sm:inline ml-1.5">Add Employee</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
@@ -471,47 +471,47 @@ export default function VendorEmployees() {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1">
         {/* Stats Dashboard - Horizontal Scroll on Mobile */}
-        <div className="px-3 sm:px-4 md:px-6 py-3 md:py-4 bg-white border-b">
-          <div className="flex gap-2 md:gap-3 overflow-x-auto pb-2 md:pb-0 md:grid md:grid-cols-8">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-blue-600 font-medium">Total</p>
-              <p className="text-xl md:text-3xl font-bold text-blue-700">{stats.total}</p>
+        <div className="px-4 md:px-6 py-4 bg-white dark:bg-card border-b max-w-[1440px] mx-auto">
+          <div className="flex gap-3 overflow-x-auto pb-2 md:pb-0 md:grid md:grid-cols-8 scrollbar-hide">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 rounded-xl p-4 min-w-[100px] shrink-0 md:min-w-0">
+              <p className="text-xs md:text-sm text-blue-600 dark:text-blue-400 font-medium">Total</p>
+              <p className="text-xl md:text-2xl font-bold text-blue-700 dark:text-blue-300">{stats.total}</p>
             </div>
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-emerald-600 font-medium">Active</p>
-              <p className="text-xl md:text-3xl font-bold text-emerald-700">{stats.active}</p>
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/10 rounded-xl p-4 min-w-[100px] shrink-0 md:min-w-0">
+              <p className="text-xs md:text-sm text-emerald-600 dark:text-emerald-400 font-medium">Active</p>
+              <p className="text-xl md:text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.active}</p>
             </div>
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-gray-600 font-medium">Inactive</p>
-              <p className="text-xl md:text-3xl font-bold text-gray-700">{stats.inactive}</p>
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-700/20 dark:to-gray-600/10 rounded-xl p-4 min-w-[100px] shrink-0 md:min-w-0">
+              <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 font-medium">Inactive</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-700 dark:text-gray-300">{stats.inactive}</p>
             </div>
-            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-cyan-600 font-medium">Onboarding</p>
-              <p className="text-xl md:text-3xl font-bold text-cyan-700">{stats.onboarding}</p>
+            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100/50 dark:from-cyan-900/20 dark:to-cyan-800/10 rounded-xl p-4 min-w-[100px] shrink-0 md:min-w-0">
+              <p className="text-xs md:text-sm text-cyan-600 dark:text-cyan-400 font-medium">Onboarding</p>
+              <p className="text-xl md:text-2xl font-bold text-cyan-700 dark:text-cyan-300">{stats.onboarding}</p>
             </div>
-            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-indigo-600 font-medium">Full-Time</p>
-              <p className="text-xl md:text-3xl font-bold text-indigo-700">{stats.fullTime}</p>
+            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-800/10 rounded-xl p-4 min-w-[100px] shrink-0 md:min-w-0">
+              <p className="text-xs md:text-sm text-indigo-600 dark:text-indigo-400 font-medium">Full-Time</p>
+              <p className="text-xl md:text-2xl font-bold text-indigo-700 dark:text-indigo-300">{stats.fullTime}</p>
             </div>
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-purple-600 font-medium">Part-Time</p>
-              <p className="text-xl md:text-3xl font-bold text-purple-700">{stats.partTime}</p>
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-xl p-4 min-w-[100px] shrink-0 md:min-w-0">
+              <p className="text-xs md:text-sm text-purple-600 dark:text-purple-400 font-medium">Part-Time</p>
+              <p className="text-xl md:text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.partTime}</p>
             </div>
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-orange-600 font-medium">Contract</p>
-              <p className="text-xl md:text-3xl font-bold text-orange-700">{stats.contract}</p>
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-800/10 rounded-xl p-4 min-w-[100px] shrink-0 md:min-w-0">
+              <p className="text-xs md:text-sm text-orange-600 dark:text-orange-400 font-medium">Contract</p>
+              <p className="text-xl md:text-2xl font-bold text-orange-700 dark:text-orange-300">{stats.contract}</p>
             </div>
-            <div className="bg-gradient-to-br from-rose-50 to-rose-100/50 rounded-lg p-3 md:p-4 min-w-[100px] flex-shrink-0 md:min-w-0">
-              <p className="text-xs md:text-sm text-rose-600 font-medium">Payroll</p>
-              <p className="text-xl md:text-3xl font-bold text-rose-700">₹{(stats.totalSalary / 1000).toFixed(0)}k</p>
+            <div className="bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-900/20 dark:to-rose-800/10 rounded-xl p-4 min-w-[100px] shrink-0 md:min-w-0">
+              <p className="text-xs md:text-sm text-rose-600 dark:text-rose-400 font-medium">Payroll</p>
+              <p className="text-xl md:text-2xl font-bold text-rose-700 dark:text-rose-300">₹{(stats.totalSalary / 1000).toFixed(0)}k</p>
             </div>
           </div>
 
           {/* Progress Bar */}
-          <div className="mt-3 md:mt-4 p-3 md:p-4 bg-gray-50 rounded-lg">
-            <div className="flex gap-1 h-2 md:h-3 rounded-full overflow-hidden bg-gray-200">
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-muted/30 rounded-xl">
+            <div className="flex gap-1 h-2.5 md:h-3 rounded-full overflow-hidden bg-gray-200 dark:bg-muted">
               <div className="bg-emerald-500 transition-all" style={{ width: `${stats.total > 0 ? (stats.active / stats.total) * 100 : 0}%` }} />
               <div className="bg-gray-400 transition-all" style={{ width: `${stats.total > 0 ? (stats.inactive / stats.total) * 100 : 0}%` }} />
               <div className="bg-cyan-500 transition-all" style={{ width: `${stats.total > 0 ? (stats.onboarding / stats.total) * 100 : 0}%` }} />
@@ -520,22 +520,22 @@ export default function VendorEmployees() {
         </div>
 
         {/* Search and Filters */}
-        <div className="px-3 sm:px-4 md:px-6 py-2 md:py-3 bg-white border-b sticky top-0 z-10 space-y-2">
+        <div className="px-4 md:px-6 py-3 md:py-4 bg-white dark:bg-card border-b sticky top-[60px] md:top-[72px] z-10 space-y-3 max-w-[1440px] mx-auto">
           {/* Search Bar */}
           <div className="relative w-full">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search by name, phone, email, role..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9 md:h-10 text-sm bg-gray-50 w-full"
+              className="pl-10 rounded-xl bg-muted/50"
             />
           </div>
 
-          {/* Filters Row */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          {/* Filters Row - Horizontal Scroll */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[100px] md:w-[120px] h-9 text-xs bg-gray-50 flex-shrink-0">
+              <SelectTrigger className="w-[110px] md:w-[130px] h-10 text-xs bg-muted/50 shrink-0 rounded-lg">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -549,7 +549,7 @@ export default function VendorEmployees() {
             </Select>
 
             <Select value={employmentTypeFilter} onValueChange={setEmploymentTypeFilter}>
-              <SelectTrigger className="w-[100px] md:w-[120px] h-9 text-xs bg-gray-50 flex-shrink-0">
+              <SelectTrigger className="w-[110px] md:w-[130px] h-10 text-xs bg-muted/50 shrink-0 rounded-lg">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
@@ -562,7 +562,7 @@ export default function VendorEmployees() {
 
             {departments.length > 0 && (
               <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                <SelectTrigger className="w-[110px] md:w-[130px] h-9 text-xs bg-gray-50 flex-shrink-0">
+                <SelectTrigger className="w-[120px] md:w-[140px] h-10 text-xs bg-muted/50 shrink-0 rounded-lg">
                   <SelectValue placeholder="Department" />
                 </SelectTrigger>
                 <SelectContent>
@@ -575,7 +575,7 @@ export default function VendorEmployees() {
             )}
 
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[100px] md:w-[120px] h-9 text-xs bg-gray-50 flex-shrink-0">
+              <SelectTrigger className="w-[110px] md:w-[130px] h-10 text-xs bg-muted/50 shrink-0 rounded-lg">
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
@@ -589,22 +589,22 @@ export default function VendorEmployees() {
         </div>
 
         {/* Employee List */}
-        <div className="px-3 sm:px-4 md:px-6 py-3">
-          <p className="text-xs text-gray-500 mb-2">{filteredEmployees.length} employees</p>
+        <div className="px-4 md:px-6 py-4 max-w-[1440px] mx-auto">
+          <p className="text-xs text-muted-foreground mb-3">{filteredEmployees.length} employees</p>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-16">
               <LoadingSpinner />
             </div>
           ) : filteredEmployees.length === 0 ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <Users className="h-10 w-10 text-gray-300 mb-3" />
-                <p className="text-gray-500 text-sm text-center">
+            <Card className="rounded-xl shadow-sm">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Users className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                <p className="text-muted-foreground text-sm text-center">
                   {searchQuery ? "No employees found" : "No employees yet"}
                 </p>
-                <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="mt-3 bg-blue-600">
-                  <Plus className="h-4 w-4 mr-1" />
+                <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="mt-4 bg-blue-600 h-10 px-5">
+                  <Plus className="h-4 w-4 mr-1.5" />
                   Add Employee
                 </Button>
               </CardContent>
@@ -805,8 +805,8 @@ function EmployeeCard({
   const address = addressParts.join(', ');
 
   return (
-    <Card className="border-0 shadow-sm overflow-hidden active:scale-[0.99] transition-transform">
-      <CardContent className="p-3 sm:p-4">
+    <Card className="rounded-xl shadow-sm overflow-hidden active:scale-[0.99] transition-transform">
+      <CardContent className="p-4">
         {/* Header Row */}
         <div className="flex items-start gap-3">
           <Avatar name={employee.name} size="md" />
@@ -814,18 +814,18 @@ function EmployeeCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="font-semibold text-gray-900 truncate">{employee.name}</h3>
-                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <h3 className="font-semibold text-base truncate">{employee.name}</h3>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                   <StatusBadge status={employee.status} />
                   <TypeBadge type={employee.employmentType} />
                 </div>
               </div>
-              <span className="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0">{tenure}</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{tenure}</span>
             </div>
 
             {/* Role & Department */}
-            <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
-              <Briefcase className="h-3.5 w-3.5 text-gray-400" />
+            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <Briefcase className="h-4 w-4 text-muted-foreground/70" />
               <span>{employee.role}</span>
               {employee.department && (
                 <>
@@ -836,44 +836,44 @@ function EmployeeCard({
             </div>
 
             {/* Contact Info */}
-            <div className="mt-2 space-y-1">
-              <p className="text-sm text-gray-600 flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5 text-gray-400" />
+            <div className="mt-3 space-y-1.5">
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground/70" />
                 {employee.phone}
               </p>
               {employee.email && (
-                <p className="text-sm text-gray-600 flex items-center gap-1.5 truncate">
-                  <Mail className="h-3.5 w-3.5 text-gray-400" />
+                <p className="text-sm text-muted-foreground flex items-center gap-2 truncate">
+                  <Mail className="h-4 w-4 text-muted-foreground/70" />
                   <span className="truncate">{employee.email}</span>
                 </p>
               )}
               {address && (
-                <p className="text-sm text-gray-600 flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground/70" />
                   <span className="truncate">{address}</span>
                 </p>
               )}
             </div>
 
             {/* Stats Row */}
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-3">
               {(employee.basicSalary || 0) > 0 && (
-                <span className="text-xs flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded text-emerald-700">
+                <span className="text-xs flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-lg text-emerald-700 dark:text-emerald-400">
                   ₹{(employee.basicSalary || 0).toLocaleString()}/mo
                 </span>
               )}
               {employee.shiftStartTime && employee.shiftEndTime && (
-                <span className="text-xs flex items-center gap-1 bg-blue-50 px-2 py-1 rounded text-blue-700">
+                <span className="text-xs flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg text-blue-700 dark:text-blue-400">
                   <Clock className="h-3 w-3" />
                   {employee.shiftStartTime} - {employee.shiftEndTime}
                 </span>
               )}
-              <span className="text-xs flex items-center gap-1 bg-gray-50 px-2 py-1 rounded text-gray-600">
+              <span className="text-xs flex items-center gap-1 bg-gray-50 dark:bg-gray-700/30 px-2.5 py-1 rounded-lg text-gray-600 dark:text-gray-400">
                 <CalendarDays className="h-3 w-3" />
                 {presentDays} days present
               </span>
               {assignedLeads.length > 0 && (
-                <span className="text-xs flex items-center gap-1 bg-amber-50 px-2 py-1 rounded text-amber-700">
+                <span className="text-xs flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 rounded-lg text-amber-700 dark:text-amber-400">
                   <Target className="h-3 w-3" />
                   {assignedLeads.length} leads
                 </span>
@@ -883,7 +883,7 @@ function EmployeeCard({
         </div>
 
         {/* Action Buttons - Inside Card */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+        <div className="flex items-center gap-2 mt-4 pt-4 border-t">
           <Button
             variant="outline"
             size="sm"
@@ -891,10 +891,10 @@ function EmployeeCard({
               e.stopPropagation();
               window.open(`tel:${employee.phone}`, '_self');
             }}
-            className="flex-1 h-9 text-xs"
+            className="flex-1 h-10 text-sm"
           >
             <Phone className="h-4 w-4 text-blue-600" />
-            <span className="ml-1 hidden sm:inline">Call</span>
+            <span className="ml-1.5 hidden sm:inline">Call</span>
           </Button>
           <Button
             variant="outline"
@@ -903,10 +903,10 @@ function EmployeeCard({
               e.stopPropagation();
               window.open(`https://wa.me/${employee.phone.replace(/[^0-9]/g, '')}`, '_blank');
             }}
-            className="flex-1 h-9 text-xs"
+            className="flex-1 h-10 text-sm"
           >
             <FaWhatsapp className="h-4 w-4 text-green-600" />
-            <span className="ml-1 hidden sm:inline">WhatsApp</span>
+            <span className="ml-1.5 hidden sm:inline">WhatsApp</span>
           </Button>
           {employee.email && (
             <Button
@@ -916,10 +916,10 @@ function EmployeeCard({
                 e.stopPropagation();
                 window.open(`mailto:${employee.email}`, '_blank');
               }}
-              className="flex-1 h-9 text-xs"
+              className="flex-1 h-10 text-sm"
             >
               <Mail className="h-4 w-4 text-purple-600" />
-              <span className="ml-1 hidden sm:inline">Mail</span>
+              <span className="ml-1.5 hidden sm:inline">Mail</span>
             </Button>
           )}
           <Button
@@ -929,14 +929,14 @@ function EmployeeCard({
               e.stopPropagation();
               onViewDetails(employee);
             }}
-            className="flex-1 h-9 text-xs"
+            className="flex-1 h-10 text-sm"
           >
             <Eye className="h-4 w-4" />
-            <span className="ml-1 hidden sm:inline">View</span>
+            <span className="ml-1.5 hidden sm:inline">View</span>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={(e) => e.stopPropagation()}>
+              <Button variant="outline" size="sm" className="h-10 w-10 p-0" onClick={(e) => e.stopPropagation()}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

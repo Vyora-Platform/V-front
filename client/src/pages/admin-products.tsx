@@ -218,18 +218,27 @@ const masterProductFormSchema = z.object({
   description: z.string().min(1, "Description is required"),
   specifications: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
+  mrp: z.number().nullable(),
   basePrice: z.number().nullable(),
   sellingPrice: z.number().nullable(),
   attributes: z.array(z.object({
     key: z.string().min(1, "Attribute key is required"),
     value: z.string().min(1, "Attribute value is required"),
   })).default([]),
+  variants: z.object({
+    size: z.array(z.string()).optional(),
+    color: z.array(z.string()).optional(),
+    material: z.array(z.string()).optional(),
+    style: z.array(z.string()).optional(),
+    packSize: z.array(z.string()).optional(),
+  }).default({}),
   unit: z.string().optional(),
   imageKeys: z.array(z.string()).default([]),
   images: z.array(z.string()).default([]),
   requiresPrescription: z.boolean().default(false),
   status: z.enum(['draft', 'published', 'archived']).default('draft'),
   version: z.number().default(1),
+  stock: z.number().default(0),
 });
 
 type MasterProductFormData = z.infer<typeof masterProductFormSchema>;
@@ -264,6 +273,13 @@ export default function AdminProductsPage() {
   const [tagInput, setTagInput] = useState("");
   const [attributeKey, setAttributeKey] = useState("");
   const [attributeValue, setAttributeValue] = useState("");
+  const [variantInputs, setVariantInputs] = useState<Record<string, string>>({
+    size: "",
+    color: "",
+    material: "",
+    style: "",
+    packSize: "",
+  });
   const [editingProduct, setEditingProduct] = useState<MasterProduct | null>(null);
   const [previewProduct, setPreviewProduct] = useState<MasterProduct | null>(null);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
@@ -318,15 +334,24 @@ export default function AdminProductsPage() {
       description: "",
       specifications: [],
       tags: [],
+      mrp: null,
       basePrice: null,
       sellingPrice: null,
       attributes: [],
+      variants: {
+        size: [],
+        color: [],
+        material: [],
+        style: [],
+        packSize: [],
+      },
       unit: "piece",
       imageKeys: [],
       images: [],
       requiresPrescription: false,
       status: 'draft',
       version: 1,
+      stock: 0,
     },
   });
 
@@ -347,6 +372,20 @@ export default function AdminProductsPage() {
       }
     }
     
+    // Parse variants if they exist
+    let variants = { size: [], color: [], material: [], style: [], packSize: [] };
+    if ((product as any).variants) {
+      try {
+        if (typeof (product as any).variants === 'string') {
+          variants = { ...variants, ...JSON.parse((product as any).variants) };
+        } else if (typeof (product as any).variants === 'object') {
+          variants = { ...variants, ...(product as any).variants };
+        }
+      } catch (e) {
+        console.error("Error parsing variants:", e);
+      }
+    }
+    
     form.reset({
       categoryId: product.categoryId,
       category: product.category,
@@ -358,15 +397,18 @@ export default function AdminProductsPage() {
       description: product.description,
       specifications: product.specifications || [],
       tags: product.tags || [],
+      mrp: (product as any).mrp || null,
       basePrice: product.basePrice,
       sellingPrice: (product as any).sellingPrice || null,
       attributes: attributes,
+      variants: variants,
       unit: product.unit || "piece",
       imageKeys: product.imageKeys || [],
       images: product.images || [],
       requiresPrescription: product.requiresPrescription || false,
       status: (product.status || 'draft') as 'draft' | 'published' | 'archived',
       version: product.version || 1,
+      stock: (product as any).stock || 0,
     });
     setCurrentStep(1);
     setFormDialogOpen(true);
@@ -400,6 +442,7 @@ export default function AdminProductsPage() {
       setTagInput("");
       setAttributeKey("");
       setAttributeValue("");
+      setVariantInputs({ size: "", color: "", material: "", style: "", packSize: "" });
       setEditingProduct(null);
     },
     onError: (error: Error) => {
@@ -440,6 +483,7 @@ export default function AdminProductsPage() {
       setTagInput("");
       setAttributeKey("");
       setAttributeValue("");
+      setVariantInputs({ size: "", color: "", material: "", style: "", packSize: "" });
       setEditingProduct(null);
     },
     onError: (error: Error) => {
@@ -580,6 +624,20 @@ export default function AdminProductsPage() {
         }
       }
 
+      // Parse variants if they exist
+      let variants = { size: [], color: [], material: [], style: [], packSize: [] };
+      if ((product as any).variants) {
+        try {
+          if (typeof (product as any).variants === 'string') {
+            variants = { ...variants, ...JSON.parse((product as any).variants) };
+          } else if (typeof (product as any).variants === 'object') {
+            variants = { ...variants, ...(product as any).variants };
+          }
+        } catch (e) {
+          console.error("Error parsing variants:", e);
+        }
+      }
+
       const duplicateData: MasterProductFormData = {
         categoryId: product.categoryId || null,
         category: product.category,
@@ -592,6 +650,8 @@ export default function AdminProductsPage() {
         specifications: Array.isArray(product.specifications) ? [...product.specifications] : [],
         tags: Array.isArray(product.tags) ? [...product.tags] : [],
         attributes: attributes,
+        variants: variants,
+        mrp: (product as any).mrp ?? null,
         basePrice: product.basePrice ?? null,
         sellingPrice: (product as any).sellingPrice ?? null,
         unit: product.unit || "piece",
@@ -600,6 +660,7 @@ export default function AdminProductsPage() {
         requiresPrescription: product.requiresPrescription || false,
         status: 'draft' as 'draft' | 'published' | 'archived',
         version: 1,
+        stock: (product as any).stock || 0,
       };
       
       duplicateProductMutation.mutate(duplicateData);
@@ -665,6 +726,31 @@ export default function AdminProductsPage() {
     form.setValue("attributes", currentAttributes.filter((_, i) => i !== index));
   };
 
+  // Variant management functions
+  const addVariant = (type: 'size' | 'color' | 'material' | 'style' | 'packSize') => {
+    const value = variantInputs[type].trim();
+    if (value) {
+      const currentVariants = form.getValues("variants") || {};
+      const currentValues = currentVariants[type] || [];
+      if (!currentValues.includes(value)) {
+        form.setValue("variants", {
+          ...currentVariants,
+          [type]: [...currentValues, value]
+        });
+      }
+      setVariantInputs(prev => ({ ...prev, [type]: "" }));
+    }
+  };
+
+  const removeVariant = (type: 'size' | 'color' | 'material' | 'style' | 'packSize', value: string) => {
+    const currentVariants = form.getValues("variants") || {};
+    const currentValues = currentVariants[type] || [];
+    form.setValue("variants", {
+      ...currentVariants,
+      [type]: currentValues.filter(v => v !== value)
+    });
+  };
+
   const handleFormSubmit = async (data: MasterProductFormData) => {
     // Validate status before submitting
     const isValid = await form.trigger('status');
@@ -692,11 +778,13 @@ export default function AdminProductsPage() {
       specifications: data.specifications || [],
       tags: data.tags || [],
       attributes: data.attributes || [],
+      variants: data.variants || {},
       imageKeys: data.imageKeys || [],
       images: data.images || [],
       requiresPrescription: data.requiresPrescription || false,
       isUniversal: true,
       version: 1,
+      mrp: data.mrp || null,
       basePrice: data.basePrice || null,
       sellingPrice: data.sellingPrice || null,
     };
@@ -739,6 +827,7 @@ export default function AdminProductsPage() {
       setTagInput("");
       setAttributeKey("");
       setAttributeValue("");
+      setVariantInputs({ size: "", color: "", material: "", style: "", packSize: "" });
       setEditingProduct(null);
     } else {
       setFormDialogOpen(true);
@@ -844,14 +933,14 @@ export default function AdminProductsPage() {
     priceMin || priceMax || requiresPrescriptionFilter !== undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-y-auto pb-20 md:pb-6">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-3 md:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Master Products</h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900">Master Products</h1>
+              <p className="text-xs md:text-sm text-gray-500 mt-1">
                 {isLoading ? "Loading..." : `${total} product${total !== 1 ? 's' : ''} found`}
               </p>
             </div>
@@ -1102,13 +1191,36 @@ export default function AdminProductsPage() {
                             />
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-3 gap-4">
                           <FormField
                             control={form.control}
-                            name="basePrice"
+                            name="mrp"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Base Price (₹)</FormLabel>
+                                <FormLabel>MRP (₹)*</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    {...field}
+                                    value={field.value ?? ""}
+                                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                                    placeholder="e.g., 2499"
+                                  />
+                                </FormControl>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Maximum Retail Price
+                                </p>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="sellingPrice"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Selling Price (₹)*</FormLabel>
                                 <FormControl>
                                   <Input
                                     type="number"
@@ -1118,33 +1230,36 @@ export default function AdminProductsPage() {
                                     placeholder="e.g., 1999"
                                   />
                                 </FormControl>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Including taxes
+                                </p>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
 
-                            <FormField
-                              control={form.control}
-                              name="sellingPrice"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Selling Price (₹)</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      {...field}
-                                      value={field.value ?? ""}
-                                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                                      placeholder="e.g., 1499"
-                                    />
-                                  </FormControl>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    The price at which the product will be sold
-                                  </p>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                          <FormField
+                            control={form.control}
+                            name="stock"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Stock Quantity</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    {...field}
+                                    value={field.value ?? 0}
+                                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
+                                    placeholder="e.g., 100"
+                                  />
+                                </FormControl>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Available inventory
+                                </p>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                           </div>
 
                           <FormField
@@ -1263,28 +1378,75 @@ export default function AdminProductsPage() {
 
                           <Separator />
 
+                          {/* Variants & Attributes Section */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">Variants & Attributes</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Add product variants like size, color, material, style, and pack size.
+                            </p>
+                            
+                            {/* Variant Inputs */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {[
+                                { key: 'size' as const, label: 'Size', placeholder: 'e.g., S, M, L, XL' },
+                                { key: 'color' as const, label: 'Color', placeholder: 'e.g., Red, Blue, Green' },
+                                { key: 'material' as const, label: 'Material', placeholder: 'e.g., Cotton, Polyester' },
+                                { key: 'style' as const, label: 'Style', placeholder: 'e.g., Casual, Formal' },
+                                { key: 'packSize' as const, label: 'Pack Size', placeholder: 'e.g., Single, Pack of 3' },
+                              ].map(({ key, label, placeholder }) => (
+                                <div key={key} className="space-y-2">
+                                  <label className="text-sm font-medium">{label}</label>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      value={variantInputs[key]}
+                                      onChange={(e) => setVariantInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                                      placeholder={placeholder}
+                                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addVariant(key))}
+                                    />
+                                    <Button type="button" onClick={() => addVariant(key)} variant="outline" size="icon">
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {(form.watch("variants")?.[key] || []).map((value: string) => (
+                                      <Badge key={value} variant="secondary" className="gap-1">
+                                        {value}
+                                        <X 
+                                          className="h-3 w-3 cursor-pointer" 
+                                          onClick={() => removeVariant(key, value)} 
+                                        />
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <Separator />
+
                           <FormField
                             control={form.control}
                             name="attributes"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Product Attributes</FormLabel>
+                                <FormLabel>Additional Product Attributes</FormLabel>
                                 <p className="text-sm text-muted-foreground mb-2">
-                                  Add key-value attributes (e.g., Color: Red, Size: Large, Material: Cotton)
+                                  Add custom key-value attributes for specific product details
                                 </p>
                                 <div className="space-y-2">
                                   <div className="grid grid-cols-2 gap-2">
                                     <Input
                                       value={attributeKey}
                                       onChange={(e) => setAttributeKey(e.target.value)}
-                                      placeholder="Attribute key (e.g., Color)"
+                                      placeholder="Attribute key (e.g., Weight)"
                                       onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAttribute())}
                                     />
                                     <div className="flex gap-2">
                                       <Input
                                         value={attributeValue}
                                         onChange={(e) => setAttributeValue(e.target.value)}
-                                        placeholder="Attribute value (e.g., Red)"
+                                        placeholder="Attribute value (e.g., 500g)"
                                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAttribute())}
                                       />
                                       <Button type="button" onClick={addAttribute} variant="outline">
@@ -1459,8 +1621,8 @@ export default function AdminProductsPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex gap-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6">
+        <div className="flex gap-4 md:gap-6">
           {/* Left Sidebar - Filters */}
           <aside className="w-64 flex-shrink-0 hidden lg:block">
             <Card className="sticky top-24">

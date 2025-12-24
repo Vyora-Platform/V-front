@@ -21,7 +21,7 @@ export default function MiniWebsiteMyOrders() {
     
     if (!token || !data) {
       // Not logged in, redirect to login
-      setLocation(`/site/${subdomain}/login`);
+      setLocation(`/${subdomain}/login`);
       return;
     }
 
@@ -30,7 +30,7 @@ export default function MiniWebsiteMyOrders() {
       setCustomerData(JSON.parse(data));
     } catch (e) {
       console.error("Failed to parse customer data");
-      setLocation(`/site/${subdomain}/login`);
+      setLocation(`/${subdomain}/login`);
     }
   }, [subdomain, setLocation]);
 
@@ -85,7 +85,7 @@ export default function MiniWebsiteMyOrders() {
         <div className="mb-8">
           <Button
             variant="ghost"
-            onClick={() => setLocation(`/site/${subdomain}`)}
+            onClick={() => setLocation(`/${subdomain}`)}
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -124,7 +124,7 @@ export default function MiniWebsiteMyOrders() {
               <p className="text-gray-600 mb-6">
                 Start shopping to see your orders here
               </p>
-              <Button onClick={() => setLocation(`/site/${subdomain}`)}>
+              <Button onClick={() => setLocation(`/${subdomain}`)}>
                 Continue Shopping
               </Button>
             </CardContent>

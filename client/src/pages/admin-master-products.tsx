@@ -633,69 +633,97 @@ export default function AdminMasterProducts() {
             {filteredProducts.map((product) => (
               <div
                 key={product.id}
-                className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-card"
+                className="border rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-card"
                 data-testid={`product-card-${product.id}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-foreground truncate" data-testid={`product-name-${product.id}`}>
-                        {product.name}
-                      </h3>
-                      <Badge className={getStatusColor(product.status)} data-testid={`product-status-${product.id}`}>
-                        {product.status}
+                <div className="flex flex-col sm:flex-row">
+                  {/* Product Image */}
+                  <div className="relative w-full sm:w-32 h-32 flex-shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
+                    {product.images && product.images.length > 0 ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                        <span className="text-3xl">{product.icon || "📦"}</span>
+                      </div>
+                    )}
+                    {product.images && product.images.length > 1 && (
+                      <Badge variant="secondary" className="absolute bottom-2 right-2 text-xs">
+                        +{product.images.length - 1}
                       </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                      {product.description}
-                    </p>
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span className="px-2 py-1 bg-secondary rounded">
-                        {product.category}
-                      </span>
-                      {product.subcategory && (
-                        <span className="px-2 py-1 bg-secondary rounded">
-                          {product.subcategory}
-                        </span>
-                      )}
-                      {product.basePrice && (
-                        <span className="px-2 py-1 bg-primary/10 text-primary rounded font-medium">
-                          ₹{product.basePrice}
-                        </span>
-                      )}
-                      <span className="px-2 py-1 bg-secondary rounded">
-                        v{product.version}
-                      </span>
-                    </div>
+                    )}
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        setViewingProduct(product);
-                        setDetailDialogOpen(true);
-                      }}
-                      data-testid={`button-view-${product.id}`}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleOpenDialog(product)}
-                      data-testid={`button-edit-${product.id}`}
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => deleteMutation.mutate(product.id)}
-                      data-testid={`button-delete-${product.id}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+
+                  {/* Product Info */}
+                  <div className="flex-1 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <h3 className="font-semibold text-foreground truncate" data-testid={`product-name-${product.id}`}>
+                            {product.name}
+                          </h3>
+                          <Badge className={getStatusColor(product.status)} data-testid={`product-status-${product.id}`}>
+                            {product.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                          {product.description}
+                        </p>
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <span className="px-2 py-1 bg-secondary rounded">
+                            {product.category}
+                          </span>
+                          {product.subcategory && (
+                            <span className="px-2 py-1 bg-secondary rounded">
+                              {product.subcategory}
+                            </span>
+                          )}
+                          {product.basePrice && (
+                            <span className="px-2 py-1 bg-primary/10 text-primary rounded font-medium">
+                              ₹{product.basePrice}
+                            </span>
+                          )}
+                          <span className="px-2 py-1 bg-secondary rounded">
+                            v{product.version}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            setViewingProduct(product);
+                            setDetailDialogOpen(true);
+                          }}
+                          data-testid={`button-view-${product.id}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleOpenDialog(product)}
+                          data-testid={`button-edit-${product.id}`}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => deleteMutation.mutate(product.id)}
+                          data-testid={`button-delete-${product.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -78,7 +78,7 @@ export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string 
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border safe-area-bottom">
-      <nav className="flex items-center justify-around h-16 px-1">
+      <nav className="flex items-center justify-around h-[64px] px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
@@ -87,7 +87,7 @@ export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string 
             <Link key={item.title} href={item.href}>
               <button
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-[56px]",
+                  "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-colors min-w-[60px] min-h-[52px]",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
@@ -95,40 +95,17 @@ export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string 
                 data-testid={`mobile-nav-${item.title.toLowerCase()}`}
               >
                 <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-medium">{item.title}</span>
+                <span className="text-[11px] font-medium">{item.title}</span>
               </button>
             </Link>
           );
         })}
         
-        {/* Notifications with badge - hidden as we show in header now */}
-        {/* <Link href="/vendor/notifications">
-          <button
-            className={cn(
-              "relative flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-[56px]",
-              isNotificationsActive
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            data-testid="mobile-nav-notifications"
-          >
-            <div className="relative">
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1.5 flex items-center justify-center min-w-[14px] h-[14px] text-[9px] font-bold text-white rounded-full bg-red-500">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </div>
-            <span className="text-[10px] font-medium">Alerts</span>
-          </button>
-        </Link> */}
-        
         {/* Profile Section - Shows Business Logo */}
         <Link href="/vendor/account">
           <button
             className={cn(
-              "flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-[56px]",
+              "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-colors min-w-[60px] min-h-[52px]",
               isAccountActive
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
@@ -157,7 +134,7 @@ export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string 
                 {vendor?.businessName ? getInitials(vendor.businessName) : "VH"}
               </AvatarFallback>
             </Avatar>
-            <span className="text-[10px] font-medium">Profile</span>
+            <span className="text-[11px] font-medium">Profile</span>
           </button>
         </Link>
       </nav>

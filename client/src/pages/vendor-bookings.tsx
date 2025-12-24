@@ -1,12 +1,19 @@
-import { Card } from "@/components/ui/card";
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Phone, Mail, MapPin, User, Clock, IndianRupee, ArrowLeft, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { 
+  Calendar, Phone, Mail, MapPin, User, Clock, IndianRupee, ArrowLeft, Plus,
+  Search, Filter, TrendingUp, TrendingDown, CheckCircle, XCircle, AlertCircle,
+  MoreVertical, Eye, Edit, Trash2, MessageCircle, ChevronRight, CalendarDays,
+  Timer, DollarSign, Repeat, FileText, Sparkles, Building2, Smartphone, Monitor
+} from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import { useState } from "react";
+import { format, isToday, isTomorrow, isPast, startOfMonth, endOfMonth, isWithinInterval, subMonths } from "date-fns";
 import { useLocation } from "wouter";
 import {
   Select,
@@ -15,8 +22,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { BookingFormDialog } from "@/components/BookingFormDialog";
-import type { Booking } from "@shared/schema";
+import type { Booking, Vendor } from "@shared/schema";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
@@ -26,16 +51,36 @@ type BookingWithService = Booking & {
   serviceCategory?: string;
 };
 
+// Time slot options
+const TIME_SLOTS = [
+  "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+  "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM",
+  "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM",
+  "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM"
+];
+
 export default function VendorBookings() {
-  const { vendorId } = useAuth(); // Get real vendor ID from localStorage
+  const { vendorId } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [deleteBookingId, setDeleteBookingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"all" | "today" | "upcoming" | "analytics">("all");
 
   // Fetch vendor's bookings
   const { data: bookings = [], isLoading } = useQuery<BookingWithService[]>({
     queryKey: [`/api/vendors/${vendorId}/bookings`],
+    enabled: !!vendorId,
+  });
+
+  // Fetch vendor info for WhatsApp message
+  const { data: vendor } = useQuery<Vendor>({
+    queryKey: [`/api/vendors/${vendorId}`],
     enabled: !!vendorId,
   });
 
@@ -54,89 +99,258 @@ export default function VendorBookings() {
     },
   });
 
-  const filteredBookings = statusFilter === "all" 
-    ? bookings 
-    : bookings.filter(bkg => bkg.status === statusFilter);
+  // Delete booking mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/bookings/${id}`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/bookings`] });
+      toast({ title: "Booking deleted successfully" });
+      setDeleteBookingId(null);
+    },
+    onError: () => {
+      toast({ title: "Failed to delete booking", variant: "destructive" });
+    },
+  });
 
-  const stats = {
-    total: bookings.length,
-    pending: bookings.filter(b => b.status === "pending").length,
-    confirmed: bookings.filter(b => b.status === "confirmed").length,
-    completed: bookings.filter(b => b.status === "completed").length,
-    cancelled: bookings.filter(b => b.status === "cancelled").length,
-  };
+  // Filter bookings
+  const filteredBookings = useMemo(() => {
+    let result = [...bookings];
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(b =>
+        b.patientName.toLowerCase().includes(query) ||
+        b.patientPhone.includes(query) ||
+        (b.serviceName && b.serviceName.toLowerCase().includes(query))
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      result = result.filter(b => b.status === statusFilter);
+    }
+
+    // Payment filter
+    if (paymentFilter !== "all") {
+      result = result.filter(b => b.paymentStatus === paymentFilter);
+    }
+
+    // Source filter
+    if (sourceFilter !== "all") {
+      result = result.filter(b => (b.source || "manual") === sourceFilter);
+    }
+
+    // Date filter
+    const now = new Date();
+    if (dateFilter === "today") {
+      result = result.filter(b => isToday(new Date(b.bookingDate)));
+    } else if (dateFilter === "upcoming") {
+      result = result.filter(b => new Date(b.bookingDate) > now);
+    } else if (dateFilter === "past") {
+      result = result.filter(b => isPast(new Date(b.bookingDate)) && !isToday(new Date(b.bookingDate)));
+    }
+
+    // Tab-based filtering
+    if (activeTab === "today") {
+      result = result.filter(b => isToday(new Date(b.bookingDate)));
+    } else if (activeTab === "upcoming") {
+      result = result.filter(b => new Date(b.bookingDate) > now && !isToday(new Date(b.bookingDate)));
+    }
+
+    return result.sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime());
+  }, [bookings, searchQuery, statusFilter, paymentFilter, sourceFilter, dateFilter, activeTab]);
+
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const now = new Date();
+    const thisMonthStart = startOfMonth(now);
+    const thisMonthEnd = endOfMonth(now);
+    const lastMonthStart = startOfMonth(subMonths(now, 1));
+    const lastMonthEnd = endOfMonth(subMonths(now, 1));
+
+    const thisMonthBookings = bookings.filter(b =>
+      isWithinInterval(new Date(b.createdAt), { start: thisMonthStart, end: thisMonthEnd })
+    );
+    const lastMonthBookings = bookings.filter(b =>
+      isWithinInterval(new Date(b.createdAt), { start: lastMonthStart, end: lastMonthEnd })
+    );
+
+    const thisMonthRevenue = thisMonthBookings
+      .filter(b => b.paymentStatus === "paid")
+      .reduce((sum, b) => sum + b.totalAmount, 0);
+    const lastMonthRevenue = lastMonthBookings
+      .filter(b => b.paymentStatus === "paid")
+      .reduce((sum, b) => sum + b.totalAmount, 0);
+
+    const revenueChange = lastMonthRevenue > 0 
+      ? Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100)
+      : 0;
+
+    const todayBookings = bookings.filter(b => isToday(new Date(b.bookingDate)));
+    const upcomingBookings = bookings.filter(b => new Date(b.bookingDate) > now && !isToday(new Date(b.bookingDate)));
+
+    const totalRevenue = bookings
+      .filter(b => b.paymentStatus === "paid")
+      .reduce((sum, b) => sum + b.totalAmount, 0);
+
+    const sourceBreakdown = bookings.reduce((acc, b) => {
+      const source = b.source || "manual";
+      acc[source] = (acc[source] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      total: bookings.length,
+      pending: bookings.filter(b => b.status === "pending").length,
+      confirmed: bookings.filter(b => b.status === "confirmed").length,
+      completed: bookings.filter(b => b.status === "completed").length,
+      cancelled: bookings.filter(b => b.status === "cancelled").length,
+      today: todayBookings.length,
+      upcoming: upcomingBookings.length,
+      totalRevenue,
+      thisMonthRevenue,
+      revenueChange,
+      paidCount: bookings.filter(b => b.paymentStatus === "paid").length,
+      pendingPayment: bookings.filter(b => b.paymentStatus === "pending").length,
+      sourceBreakdown,
+      homeCollection: bookings.filter(b => b.isHomeCollection).length,
+    };
+  }, [bookings]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending": return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400";
-      case "confirmed": return "bg-blue-500/10 text-blue-700 dark:text-blue-400";
-      case "completed": return "bg-green-500/10 text-green-700 dark:text-green-400";
-      case "cancelled": return "bg-red-500/10 text-red-700 dark:text-red-400";
-      default: return "bg-muted text-muted-foreground";
+      case "pending": return "bg-amber-100 text-amber-700 border-amber-200";
+      case "confirmed": return "bg-blue-100 text-blue-700 border-blue-200";
+      case "completed": return "bg-green-100 text-green-700 border-green-200";
+      case "cancelled": return "bg-red-100 text-red-700 border-red-200";
+      default: return "bg-gray-100 text-gray-600 border-gray-200";
     }
   };
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case "paid": return "bg-green-500/10 text-green-700 dark:text-green-400";
-      case "pending": return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400";
-      case "refunded": return "bg-red-500/10 text-red-700 dark:text-red-400";
-      default: return "bg-muted text-muted-foreground";
+      case "paid": return "bg-emerald-100 text-emerald-700 border-emerald-200";
+      case "pending": return "bg-amber-100 text-amber-700 border-amber-200";
+      case "refunded": return "bg-red-100 text-red-700 border-red-200";
+      default: return "bg-gray-100 text-gray-600 border-gray-200";
     }
   };
 
-  if (isLoading) {
-
-    // Show loading while vendor ID initializes
-    if (!vendorId) { return <LoadingSpinner />; }
-
+  const getSourceBadge = (source: string | null) => {
+    const sourceVal = source || "manual";
+    const config: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+      manual: { icon: <User className="h-3 w-3" />, label: "Manual", color: "bg-gray-100 text-gray-700" },
+      miniwebsite: { icon: <Monitor className="h-3 w-3" />, label: "Mini Website", color: "bg-purple-100 text-purple-700" },
+      pos: { icon: <Smartphone className="h-3 w-3" />, label: "POS", color: "bg-blue-100 text-blue-700" },
+      app: { icon: <Smartphone className="h-3 w-3" />, label: "App", color: "bg-green-100 text-green-700" },
+    };
+    const c = config[sourceVal] || config.manual;
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded w-1/4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-24 bg-muted rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <Badge variant="outline" className={`${c.color} border-0 text-[10px] gap-1`}>
+        {c.icon}
+        {c.label}
+      </Badge>
     );
+  };
+
+  const getDateLabel = (date: Date) => {
+    if (isToday(date)) return "Today";
+    if (isTomorrow(date)) return "Tomorrow";
+    return format(date, "MMM d, yyyy");
+  };
+
+  // Generate WhatsApp reminder message
+  const generateWhatsAppMessage = (booking: BookingWithService) => {
+    const vendorName = vendor?.businessName || "Our Business";
+    const date = format(new Date(booking.bookingDate), "EEEE, MMMM d, yyyy");
+    const time = booking.timeSlot || format(new Date(booking.bookingDate), "h:mm a");
+    const service = booking.serviceName || "your scheduled service";
+    
+    const message = `Hi ${booking.patientName}! 👋
+
+This is a friendly reminder from *${vendorName}*.
+
+📅 *Booking Details:*
+• Service: ${service}
+• Date: ${date}
+• Time: ${time}
+• Amount: ₹${booking.totalAmount}
+${booking.isHomeCollection ? `• Type: Home Collection at ${booking.collectionAddress}` : '• Type: Visit at our location'}
+
+${booking.status === "pending" ? "Please confirm your booking by replying to this message." : "We look forward to serving you!"}
+
+Thank you for choosing us! 🙏`;
+
+    return encodeURIComponent(message);
+  };
+
+  const handleCall = (phone: string) => {
+    window.open(`tel:${phone}`, '_self');
+  };
+
+  const handleWhatsApp = (booking: BookingWithService) => {
+    const phone = booking.patientPhone.replace(/[^0-9]/g, '');
+    const message = generateWhatsAppMessage(booking);
+    window.open(`https://wa.me/91${phone}?text=${message}`, '_blank');
+  };
+
+  if (isLoading || !vendorId) {
+    return <LoadingSpinner />;
   }
 
   const handleBookingCreated = () => {
     queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/bookings`] });
   };
 
+  // Avatar component
+  const Avatar = ({ name }: { name: string }) => {
+    const initial = name.charAt(0).toUpperCase();
+    const colors = [
+      "bg-blue-500", "bg-emerald-500", "bg-purple-500", 
+      "bg-amber-500", "bg-rose-500", "bg-cyan-500", "bg-indigo-500"
+    ];
+    const colorIndex = name.charCodeAt(0) % colors.length;
+    
+    return (
+      <div className={`h-10 w-10 ${colors[colorIndex]} rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0`}>
+        {initial}
+      </div>
+    );
+  };
+
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex flex-col min-h-full w-full bg-background">
       {/* Header */}
-      <div className="px-4 py-3 border-b flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setLocation("/vendor/dashboard")}
-            className="md:hidden flex-shrink-0"
-            data-testid="button-back-to-dashboard"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Bookings</h1>
-            <p className="text-xs text-muted-foreground">Manage service bookings</p>
+      <div className="bg-background border-b sticky top-0 z-20">
+        <div className="px-4 py-3 md:px-6 md:py-4 flex items-center justify-between gap-3 max-w-[1440px] mx-auto">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation("/vendor/dashboard")}
+              className="shrink-0 h-10 w-10 md:hidden"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold">Bookings</h1>
+              <p className="text-xs text-muted-foreground hidden md:block">Manage service bookings</p>
+            </div>
           </div>
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            size="sm"
+            className="gap-1.5 h-10 px-4"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Create Booking</span>
+            <span className="sm:hidden">New</span>
+          </Button>
         </div>
-        <Button
-          onClick={() => setIsCreateDialogOpen(true)}
-          size="sm"
-          className="flex-shrink-0"
-          data-testid="button-create-booking"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">Create Booking</span>
-          <span className="sm:hidden">New</span>
-        </Button>
       </div>
 
       <BookingFormDialog
@@ -145,205 +359,577 @@ export default function VendorBookings() {
         onSuccess={handleBookingCreated}
       />
 
-      {/* Stats - Responsive Grid */}
-      <div className="px-4 py-3 border-b">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-          <Card className="p-3">
-            <p className="text-xs text-muted-foreground mb-1">Total</p>
-            <p className="text-lg font-bold">{stats.total}</p>
+      {/* Stats Cards - Responsive Grid */}
+      <div className="px-4 md:px-6 py-4 max-w-[1440px] mx-auto w-full">
+        <div className="flex gap-3 overflow-x-auto pb-2 md:pb-0 md:grid md:grid-cols-6 scrollbar-hide">
+          <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-blue-200 dark:border-blue-800 min-h-[var(--card-min-h)]">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium mb-1">Total</p>
+                <p className="text-xl md:text-2xl font-bold text-blue-700 dark:text-blue-400">{stats.total}</p>
+                <p className="text-xs text-muted-foreground mt-1">bookings</p>
+              </div>
+              <div className="p-2.5 bg-blue-200/50 dark:bg-blue-800/50 rounded-xl">
+                <CalendarDays className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
           </Card>
-          <Card className="p-3">
-            <p className="text-xs text-muted-foreground mb-1">Pending</p>
-            <p className="text-lg font-bold text-yellow-600">{stats.pending}</p>
+
+          <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 border-amber-200 dark:border-amber-800 min-h-[var(--card-min-h)]">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium mb-1">Today</p>
+                <p className="text-xl md:text-2xl font-bold text-amber-700 dark:text-amber-400">{stats.today}</p>
+                <p className="text-xs text-muted-foreground mt-1">scheduled</p>
+              </div>
+              <div className="p-2.5 bg-amber-200/50 dark:bg-amber-800/50 rounded-xl">
+                <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+            </div>
           </Card>
-          <Card className="p-3">
-            <p className="text-xs text-muted-foreground mb-1">Confirmed</p>
-            <p className="text-lg font-bold text-blue-600">{stats.confirmed}</p>
+
+          <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800 min-h-[var(--card-min-h)]">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium mb-1">Pending</p>
+                <p className="text-xl md:text-2xl font-bold text-purple-700 dark:text-purple-400">{stats.pending}</p>
+                <p className="text-xs text-muted-foreground mt-1">to confirm</p>
+              </div>
+              <div className="p-2.5 bg-purple-200/50 dark:bg-purple-800/50 rounded-xl">
+                <AlertCircle className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
           </Card>
-          <Card className="p-3">
-            <p className="text-xs text-muted-foreground mb-1">Completed</p>
-            <p className="text-lg font-bold text-green-600">{stats.completed}</p>
+
+          <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800 min-h-[var(--card-min-h)]">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium mb-1">Completed</p>
+                <p className="text-xl md:text-2xl font-bold text-green-700 dark:text-green-400">{stats.completed}</p>
+                <p className="text-xs text-muted-foreground mt-1">done</p>
+              </div>
+              <div className="p-2.5 bg-green-200/50 dark:bg-green-800/50 rounded-xl">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
           </Card>
-          <Card className="p-3">
-            <p className="text-xs text-muted-foreground mb-1">Cancelled</p>
-            <p className="text-lg font-bold text-red-600">{stats.cancelled}</p>
+
+          <Card className="p-4 rounded-xl min-w-[130px] shrink-0 md:min-w-0 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/30 border-emerald-200 dark:border-emerald-800 min-h-[var(--card-min-h)]">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium mb-1">Revenue</p>
+                <p className="text-xl md:text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                  ₹{stats.thisMonthRevenue.toLocaleString()}
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  {stats.revenueChange >= 0 ? (
+                    <TrendingUp className="h-3.5 w-3.5 text-green-500" />
+                  ) : (
+                    <TrendingDown className="h-3.5 w-3.5 text-red-500" />
+                  )}
+                  <span className={`text-xs font-medium ${stats.revenueChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {Math.abs(stats.revenueChange)}%
+                  </span>
+                </div>
+              </div>
+              <div className="p-2.5 bg-emerald-200/50 dark:bg-emerald-800/50 rounded-xl">
+                <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/30 dark:to-cyan-800/30 border-cyan-200 dark:border-cyan-800 min-h-[var(--card-min-h)]">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium mb-1">Home Visit</p>
+                <p className="text-xl md:text-2xl font-bold text-cyan-700 dark:text-cyan-400">{stats.homeCollection}</p>
+                <p className="text-xs text-muted-foreground mt-1">collections</p>
+              </div>
+              <div className="p-2.5 bg-cyan-200/50 dark:bg-cyan-800/50 rounded-xl">
+                <MapPin className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+              </div>
+            </div>
           </Card>
         </div>
       </div>
 
-      {/* Filter - Horizontal Scroll */}
-      <div className="px-4 py-3 border-b">
-        <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px] flex-shrink-0 snap-start" data-testid="select-status-filter">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Bookings</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      {/* Tabs & Filters */}
+      <div className="flex-1 flex flex-col max-w-[1440px] mx-auto w-full">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col">
+          <div className="px-4 md:px-6 border-b overflow-x-auto scrollbar-hide">
+            <TabsList className="h-12 w-max md:w-full justify-start bg-transparent p-0 gap-6">
+              <TabsTrigger 
+                value="all" 
+                className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-3 text-sm shrink-0"
+              >
+                All ({stats.total})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="today" 
+                className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-3 text-sm shrink-0"
+              >
+                Today ({stats.today})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="upcoming" 
+                className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-3 text-sm shrink-0"
+              >
+                Upcoming ({stats.upcoming})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="analytics" 
+                className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-3 text-sm shrink-0"
+              >
+                Analytics
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
-        <h2 className="text-sm font-semibold mb-3 text-muted-foreground">Bookings ({filteredBookings.length})</h2>
-        {filteredBookings.length === 0 ? (
-        <div className="p-12 text-center border rounded-lg">
-          <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No bookings found</h3>
-          <p className="text-muted-foreground">
-            {statusFilter === "all" 
-              ? "You don't have any bookings yet." 
-              : `No ${statusFilter} bookings.`}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredBookings.map((booking) => (
-            <div 
-              key={booking.id} 
-              className="p-3 sm:p-6 border rounded-lg hover-elevate"
-              data-testid={`booking-${booking.id}`}
-            >
-              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                {/* Left Section - Patient & Service Info */}
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                        {booking.patientName}
-                        {booking.isHomeCollection && (
-                          <Badge variant="outline" className="text-xs">
-                            Home Collection
-                          </Badge>
-                        )}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {booking.serviceName || "Service"} • {booking.serviceCategory || ""}
+          {/* Filter Bar */}
+          {activeTab !== "analytics" && (
+            <div className="px-4 md:px-6 py-3 md:py-4 border-b bg-muted/30">
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, phone, or service..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 rounded-xl bg-background"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[120px] h-10 text-sm shrink-0 rounded-lg">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+                  <SelectTrigger className="w-[120px] h-10 text-sm shrink-0 rounded-lg">
+                    <SelectValue placeholder="Payment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Payments</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="refunded">Refunded</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger className="w-[130px] h-10 text-sm shrink-0 rounded-lg">
+                    <SelectValue placeholder="Source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="miniwebsite">Mini Website</SelectItem>
+                    <SelectItem value="pos">POS</SelectItem>
+                    <SelectItem value="app">App</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Content Area */}
+          <TabsContent value="all" className="flex-1 px-4 md:px-6 py-4 mt-0">
+            <BookingsList 
+              bookings={filteredBookings}
+              getStatusColor={getStatusColor}
+              getPaymentStatusColor={getPaymentStatusColor}
+              getSourceBadge={getSourceBadge}
+              getDateLabel={getDateLabel}
+              Avatar={Avatar}
+              handleCall={handleCall}
+              handleWhatsApp={handleWhatsApp}
+              updateStatusMutation={updateStatusMutation}
+              setDeleteBookingId={setDeleteBookingId}
+              setLocation={setLocation}
+            />
+          </TabsContent>
+
+          <TabsContent value="today" className="flex-1 px-4 md:px-6 py-4 mt-0">
+            <BookingsList 
+              bookings={filteredBookings}
+              getStatusColor={getStatusColor}
+              getPaymentStatusColor={getPaymentStatusColor}
+              getSourceBadge={getSourceBadge}
+              getDateLabel={getDateLabel}
+              Avatar={Avatar}
+              handleCall={handleCall}
+              handleWhatsApp={handleWhatsApp}
+              updateStatusMutation={updateStatusMutation}
+              setDeleteBookingId={setDeleteBookingId}
+              setLocation={setLocation}
+            />
+          </TabsContent>
+
+          <TabsContent value="upcoming" className="flex-1 px-4 md:px-6 py-4 mt-0">
+            <BookingsList 
+              bookings={filteredBookings}
+              getStatusColor={getStatusColor}
+              getPaymentStatusColor={getPaymentStatusColor}
+              getSourceBadge={getSourceBadge}
+              getDateLabel={getDateLabel}
+              Avatar={Avatar}
+              handleCall={handleCall}
+              handleWhatsApp={handleWhatsApp}
+              updateStatusMutation={updateStatusMutation}
+              setDeleteBookingId={setDeleteBookingId}
+              setLocation={setLocation}
+            />
+          </TabsContent>
+
+          <TabsContent value="analytics" className="flex-1 px-4 md:px-6 py-4 mt-0 space-y-4">
+            {/* Analytics Content */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Status Breakdown */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4" />
+                    Status Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {[
+                      { label: "Pending", value: stats.pending, color: "bg-amber-500" },
+                      { label: "Confirmed", value: stats.confirmed, color: "bg-blue-500" },
+                      { label: "Completed", value: stats.completed, color: "bg-green-500" },
+                      { label: "Cancelled", value: stats.cancelled, color: "bg-red-500" },
+                    ].map((item) => (
+                      <div key={item.label}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">{item.label}</span>
+                          <span className="text-sm text-muted-foreground">{item.value}</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${item.color} transition-all`}
+                            style={{ width: `${stats.total > 0 ? (item.value / stats.total) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Source Breakdown */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Source Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.entries(stats.sourceBreakdown).map(([source, count]) => {
+                      const config: Record<string, { label: string; color: string }> = {
+                        manual: { label: "Manual Entry", color: "bg-gray-500" },
+                        miniwebsite: { label: "Mini Website", color: "bg-purple-500" },
+                        pos: { label: "POS", color: "bg-blue-500" },
+                        app: { label: "App", color: "bg-green-500" },
+                      };
+                      const c = config[source] || config.manual;
+                      return (
+                        <div key={source}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">{c.label}</span>
+                            <span className="text-sm text-muted-foreground">{count}</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${c.color} transition-all`}
+                              style={{ width: `${stats.total > 0 ? (count / stats.total) * 100 : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment Status */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Payment Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Paid</p>
+                      <p className="text-2xl font-bold text-green-600">{stats.paidCount}</p>
+                    </div>
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Pending</p>
+                      <p className="text-2xl font-bold text-amber-600">{stats.pendingPayment}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Total Revenue</p>
+                    <p className="text-xl font-bold">₹{stats.totalRevenue.toLocaleString()}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Quick Stats */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Quick Stats
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Home Collection</p>
+                      <p className="text-lg font-bold">{stats.homeCollection}</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Visit Bookings</p>
+                      <p className="text-lg font-bold">{stats.total - stats.homeCollection}</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">This Month</p>
+                      <p className="text-lg font-bold">{bookings.filter(b => 
+                        isWithinInterval(new Date(b.createdAt), { start: startOfMonth(new Date()), end: endOfMonth(new Date()) })
+                      ).length}</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Conversion Rate</p>
+                      <p className="text-lg font-bold">
+                        {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <Badge className={getStatusColor(booking.status)}>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteBookingId} onOpenChange={() => setDeleteBookingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Booking</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this booking? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteBookingId && deleteMutation.mutate(deleteBookingId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// Bookings List Component
+interface BookingsListProps {
+  bookings: BookingWithService[];
+  getStatusColor: (status: string) => string;
+  getPaymentStatusColor: (status: string) => string;
+  getSourceBadge: (source: string | null) => React.ReactNode;
+  getDateLabel: (date: Date) => string;
+  Avatar: React.FC<{ name: string }>;
+  handleCall: (phone: string) => void;
+  handleWhatsApp: (booking: BookingWithService) => void;
+  updateStatusMutation: any;
+  setDeleteBookingId: (id: string) => void;
+  setLocation: (path: string) => void;
+}
+
+function BookingsList({
+  bookings,
+  getStatusColor,
+  getPaymentStatusColor,
+  getSourceBadge,
+  getDateLabel,
+  Avatar,
+  handleCall,
+  handleWhatsApp,
+  updateStatusMutation,
+  setDeleteBookingId,
+  setLocation,
+}: BookingsListProps) {
+  if (bookings.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+        <h3 className="text-lg font-semibold mb-2">No bookings found</h3>
+        <p className="text-muted-foreground text-center text-sm">
+          No bookings match your current filters.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {bookings.map((booking) => (
+        <Card 
+          key={booking.id} 
+          className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => setLocation(`/vendor/bookings/${booking.id}`)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              {/* Avatar */}
+              <Avatar name={booking.patientName} />
+
+              {/* Main Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-foreground truncate">{booking.patientName}</h3>
+                      {booking.isHomeCollection && (
+                        <Badge variant="outline" className="text-[10px] bg-cyan-50 text-cyan-700 border-cyan-200">
+                          <MapPin className="h-2.5 w-2.5 mr-0.5" />
+                          Home
+                        </Badge>
+                      )}
+                      {getSourceBadge(booking.source)}
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate mt-0.5">
+                      {booking.serviceName || "Service"} {booking.serviceCategory ? `• ${booking.serviceCategory}` : ""}
+                    </p>
+                  </div>
+                  
+                  {/* Amount */}
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-lg flex items-center justify-end">
+                      <IndianRupee className="h-4 w-4" />
+                      {booking.totalAmount.toLocaleString()}
+                    </p>
+                    <div className="flex gap-1.5 mt-1">
+                      <Badge className={`${getStatusColor(booking.status)} text-[10px] px-1.5 py-0 h-5 border`}>
                         {booking.status}
                       </Badge>
-                      <Badge className={getPaymentStatusColor(booking.paymentStatus || "pending")}>
+                      <Badge className={`${getPaymentStatusColor(booking.paymentStatus || "pending")} text-[10px] px-1.5 py-0 h-5 border`}>
                         {booking.paymentStatus || "pending"}
                       </Badge>
                     </div>
                   </div>
+                </div>
 
-                  {/* Patient Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="w-4 h-4" />
-                      <span>{booking.patientPhone}</span>
-                    </div>
-                    {booking.patientEmail && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Mail className="w-4 h-4" />
-                        <span>{booking.patientEmail}</span>
-                      </div>
-                    )}
-                    {booking.patientAge && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <User className="w-4 h-4" />
-                        <span>{booking.patientAge} yrs • {booking.patientGender}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock className="w-4 h-4" />
-                      <span>{format(new Date(booking.bookingDate), "PPp")}</span>
-                    </div>
+                {/* Date & Time */}
+                <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{getDateLabel(new Date(booking.bookingDate))}</span>
                   </div>
-
-                  {/* Collection Address */}
-                  {booking.isHomeCollection && booking.collectionAddress && (
-                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <MapPin className="w-4 h-4 mt-0.5" />
-                      <span>{booking.collectionAddress}</span>
-                    </div>
-                  )}
-
-                  {/* Notes */}
-                  {booking.notes && (
-                    <div className="text-sm">
-                      <span className="font-medium text-foreground">Notes: </span>
-                      <span className="text-muted-foreground">{booking.notes}</span>
+                  {booking.timeSlot && (
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>{booking.timeSlot}</span>
                     </div>
                   )}
                 </div>
 
-                {/* Right Section - Amount & Actions */}
-                <div className="flex flex-col items-end gap-3 lg:min-w-[200px]">
-                  {/* Amount */}
-                  <div className="text-right">
-                    <div className="flex items-center gap-1 text-2xl font-bold text-foreground">
-                      <IndianRupee className="w-5 h-5" />
-                      {booking.totalAmount}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Service: ₹{booking.price}
-                      {booking.isHomeCollection && ` + ₹${booking.homeCollectionCharges} home`}
-                    </p>
-                  </div>
-
-                  {/* Status Actions */}
-                  {booking.status !== "completed" && booking.status !== "cancelled" && (
-                    <div className="flex flex-wrap gap-2 justify-end">
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCall(booking.patientPhone);
+                    }}
+                    className="flex-1 h-9 gap-1.5 text-xs"
+                  >
+                    <Phone className="h-4 w-4 text-blue-600" />
+                    <span className="hidden sm:inline">Call Customer</span>
+                    <span className="sm:hidden">Call</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleWhatsApp(booking);
+                    }}
+                    className="flex-1 h-9 gap-1.5 text-xs bg-green-50 hover:bg-green-100 border-green-200"
+                  >
+                    <FaWhatsapp className="h-4 w-4 text-green-600" />
+                    <span className="hidden sm:inline">Send Reminder</span>
+                    <span className="sm:hidden">WhatsApp</span>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="outline" size="sm" className="h-9 w-9 p-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => setLocation(`/vendor/bookings/${booking.id}`)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       {booking.status === "pending" && (
                         <>
-                          <Button
-                            size="sm"
-                            onClick={() => updateStatusMutation.mutate({ 
-                              id: booking.id, 
-                              status: "confirmed" 
-                            })}
-                            disabled={updateStatusMutation.isPending}
-                            data-testid={`button-confirm-${booking.id}`}
+                          <DropdownMenuItem 
+                            onClick={() => updateStatusMutation.mutate({ id: booking.id, status: "confirmed" })}
                           >
-                            Confirm
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => updateStatusMutation.mutate({ 
-                              id: booking.id, 
-                              status: "cancelled" 
-                            })}
-                            disabled={updateStatusMutation.isPending}
-                            data-testid={`button-cancel-${booking.id}`}
+                            <CheckCircle className="h-4 w-4 mr-2 text-blue-600" />
+                            Confirm Booking
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => updateStatusMutation.mutate({ id: booking.id, status: "cancelled" })}
                           >
-                            Cancel
-                          </Button>
+                            <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                            Cancel Booking
+                          </DropdownMenuItem>
                         </>
                       )}
                       {booking.status === "confirmed" && (
-                        <Button
-                          size="sm"
-                          onClick={() => updateStatusMutation.mutate({ 
-                            id: booking.id, 
-                            status: "completed" 
-                          })}
-                          disabled={updateStatusMutation.isPending}
-                          data-testid={`button-complete-${booking.id}`}
+                        <DropdownMenuItem 
+                          onClick={() => updateStatusMutation.mutate({ id: booking.id, status: "completed" })}
                         >
+                          <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
                           Mark Complete
-                        </Button>
+                        </DropdownMenuItem>
                       )}
-                    </div>
-                  )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => setDeleteBookingId(booking.id)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Booking
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-        )}
-      </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

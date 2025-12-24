@@ -8,6 +8,7 @@ import { Mail, Lock, AlertCircle, ArrowRight, ArrowLeft, Sparkles, Shield, Zap }
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getApiUrl } from "@/lib/config";
+import { ForgotPasswordModal } from "@/components/auth/ForgotPasswordModal";
 
 export default function VendorLogin() {
   const [, setLocation] = useLocation();
@@ -16,6 +17,7 @@ export default function VendorLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -235,9 +237,18 @@ export default function VendorLogin() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-gray-700 font-semibold">
-                    Password
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-gray-700 font-semibold">
+                      Password
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-500" />
                     <Input
@@ -295,6 +306,12 @@ export default function VendorLogin() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        open={showForgotPassword}
+        onOpenChange={setShowForgotPassword}
+      />
     </div>
   );
 }

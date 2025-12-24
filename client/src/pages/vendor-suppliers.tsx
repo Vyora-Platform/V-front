@@ -41,22 +41,8 @@ export default function VendorSuppliers() {
 
   // Fetch suppliers with search and filter
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
-    queryKey: ['/api/vendors', vendorId, 'suppliers', searchQuery, statusFilter, categoryFilter],
+    queryKey: [`/api/vendors/${vendorId}/suppliers`],
     enabled: !!vendorId,
-    queryFn: async () => {
-      let url = `/api/vendors/${vendorId}/suppliers`;
-      const params = new URLSearchParams();
-      
-      if (searchQuery) params.append('search', searchQuery);
-      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
-      if (categoryFilter && categoryFilter !== 'all') params.append('category', categoryFilter);
-      
-      if (params.toString()) url += `?${params.toString()}`;
-      
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch suppliers');
-      return response.json();
-    },
   });
 
   // Delete supplier mutation
@@ -66,7 +52,7 @@ export default function VendorSuppliers() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'suppliers'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suppliers`] });
       toast({ title: "Supplier deleted successfully" });
     },
     onError: () => {
@@ -134,22 +120,22 @@ export default function VendorSuppliers() {
   if (!vendorId) { return <LoadingSpinner />; }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col min-h-full bg-gray-50 dark:bg-background">
       {/* Header - Mobile Optimized */}
-      <div className="bg-white dark:bg-gray-800 border-b sticky top-0 z-10">
-        <div className="px-4 py-3 flex items-center justify-between gap-3">
+      <div className="bg-white dark:bg-card border-b sticky top-0 z-20">
+        <div className="px-4 py-3 md:px-6 md:py-4 flex items-center justify-between gap-3 max-w-[1440px] mx-auto">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setLocation("/vendor/dashboard")}
-              className="shrink-0"
+              className="shrink-0 h-10 w-10 md:hidden"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-              <h1 className="text-lg font-bold text-foreground">Suppliers</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">Manage your supplier network</p>
+              <h1 className="text-xl md:text-2xl font-bold">Suppliers</h1>
+              <p className="text-xs text-muted-foreground hidden md:block">Manage your supplier network</p>
           </div>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
@@ -157,7 +143,7 @@ export default function VendorSuppliers() {
           if (!open) setEditingSupplier(null);
         }}>
           <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5">
+              <Button size="sm" className="gap-1.5 h-10 px-4">
               <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Add Supplier</span>
             </Button>
@@ -188,49 +174,49 @@ export default function VendorSuppliers() {
       </div>
 
         {/* Stats Cards - Horizontal Scroll on Mobile */}
-        <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-3 min-w-max">
-            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-blue-200 dark:border-blue-800">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-blue-500/20">
-                  <Users className="h-4 w-4 text-blue-600" />
+        <div className="px-4 md:px-6 pb-3 overflow-x-auto scrollbar-hide max-w-[1440px] mx-auto">
+          <div className="flex gap-3 md:grid md:grid-cols-4">
+            <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-blue-200 dark:border-blue-800 min-h-[var(--card-min-h)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-500/20">
+                  <Users className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
-                  <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{totalSuppliers}</p>
+                  <p className="text-xs text-muted-foreground font-medium">Total</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-700 dark:text-blue-400">{totalSuppliers}</p>
                 </div>
               </div>
             </Card>
-            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-green-500/20">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
+            <Card className="p-4 rounded-xl min-w-[120px] shrink-0 md:min-w-0 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800 min-h-[var(--card-min-h)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-green-500/20">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Active</p>
-                  <p className="text-lg font-bold text-green-700 dark:text-green-400">{activeSuppliers}</p>
+                  <p className="text-xs text-muted-foreground font-medium">Active</p>
+                  <p className="text-xl md:text-2xl font-bold text-green-700 dark:text-green-400">{activeSuppliers}</p>
                 </div>
               </div>
           </Card>
-            <Card className="p-3 min-w-[140px] bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 border-orange-200 dark:border-orange-800">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-orange-500/20">
-                  <DollarSign className="h-4 w-4 text-orange-600" />
+            <Card className="p-4 rounded-xl min-w-[140px] shrink-0 md:min-w-0 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 border-orange-200 dark:border-orange-800 min-h-[var(--card-min-h)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-orange-500/20">
+                  <DollarSign className="h-5 w-5 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Outstanding</p>
-                  <p className="text-lg font-bold text-orange-700 dark:text-orange-400">₹{(totalOutstanding / 1000).toFixed(1)}k</p>
+                  <p className="text-xs text-muted-foreground font-medium">Outstanding</p>
+                  <p className="text-xl md:text-2xl font-bold text-orange-700 dark:text-orange-400">₹{(totalOutstanding / 1000).toFixed(1)}k</p>
                 </div>
               </div>
           </Card>
-            <Card className="p-3 min-w-[140px] bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-purple-500/20">
-                  <Package className="h-4 w-4 text-purple-600" />
+            <Card className="p-4 rounded-xl min-w-[140px] shrink-0 md:min-w-0 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800 min-h-[var(--card-min-h)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/20">
+                  <Package className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Purchases</p>
-                  <p className="text-lg font-bold text-purple-700 dark:text-purple-400">₹{(totalPurchases / 1000).toFixed(1)}k</p>
+                  <p className="text-xs text-muted-foreground font-medium">Purchases</p>
+                  <p className="text-xl md:text-2xl font-bold text-purple-700 dark:text-purple-400">₹{(totalPurchases / 1000).toFixed(1)}k</p>
                 </div>
               </div>
           </Card>
@@ -239,19 +225,19 @@ export default function VendorSuppliers() {
       </div>
 
       {/* Search and Filters */}
-      <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+      <div className="px-4 md:px-6 py-3 md:py-4 bg-white dark:bg-card border-b max-w-[1440px] mx-auto w-full">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search suppliers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-10"
+              className="pl-10 rounded-xl bg-muted/50"
             />
           </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[110px] h-10">
+            <SelectTrigger className="w-[110px] h-10 shrink-0 rounded-lg text-sm">
               <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -261,7 +247,7 @@ export default function VendorSuppliers() {
               </SelectContent>
             </Select>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[130px] h-10 hidden sm:flex">
+            <SelectTrigger className="w-[130px] h-10 shrink-0 rounded-lg text-sm hidden sm:flex">
               <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -278,7 +264,7 @@ export default function VendorSuppliers() {
           </div>
 
       {/* Suppliers List */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 px-4 md:px-6 py-4 max-w-[1440px] mx-auto w-full">
           {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -465,7 +451,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'suppliers'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suppliers`] });
       toast({ title: "Supplier created successfully" });
       onSuccess();
     },
@@ -485,7 +471,7 @@ function SupplierForm({ supplier, vendorId, onSuccess }: { supplier: Supplier | 
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'suppliers'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suppliers`] });
       toast({ title: "Supplier updated successfully" });
       onSuccess();
     },

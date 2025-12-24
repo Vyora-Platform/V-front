@@ -51,8 +51,8 @@ export function SignUpForm() {
         </p>
       </div>
       
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
           <Label htmlFor="username" className="text-gray-700 font-medium" data-testid="label-username">
             Full Name
           </Label>
@@ -71,7 +71,7 @@ export function SignUpForm() {
           </div>
         </div>
         
-        <div className="space-y-2">
+          <div className="space-y-2">
           <Label htmlFor="email" className="text-gray-700 font-medium" data-testid="label-email">
             Email Address
           </Label>
@@ -90,7 +90,7 @@ export function SignUpForm() {
           </div>
         </div>
         
-        <div className="space-y-2">
+          <div className="space-y-2">
           <Label htmlFor="password" className="text-gray-700 font-medium" data-testid="label-password">
             Password
           </Label>
@@ -118,7 +118,7 @@ export function SignUpForm() {
           <p className="text-xs text-gray-500">Minimum 6 characters</p>
         </div>
         
-        <div className="space-y-2">
+          <div className="space-y-2">
           <Label htmlFor="role" className="text-gray-700 font-medium" data-testid="label-role">
             Account Type
           </Label>
@@ -146,12 +146,12 @@ export function SignUpForm() {
           </div>
         </div>
         
-        <Button
-          type="submit"
+          <Button
+            type="submit"
           className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 transition-all mt-2"
-          disabled={loading}
-          data-testid="button-signup"
-        >
+            disabled={loading}
+            data-testid="button-signup"
+          >
           {loading ? (
             <span className="flex items-center gap-2">
               <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -160,17 +160,17 @@ export function SignUpForm() {
           ) : (
             'Create Account'
           )}
-        </Button>
+          </Button>
         
         <p className="text-sm text-center text-gray-600 pt-2" data-testid="text-login-link">
-          Already have an account?{' '}
+            Already have an account?{' '}
           <Link href="/login" data-testid="link-login">
             <span className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer">
               Sign In
             </span>
-          </Link>
-        </p>
-      </form>
+            </Link>
+          </p>
+        </form>
     </div>
   );
 }

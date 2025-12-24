@@ -73,28 +73,31 @@ export default function VendorBilling() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-y-auto pb-20 md:pb-6">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex items-center gap-3 px-4 py-3 md:px-6 md:py-4">
           <Link href="/vendor/account">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-9 w-9">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <h1 className="text-lg font-bold">Subscription & Billing</h1>
+          <div>
+            <h1 className="text-lg md:text-xl font-bold">Subscription & Billing</h1>
+            <p className="text-xs text-muted-foreground hidden sm:block">Manage your plan and payments</p>
+          </div>
         </div>
       </div>
 
-      <div className="p-4 space-y-4 max-w-4xl mx-auto">
+      <div className="p-4 md:px-6 space-y-4 max-w-4xl mx-auto">
         {/* Current Plan Card */}
         <Card className={cn(
-          "overflow-hidden",
+          "overflow-hidden rounded-xl min-h-[var(--card-min-h)]",
           isPro 
             ? "bg-gradient-to-r from-amber-500 to-orange-500" 
             : "bg-gradient-to-r from-blue-500 to-blue-600"
         )}>
-          <CardContent className="p-6 text-white">
+          <CardContent className="p-4 md:p-6 text-white">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -131,12 +134,12 @@ export default function VendorBilling() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="transactions" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-2 h-[var(--input-h)]">
+            <TabsTrigger value="transactions" className="flex items-center gap-2 text-sm">
               <Receipt className="w-4 h-4" />
               Transactions
             </TabsTrigger>
-            <TabsTrigger value="invoices" className="flex items-center gap-2">
+            <TabsTrigger value="invoices" className="flex items-center gap-2 text-sm">
               <FileText className="w-4 h-4" />
               Invoices
             </TabsTrigger>
@@ -148,17 +151,17 @@ export default function VendorBilling() {
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
             ) : transactions.length === 0 ? (
-              <Card className="p-8 text-center">
+              <Card className="p-8 text-center rounded-xl">
                 <Receipt className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-                <p className="text-muted-foreground">No transactions yet</p>
+                <p className="text-muted-foreground text-base">No transactions yet</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Your payment history will appear here
                 </p>
               </Card>
             ) : (
               transactions.map((transaction) => (
-                <Card key={transaction.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
+                <Card key={transaction.id} className="hover:shadow-md transition-shadow rounded-xl">
+                  <CardContent className="p-3 md:p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
                         <div className={cn(
@@ -171,50 +174,50 @@ export default function VendorBilling() {
                         )}>
                           {getStatusIcon(transaction.status)}
                         </div>
-                        <div>
-                          <p className="font-semibold">{transaction.description || "Subscription Payment"}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {format(new Date(transaction.createdAt), "MMM dd, yyyy 'at' hh:mm a")}
-                          </p>
-                          {transaction.invoiceNumber && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Invoice: {transaction.invoiceNumber}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-lg">
-                          {transaction.currency === "INR" ? "₹" : transaction.currency}
-                          {parseFloat(transaction.amount).toFixed(2)}
+                      <div>
+                        <p className="font-semibold text-sm md:text-base">{transaction.description || "Subscription Payment"}</p>
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          {format(new Date(transaction.createdAt), "MMM dd, yyyy 'at' hh:mm a")}
                         </p>
-                        <Badge className={cn("text-xs mt-1", getStatusBadge(transaction.status))}>
-                          {transaction.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    {/* Payment Details */}
-                    <div className="mt-3 pt-3 border-t flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-4 text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <CreditCard className="w-3 h-3" />
-                          {transaction.paymentMethod || "Razorpay"}
-                        </span>
-                        {transaction.periodStart && transaction.periodEnd && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {format(new Date(transaction.periodStart), "MMM dd")} - {format(new Date(transaction.periodEnd), "MMM dd, yyyy")}
-                          </span>
+                        {transaction.invoiceNumber && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Invoice: {transaction.invoiceNumber}
+                          </p>
                         )}
                       </div>
-                      {transaction.invoiceNumber && (
-                        <Button variant="ghost" size="sm" className="text-blue-600">
-                          <Download className="w-3 h-3 mr-1" />
-                          Invoice
-                        </Button>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-base md:text-lg">
+                        {transaction.currency === "INR" ? "₹" : transaction.currency}
+                        {parseFloat(transaction.amount).toFixed(2)}
+                      </p>
+                      <Badge className={cn("text-xs mt-1", getStatusBadge(transaction.status))}>
+                        {transaction.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {/* Payment Details */}
+                  <div className="mt-3 pt-3 border-t flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <div className="flex items-center gap-3 md:gap-4 text-muted-foreground">
+                      <span className="flex items-center gap-1 text-xs md:text-sm">
+                        <CreditCard className="w-3 h-3" />
+                        {transaction.paymentMethod || "Razorpay"}
+                      </span>
+                      {transaction.periodStart && transaction.periodEnd && (
+                        <span className="flex items-center gap-1 text-xs md:text-sm">
+                          <Calendar className="w-3 h-3" />
+                          {format(new Date(transaction.periodStart), "MMM dd")} - {format(new Date(transaction.periodEnd), "MMM dd, yyyy")}
+                        </span>
                       )}
                     </div>
+                    {transaction.invoiceNumber && (
+                      <Button variant="ghost" size="sm" className="text-blue-600 h-9 text-xs">
+                        <Download className="w-3 h-3 mr-1" />
+                        Invoice
+                      </Button>
+                    )}
+                  </div>
                   </CardContent>
                 </Card>
               ))
@@ -241,26 +244,26 @@ export default function VendorBilling() {
                 transactions
                   .filter(t => t.invoiceNumber && (t.status === "succeeded" || t.status === "completed"))
                   .map((invoice) => (
-                    <Card key={invoice.id} className="hover:shadow-md transition-shadow cursor-pointer">
-                      <CardContent className="p-4">
+                    <Card key={invoice.id} className="hover:shadow-md transition-shadow cursor-pointer rounded-xl">
+                      <CardContent className="p-3 md:p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
-                              <FileText className="w-5 h-5 text-blue-600" />
+                            <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900">
+                              <FileText className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                             </div>
                             <div>
-                              <p className="font-semibold">{invoice.invoiceNumber}</p>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="font-semibold text-sm md:text-base">{invoice.invoiceNumber}</p>
+                              <p className="text-xs md:text-sm text-muted-foreground">
                                 {format(new Date(invoice.paidAt || invoice.createdAt), "MMM dd, yyyy")}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 md:gap-3">
                             <div className="text-right">
-                              <p className="font-bold">₹{parseFloat(invoice.amount).toFixed(2)}</p>
+                              <p className="font-bold text-sm md:text-base">₹{parseFloat(invoice.amount).toFixed(2)}</p>
                               <Badge className="bg-green-100 text-green-700 text-xs">Paid</Badge>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                            <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
                           </div>
                         </div>
                       </CardContent>
@@ -272,26 +275,26 @@ export default function VendorBilling() {
         </Tabs>
 
         {/* Billing FAQ */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-base">Billing FAQ</CardTitle>
+        <Card className="mt-6 rounded-xl">
+          <CardHeader className="p-4 md:p-6 pb-2 md:pb-2">
+            <CardTitle className="text-base md:text-lg">Billing FAQ</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm">
+          <CardContent className="space-y-4 text-sm p-4 md:p-6 pt-2 md:pt-2">
             <div>
-              <p className="font-medium">How do I cancel my subscription?</p>
-              <p className="text-muted-foreground mt-1">
+              <p className="font-medium text-sm md:text-base">How do I cancel my subscription?</p>
+              <p className="text-muted-foreground mt-1 text-xs md:text-sm">
                 You can cancel anytime from Account → Subscription. Your access continues until the end of your billing period.
               </p>
             </div>
             <div>
-              <p className="font-medium">Can I get a refund?</p>
-              <p className="text-muted-foreground mt-1">
+              <p className="font-medium text-sm md:text-base">Can I get a refund?</p>
+              <p className="text-muted-foreground mt-1 text-xs md:text-sm">
                 All payments are non-refundable as per our refund policy. Please review features before upgrading.
               </p>
             </div>
             <div>
-              <p className="font-medium">What payment methods are accepted?</p>
-              <p className="text-muted-foreground mt-1">
+              <p className="font-medium text-sm md:text-base">What payment methods are accepted?</p>
+              <p className="text-muted-foreground mt-1 text-xs md:text-sm">
                 We accept UPI, Credit/Debit Cards, Net Banking, and Wallets via Razorpay.
               </p>
             </div>

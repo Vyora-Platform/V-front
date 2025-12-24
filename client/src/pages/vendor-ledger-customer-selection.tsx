@@ -14,13 +14,33 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertCustomerSchema, type Customer, type InsertCustomer } from "@shared/schema";
-import { Search, Plus, Phone, Mail, MapPin, Users, ChevronRight, ArrowLeft } from "lucide-react";
+import { 
+  Search, 
+  Plus, 
+  Phone, 
+  Mail, 
+  MapPin, 
+  Users, 
+  ChevronRight, 
+  ArrowLeft,
+  UserPlus,
+  Building2,
+  User,
+  TrendingUp,
+  TrendingDown
+} from "lucide-react";
 import { useLocation } from "wouter";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+
+type LedgerTransaction = {
+  id: string;
+  customerId: string | null;
+  type: "in" | "out";
+  amount: number;
+};
 
 export default function VendorLedgerCustomerSelection() {
   const { vendorId } = useAuth();
@@ -28,9 +48,10 @@ export default function VendorLedgerCustomerSelection() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<"customers" | "suppliers">("customers");
 
   // Fetch customers with search
-  const { data: customers, isLoading } = useQuery<Customer[]>({
+  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ['/api/vendors', vendorId, 'customers', searchQuery],
     queryFn: async () => {
       let url = `/api/vendors/${vendorId}/customers`;
@@ -40,6 +61,27 @@ export default function VendorLedgerCustomerSelection() {
       if (!response.ok) throw new Error('Failed to fetch customers');
       return response.json();
     },
+    enabled: !!vendorId,
+  });
+
+  // Fetch transactions to calculate balances
+  const { data: transactions = [] } = useQuery<LedgerTransaction[]>({
+    queryKey: ["/api/vendors", vendorId, "ledger-transactions"],
+    queryFn: async () => {
+      const response = await fetch(getApiUrl(`/api/vendors/${vendorId}/ledger-transactions`));
+      if (!response.ok) throw new Error('Failed to fetch transactions');
+      return response.json();
+    },
+    enabled: !!vendorId,
+  });
+
+  // Calculate balance per customer
+  const customerBalances: Record<string, number> = {};
+  transactions.forEach(t => {
+    if (t.customerId) {
+      if (!customerBalances[t.customerId]) customerBalances[t.customerId] = 0;
+      customerBalances[t.customerId] += t.type === 'in' ? t.amount : -t.amount;
+    }
   });
 
   const handleCustomerSelect = (customerId: string) => {
@@ -50,146 +92,216 @@ export default function VendorLedgerCustomerSelection() {
     setIsAddDialogOpen(false);
   };
 
+  if (!vendorId) {
+    return <LoadingSpinner />;
+  }
+
   return (
-    <div className="flex h-full w-full flex-col gap-6 p-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setLocation(`/vendors/${vendorId}/ledger`)}
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-semibold">Select Customer</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Choose a customer to manage their ledger
-          </p>
+    <div className="flex flex-col min-h-screen bg-background">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-50 bg-background border-b">
+        {/* Top Bar */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLocation(`/vendor/ledger`)}
+            className="-ml-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-lg font-semibold">Select Customer</h1>
+            <p className="text-xs text-muted-foreground">Choose a customer to manage their khata</p>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="px-4 pb-3">
+          <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-muted/50 rounded-xl">
+              <TabsTrigger 
+                value="customers" 
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Customers
+              </TabsTrigger>
+              <TabsTrigger 
+                value="suppliers" 
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium flex items-center gap-2"
+              >
+                <Building2 className="h-4 w-4" />
+                Suppliers
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {/* Search Bar */}
+        <div className="px-4 pb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-11 rounded-xl bg-muted/50 border-0 focus-visible:ring-1"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by name, phone, or email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-          data-testid="input-search-customer"
-        />
-      </div>
-
-      {/* Add New Customer Button */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-auto px-4 py-3 pb-24">
+        {/* Add New Customer Card */}
         <Card
-          className="hover-elevate cursor-pointer transition-all"
+          className="mb-4 overflow-hidden border-dashed border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all active:scale-[0.98]"
           onClick={() => setIsAddDialogOpen(true)}
-          data-testid="button-add-new-customer"
         >
           <CardContent className="flex items-center gap-4 p-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10">
-              <Plus className="h-5 w-5 text-primary" />
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+              <UserPlus className="h-6 w-6 text-primary" />
             </div>
-            <div className="flex flex-col items-start">
-              <span className="font-semibold">Add New Customer</span>
-              <span className="text-sm text-muted-foreground">Create a new customer and add transaction</span>
+            <div className="flex-1">
+              <h3 className="font-semibold text-primary">Add New {selectedTab === "customers" ? "Customer" : "Supplier"}</h3>
+              <p className="text-xs text-muted-foreground">
+                Create and start tracking payments
+              </p>
             </div>
+            <Plus className="h-5 w-5 text-primary" />
           </CardContent>
         </Card>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add New Customer</DialogTitle>
-            <DialogDescription>
-              Add a new customer to your database
-            </DialogDescription>
-          </DialogHeader>
-          <CustomerForm onSuccess={(customerId) => {
-            handleCloseDialog();
-            handleCustomerSelect(customerId);
-          }} />
-        </DialogContent>
-      </Dialog>
 
-      {/* Customer List */}
-      <div className="space-y-3">
-        {isLoading ? (
-          <Card>
-            <CardContent className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">Loading customers...</p>
-            </CardContent>
-          </Card>
-        ) : !customers || customers.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-2">No customers found</p>
-              <p className="text-sm text-muted-foreground">Add your first customer to get started</p>
-            </CardContent>
-          </Card>
+        {/* Customer List */}
+        {customersLoading ? (
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />
+            ))}
+          </div>
+        ) : customers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Users className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No {selectedTab} found</h3>
+            <p className="text-sm text-muted-foreground text-center mb-6 max-w-xs">
+              {searchQuery 
+                ? `No results for "${searchQuery}"`
+                : `Add your first ${selectedTab === "customers" ? "customer" : "supplier"} to get started`
+              }
+            </p>
+          </div>
         ) : (
-          customers.map((customer) => (
-            <Card
-              key={customer.id}
-              className="hover-elevate cursor-pointer transition-all"
-              onClick={() => handleCustomerSelect(customer.id)}
-              data-testid={`card-customer-${customer.id}`}
-            >
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                    <span className="text-lg font-semibold text-primary">
-                      {customer.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold" data-testid={`text-customer-name-${customer.id}`}>
-                        {customer.name}
-                      </h3>
-                      <Badge
-                        variant={customer.status === "active" ? "default" : "outline"}
-                        data-testid={`badge-status-${customer.id}`}
-                      >
-                        {customer.status}
-                      </Badge>
+          <div className="space-y-2">
+            {customers.map((customer) => {
+              const balance = customerBalances[customer.id] || 0;
+              return (
+                <Card
+                  key={customer.id}
+                  className="overflow-hidden hover:shadow-md cursor-pointer transition-all active:scale-[0.98]"
+                  onClick={() => handleCustomerSelect(customer.id)}
+                >
+                  <CardContent className="flex items-center p-4">
+                    {/* Avatar */}
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mr-3">
+                      <span className="text-lg font-bold text-primary">
+                        {customer.name.charAt(0).toUpperCase()}
+                      </span>
                     </div>
-                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                      {customer.phone && (
-                        <div className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          <span>{customer.phone}</span>
-                        </div>
-                      )}
-                      {customer.email && (
-                        <div className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          <span>{customer.email}</span>
-                        </div>
-                      )}
-                      {customer.city && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          <span>{customer.city}</span>
-                        </div>
-                      )}
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h3 className="font-semibold text-sm truncate">{customer.name}</h3>
+                        {customer.status === "active" && (
+                          <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {customer.phone && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {customer.phone}
+                          </span>
+                        )}
+                        {customer.city && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {customer.city}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </CardContent>
-            </Card>
-          ))
+
+                    {/* Balance */}
+                    {balance !== 0 && (
+                      <div className="flex flex-col items-end ml-2">
+                        <div className={`flex items-center gap-1 ${
+                          balance > 0 ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          {balance > 0 ? (
+                            <TrendingUp className="h-3 w-3" />
+                          ) : (
+                            <TrendingDown className="h-3 w-3" />
+                          )}
+                          <span className="text-sm font-bold">
+                            ₹{Math.abs(balance).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">
+                          {balance > 0 ? 'will get' : 'will give'}
+                        </span>
+                      </div>
+                    )}
+
+                    <ChevronRight className="h-5 w-5 text-muted-foreground ml-2 flex-shrink-0" />
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         )}
       </div>
+
+      {/* Add Customer Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" />
+              Add New {selectedTab === "customers" ? "Customer" : "Supplier"}
+            </DialogTitle>
+            <DialogDescription>
+              Add details to start tracking khata
+            </DialogDescription>
+          </DialogHeader>
+          <CustomerForm 
+            vendorId={vendorId}
+            type={selectedTab === "customers" ? "customer" : "supplier"}
+            onSuccess={(customerId) => {
+              handleCloseDialog();
+              handleCustomerSelect(customerId);
+            }} 
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function CustomerForm({ onSuccess }: { onSuccess: (customerId: string) => void }) {
+function CustomerForm({ 
+  vendorId, 
+  type,
+  onSuccess 
+}: { 
+  vendorId: string;
+  type: "customer" | "supplier";
+  onSuccess: (customerId: string) => void;
+}) {
   const { toast } = useToast();
+  const [step, setStep] = useState(1);
   
   const form = useForm<InsertCustomer>({
     resolver: zodResolver(insertCustomerSchema),
@@ -235,11 +347,11 @@ function CustomerForm({ onSuccess }: { onSuccess: (customerId: string) => void }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'customers'] });
-      toast({ title: "Customer added successfully" });
+      toast({ title: `${type === "customer" ? "Customer" : "Supplier"} added successfully` });
       onSuccess(data.id);
     },
     onError: () => {
-      toast({ title: "Failed to add customer", variant: "destructive" });
+      toast({ title: "Failed to add", variant: "destructive" });
     },
   });
 
@@ -250,14 +362,9 @@ function CustomerForm({ onSuccess }: { onSuccess: (customerId: string) => void }
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="basic" data-testid="tab-basic-info">Basic Info</TabsTrigger>
-            <TabsTrigger value="membership" data-testid="tab-membership">Membership</TabsTrigger>
-            <TabsTrigger value="additional" data-testid="tab-additional">Additional</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="basic" className="space-y-4 mt-4">
+        {step === 1 && (
+          <>
+            {/* Basic Info */}
             <FormField
               control={form.control}
               name="name"
@@ -265,56 +372,78 @@ function CustomerForm({ onSuccess }: { onSuccess: (customerId: string) => void }
                 <FormItem>
                   <FormLabel>Name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Customer name" {...field} data-testid="input-name" />
+                    <Input 
+                      placeholder={type === "customer" ? "Customer name" : "Supplier/Business name"} 
+                      {...field} 
+                      className="h-11 rounded-xl"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Phone number" {...field} data-testid="input-phone" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="alternatePhone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Alternate Phone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Alternate phone" {...field} value={field.value || ""} data-testid="input-alternate-phone" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="Phone number" 
+                      {...field} 
+                      className="h-11 rounded-xl"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email *</FormLabel>
+                  <FormLabel>Email (Optional)</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="email@example.com" {...field} value={field.value || ""} data-testid="input-email" />
+                    <Input 
+                      type="email" 
+                      placeholder="email@example.com" 
+                      {...field} 
+                      value={field.value || ""} 
+                      className="h-11 rounded-xl"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full"
+              onClick={() => setStep(2)}
+            >
+              Add Address (Optional)
+            </Button>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            {/* Address Info */}
+            <Button 
+              type="button" 
+              variant="ghost" 
+              className="mb-2 -ml-2"
+              onClick={() => setStep(1)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
 
             <FormField
               control={form.control}
@@ -323,14 +452,19 @@ function CustomerForm({ onSuccess }: { onSuccess: (customerId: string) => void }
                 <FormItem>
                   <FormLabel>Address</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Full address" {...field} value={field.value || ""} data-testid="textarea-address" />
+                    <Textarea 
+                      placeholder="Full address" 
+                      {...field} 
+                      value={field.value || ""} 
+                      className="rounded-xl"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
                 name="city"
@@ -338,21 +472,12 @@ function CustomerForm({ onSuccess }: { onSuccess: (customerId: string) => void }
                   <FormItem>
                     <FormLabel>City</FormLabel>
                     <FormControl>
-                      <Input placeholder="City" {...field} value={field.value || ""} data-testid="input-city" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="state"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>State</FormLabel>
-                    <FormControl>
-                      <Input placeholder="State" {...field} value={field.value || ""} data-testid="input-state" />
+                      <Input 
+                        placeholder="City" 
+                        {...field} 
+                        value={field.value || ""} 
+                        className="h-11 rounded-xl"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -366,87 +491,47 @@ function CustomerForm({ onSuccess }: { onSuccess: (customerId: string) => void }
                   <FormItem>
                     <FormLabel>Pincode</FormLabel>
                     <FormControl>
-                      <Input placeholder="Pincode" {...field} value={field.value || ""} data-testid="input-pincode" />
+                      <Input 
+                        placeholder="Pincode" 
+                        {...field} 
+                        value={field.value || ""} 
+                        className="h-11 rounded-xl"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-          </TabsContent>
-
-          <TabsContent value="membership" className="space-y-4 mt-4">
-            <FormField
-              control={form.control}
-              name="membershipType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Membership Type</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || undefined}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-membership-type">
-                        <SelectValue placeholder="Select membership type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="bronze">Bronze</SelectItem>
-                      <SelectItem value="silver">Silver</SelectItem>
-                      <SelectItem value="gold">Gold</SelectItem>
-                      <SelectItem value="platinum">Platinum</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}
-              name="customerType"
+              name="state"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Customer Type</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-customer-type">
-                        <SelectValue placeholder="Select customer type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="walk-in">Walk-in</SelectItem>
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="corporate">Corporate</SelectItem>
-                      <SelectItem value="vip">VIP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </TabsContent>
-
-          <TabsContent value="additional" className="space-y-4 mt-4">
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
+                  <FormLabel>State</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Any additional notes..." {...field} value={field.value || ""} data-testid="textarea-notes" />
+                    <Input 
+                      placeholder="State" 
+                      {...field} 
+                      value={field.value || ""} 
+                      className="h-11 rounded-xl"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </TabsContent>
-        </Tabs>
+          </>
+        )}
 
-        <div className="flex justify-end gap-2 pt-4">
-          <Button type="submit" disabled={mutation.isPending} data-testid="button-submit-customer">
-            {mutation.isPending ? "Adding..." : "Add Customer"}
-          </Button>
-        </div>
+        <Button 
+          type="submit" 
+          disabled={mutation.isPending} 
+          className="w-full h-12 rounded-xl text-base font-semibold"
+        >
+          {mutation.isPending ? "Adding..." : `Add ${type === "customer" ? "Customer" : "Supplier"}`}
+        </Button>
       </form>
     </Form>
   );

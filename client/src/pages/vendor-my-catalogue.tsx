@@ -58,27 +58,27 @@ export default function VendorMyCatalogue() {
   const inactiveServices = catalogue.filter(item => !item.isActive);
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 pb-16 md:pb-6 space-y-6">
+    <div className="max-w-[1440px] mx-auto px-4 md:px-6 pb-20 md:pb-6 pt-4 space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setLocation("/vendor/dashboard")}
-            className="md:hidden flex-shrink-0"
+            className="md:hidden flex-shrink-0 h-9 w-9"
             data-testid="button-back-to-dashboard"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">
               My Catalogue
             </h1>
-            <p className="text-muted-foreground">Manage your services and pricing</p>
+            <p className="text-sm text-muted-foreground">Manage your services and pricing</p>
           </div>
         </div>
         <Link href="/vendor/catalogue/create">
-          <Button data-testid="button-create-service">
+          <Button data-testid="button-create-service" className="h-[var(--cta-h)] text-sm">
             <Plus className="w-4 h-4 mr-2" />
             Add Service
           </Button>
@@ -86,28 +86,28 @@ export default function VendorMyCatalogue() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Total Services</p>
-          <p className="text-2xl font-bold">{catalogue.length}</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <Card className="p-4 rounded-xl min-h-[var(--card-min-h)]">
+          <p className="text-xs text-muted-foreground font-medium mb-1">Total Services</p>
+          <p className="text-xl md:text-2xl font-bold">{catalogue.length}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Active Services</p>
-          <p className="text-2xl font-bold text-chart-2">{activeServices.length}</p>
+        <Card className="p-4 rounded-xl min-h-[var(--card-min-h)]">
+          <p className="text-xs text-chart-2 font-medium mb-1">Active Services</p>
+          <p className="text-xl md:text-2xl font-bold text-chart-2">{activeServices.length}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Inactive Services</p>
-          <p className="text-2xl font-bold text-muted-foreground">{inactiveServices.length}</p>
+        <Card className="p-4 rounded-xl col-span-2 md:col-span-1 min-h-[var(--card-min-h)]">
+          <p className="text-xs text-muted-foreground font-medium mb-1">Inactive Services</p>
+          <p className="text-xl md:text-2xl font-bold text-muted-foreground">{inactiveServices.length}</p>
         </Card>
       </div>
 
       {/* Active Services */}
       {activeServices.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mb-4">Active Services ({activeServices.length})</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <h2 className="text-lg font-semibold mb-3">Active Services ({activeServices.length})</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeServices.map((service) => (
-              <Card key={service.id} className="p-6 hover-elevate" data-testid={`service-${service.id}`}>
+              <Card key={service.id} className="p-4 hover-elevate rounded-xl" data-testid={`service-${service.id}`}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="text-3xl">{service.icon}</div>
@@ -164,7 +164,7 @@ export default function VendorMyCatalogue() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 h-9 text-xs"
                       data-testid={`button-edit-${service.id}`}
                     >
                       <Edit className="w-3 h-3 mr-1" />
@@ -174,6 +174,7 @@ export default function VendorMyCatalogue() {
                   <Button
                     size="sm"
                     variant="outline"
+                    className="h-9 text-xs"
                     onClick={() => deleteMutation.mutate(service.id)}
                     data-testid={`button-delete-${service.id}`}
                   >
@@ -190,10 +191,10 @@ export default function VendorMyCatalogue() {
       {/* Inactive Services */}
       {inactiveServices.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mb-4">Inactive Services ({inactiveServices.length})</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <h2 className="text-lg font-semibold mb-3">Inactive Services ({inactiveServices.length})</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {inactiveServices.map((service) => (
-              <Card key={service.id} className="p-6 opacity-60" data-testid={`service-inactive-${service.id}`}>
+              <Card key={service.id} className="p-4 opacity-60 rounded-xl" data-testid={`service-inactive-${service.id}`}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="text-3xl">{service.icon}</div>
@@ -213,12 +214,12 @@ export default function VendorMyCatalogue() {
 
                 <p className="text-2xl font-bold text-muted-foreground">₹{service.price}</p>
 
-                <div className="flex gap-2 mt-4">
+                <div className="flex gap-2 mt-3">
                   <Link href={`/vendor/catalogue/edit/${service.id}`}>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 h-9 text-xs"
                       data-testid={`button-edit-${service.id}`}
                     >
                       <Edit className="w-3 h-3 mr-1" />
@@ -228,6 +229,7 @@ export default function VendorMyCatalogue() {
                   <Button
                     size="sm"
                     variant="outline"
+                    className="h-9 text-xs"
                     onClick={() => deleteMutation.mutate(service.id)}
                     data-testid={`button-delete-${service.id}`}
                   >
@@ -242,18 +244,18 @@ export default function VendorMyCatalogue() {
       )}
 
       {catalogue.length === 0 && (
-        <Card className="p-12 text-center">
-          <p className="text-lg text-muted-foreground mb-4">
+        <Card className="p-8 text-center rounded-xl">
+          <p className="text-base text-muted-foreground mb-4">
             You haven't added any services yet.
           </p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/vendor/catalogue">
-              <Button variant="outline" data-testid="button-browse-catalogue">
+              <Button variant="outline" className="h-[var(--cta-h)] text-sm" data-testid="button-browse-catalogue">
                 Browse Master Catalogue
               </Button>
             </Link>
             <Link href="/vendor/catalogue/create">
-              <Button data-testid="button-create-service-empty">
+              <Button className="h-[var(--cta-h)] text-sm" data-testid="button-create-service-empty">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Custom Service
               </Button>

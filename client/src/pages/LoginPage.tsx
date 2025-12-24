@@ -97,7 +97,7 @@ export function LoginPage() {
       {/* Right side - Login form */}
       <div className="flex-1 md:w-1/2 flex items-center justify-center p-4 md:p-8 bg-white">
         <div className="w-full max-w-md">
-          <LoginForm />
+      <LoginForm />
         </div>
       </div>
     </div>

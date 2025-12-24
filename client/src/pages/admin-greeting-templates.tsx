@@ -220,25 +220,51 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
   const [customOfferType, setCustomOfferType] = useState("");
   const [customIndustry, setCustomIndustry] = useState("");
 
-  const handleImageChange = (file: File | null) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(template?.imageUrl || null);
+
+  const handleImageChange = async (file: File | null) => {
     setSelectedImageFile(file);
     if (file) {
+      // Show preview immediately
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      
+      // Upload to Supabase S3
+      setIsUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        
+        const response = await fetch(getApiUrl("/api/greeting-templates/upload-image"), {
+          method: "POST",
+          body: formData,
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          setUploadedImageUrl(result.url);
+          console.log("Image uploaded to Supabase:", result.url);
+        } else {
+          console.error("Failed to upload image to Supabase");
+        }
+      } catch (error) {
+        console.error("Error uploading image:", error);
+      } finally {
+        setIsUploading(false);
+      }
     } else {
       setImagePreview(template?.imageUrl || null);
+      setUploadedImageUrl(template?.imageUrl || null);
     }
   };
 
   const handleSubmit = form.handleSubmit(async (data) => {
-    let imageUrl = data.imageUrl || "https://placehold.co/800x600/blue/white?text=Template+Image";
-    
-    if (selectedImageFile) {
-      imageUrl = imagePreview || imageUrl;
-    }
+    // Use the uploaded Supabase URL if available, otherwise fallback
+    let imageUrl = uploadedImageUrl || data.imageUrl || "https://placehold.co/800x600/blue/white?text=Template+Image";
     
     const thumbnailUrl = imageUrl;
 
@@ -290,49 +316,39 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Info */}
-        <div className="grid gap-4 md:grid-cols-2">
+        {/* Template Name */}
         <FormField
           control={form.control}
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Template Title *</FormLabel>
+              <FormLabel>Template Name *</FormLabel>
               <FormControl>
-                  <Input placeholder="e.g., Diwali Festival Offer" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <Input placeholder="e.g., Diwali Festival Offer" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <FormField
-            control={form.control}
-            name="posterType"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Poster Type *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || "festival"}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select poster type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {posterTypeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        {/* Poster Type - Multi Select */}
+        <div className="space-y-2">
+          <FormLabel>Poster Type (Select multiple)</FormLabel>
+          <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/30">
+            {posterTypeOptions.map((option) => (
+              <Badge
+                key={option.value}
+                variant={selectedOfferTypes.includes(option.value) ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary/20 transition-colors py-1.5 px-3"
+                onClick={() => toggleArraySelection(selectedOfferTypes, setSelectedOfferTypes, option.value)}
+              >
+                {option.label}
+              </Badge>
+            ))}
+          </div>
         </div>
 
-        {/* Tags for Search */}
+        {/* Search Tags */}
         <FormField
           control={form.control}
           name="tags"
@@ -352,140 +368,9 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Brief description of the template..."
-                  {...field}
-                  value={field.value || ""}
-                  rows={3}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Orientation & Resolution */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="orientation"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Orientation *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || "square"}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select orientation" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {orientationOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex items-center gap-2">
-                          <option.icon className="w-4 h-4" />
-                          {option.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="resolution"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Resolution</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || "full_hd"}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select resolution" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {resolutionOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="region"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Region</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || "india"}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select region" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {regionOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Event & Expiry Dates */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="eventDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Event Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="expiryDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Expiry Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Image Upload */}
+        {/* Template Image Upload */}
         <div className="space-y-3">
-          <FormLabel>Template Image *</FormLabel>
+          <FormLabel>Template Image * (Uploaded to Supabase S3)</FormLabel>
           
           {imagePreview && (
             <div className="relative w-full aspect-video bg-muted rounded-lg overflow-hidden border-2 border-border max-w-md">
@@ -494,6 +379,19 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
                 alt="Template preview"
                 className="w-full h-full object-cover"
               />
+              {isUploading && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <div className="text-white text-center">
+                    <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-sm">Uploading to Supabase...</p>
+                  </div>
+                </div>
+              )}
+              {uploadedImageUrl && !isUploading && (
+                <div className="absolute top-2 left-2 px-2 py-1 bg-green-600 text-white text-xs rounded-md">
+                  ✓ Uploaded to Supabase
+                </div>
+              )}
               <Button
                 type="button"
                 variant="destructive"
@@ -502,6 +400,7 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
                 onClick={() => {
                   setSelectedImageFile(null);
                   setImagePreview(null);
+                  setUploadedImageUrl(null);
                 }}
               >
                 Remove
@@ -509,38 +408,34 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
             </div>
           )}
           
-          <div className="flex items-center gap-2">
-            <Input
-              type="file"
-              accept="image/png,image/jpeg,image/jpg,image/webp"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                handleImageChange(file || null);
-              }}
-              className="cursor-pointer"
-            />
-          </div>
+          <Input
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/webp"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              handleImageChange(file || null);
+            }}
+            className="cursor-pointer"
+            disabled={isUploading}
+          />
           
           {selectedImageFile && (
             <p className="text-xs text-green-600 font-medium">
               ✓ Selected: {selectedImageFile.name} ({(selectedImageFile.size / 1024).toFixed(1)} KB)
+              {uploadedImageUrl && <span className="ml-2 text-blue-600">• Stored in Supabase S3</span>}
             </p>
           )}
-          
-          <p className="text-xs text-muted-foreground">
-            Upload PNG, JPG, or WebP image (recommended size: 1080x1080 for square, 1080x1920 for portrait)
-          </p>
         </div>
 
-        {/* Occasions */}
+        {/* Occasions / Festivals - Multi Select */}
         <div className="space-y-2">
-          <FormLabel>Occasions / Festivals</FormLabel>
-          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border rounded-lg">
+          <FormLabel>Occasions / Festivals (Select multiple)</FormLabel>
+          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border rounded-lg bg-muted/30">
             {occasionOptions.map((option) => (
               <Badge
                 key={option.value}
                 variant={selectedOccasions.includes(option.value) ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary/20 transition-colors"
+                className="cursor-pointer hover:bg-primary/20 transition-colors py-1.5 px-3"
                 onClick={() => toggleArraySelection(selectedOccasions, setSelectedOccasions, option.value)}
               >
                 {option.label}
@@ -550,14 +445,14 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
               <Badge
                 key={custom}
                 variant="default"
-                className="cursor-pointer"
+                className="cursor-pointer py-1.5 px-3"
                 onClick={() => setSelectedOccasions(selectedOccasions.filter(o => o !== custom))}
               >
                 {custom} ✕
               </Badge>
             ))}
           </div>
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2">
             <Input
               placeholder="Add custom occasion..."
               value={customOccasion}
@@ -571,15 +466,15 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
           </div>
         </div>
 
-        {/* Offer Types */}
+        {/* Offer Types - Multi Select */}
         <div className="space-y-2">
-          <FormLabel>Offer Types</FormLabel>
-          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border rounded-lg">
+          <FormLabel>Offer Types (Select multiple)</FormLabel>
+          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border rounded-lg bg-muted/30">
             {offerTypeOptions.map((option) => (
               <Badge
                 key={option.value}
                 variant={selectedOfferTypes.includes(option.value) ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary/20 transition-colors"
+                className="cursor-pointer hover:bg-primary/20 transition-colors py-1.5 px-3"
                 onClick={() => toggleArraySelection(selectedOfferTypes, setSelectedOfferTypes, option.value)}
               >
                 {option.label}
@@ -589,14 +484,14 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
               <Badge
                 key={custom}
                 variant="default"
-                className="cursor-pointer"
+                className="cursor-pointer py-1.5 px-3"
                 onClick={() => setSelectedOfferTypes(selectedOfferTypes.filter(o => o !== custom))}
               >
                 {custom} ✕
               </Badge>
             ))}
           </div>
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2">
             <Input
               placeholder="Add custom offer type..."
               value={customOfferType}
@@ -610,15 +505,15 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
           </div>
         </div>
 
-        {/* Industries */}
+        {/* Industries / Categories - Multi Select */}
         <div className="space-y-2">
-          <FormLabel>Industries / Categories</FormLabel>
-          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border rounded-lg">
+          <FormLabel>Industries / Categories (Select multiple)</FormLabel>
+          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border rounded-lg bg-muted/30">
             {industryOptions.map((option) => (
               <Badge
                 key={option.value}
                 variant={selectedIndustries.includes(option.value) ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary/20 transition-colors"
+                className="cursor-pointer hover:bg-primary/20 transition-colors py-1.5 px-3"
                 onClick={() => toggleArraySelection(selectedIndustries, setSelectedIndustries, option.value)}
               >
                 {option.label}
@@ -628,14 +523,14 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
               <Badge
                 key={custom}
                 variant="default"
-                className="cursor-pointer"
+                className="cursor-pointer py-1.5 px-3"
                 onClick={() => setSelectedIndustries(selectedIndustries.filter(i => i !== custom))}
               >
                 {custom} ✕
               </Badge>
             ))}
           </div>
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2">
             <Input
               placeholder="Add custom industry..."
               value={customIndustry}
@@ -647,121 +542,6 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
               <Plus className="w-4 h-4" />
             </Button>
           </div>
-        </div>
-
-        {/* Feature Toggles */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
-          <FormField
-            control={form.control}
-            name="hasEditableText"
-            render={({ field }) => (
-              <FormItem className="flex items-center space-x-2 space-y-0">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="cursor-pointer text-sm">Editable Text</FormLabel>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="supportsLogo"
-            render={({ field }) => (
-              <FormItem className="flex items-center space-x-2 space-y-0">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="cursor-pointer text-sm">Logo Support</FormLabel>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="supportsProducts"
-            render={({ field }) => (
-              <FormItem className="flex items-center space-x-2 space-y-0">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="cursor-pointer text-sm">Products</FormLabel>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="supportsServices"
-            render={({ field }) => (
-              <FormItem className="flex items-center space-x-2 space-y-0">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="cursor-pointer text-sm">Services</FormLabel>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="supportsOffers"
-            render={({ field }) => (
-              <FormItem className="flex items-center space-x-2 space-y-0">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="cursor-pointer text-sm">Offers</FormLabel>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="includesPlatformBranding"
-            render={({ field }) => (
-              <FormItem className="flex items-center space-x-2 space-y-0">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="cursor-pointer text-sm">Platform Branding</FormLabel>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="isTrending"
-            render={({ field }) => (
-              <FormItem className="flex items-center space-x-2 space-y-0">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="cursor-pointer text-sm">Mark Trending</FormLabel>
-              </FormItem>
-            )}
-          />
         </div>
 
         {/* Status */}
@@ -970,20 +750,21 @@ export default function AdminGreetingTemplates() {
                            selectedStatus !== "";
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold">Poster & Banner Management</h1>
-          <p className="text-muted-foreground text-sm">Create and manage marketing templates for vendors</p>
-        </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Template
-            </Button>
-          </DialogTrigger>
+    <div className="min-h-screen bg-background overflow-y-auto pb-20 md:pb-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl font-bold">Poster & Banner Management</h1>
+            <p className="text-muted-foreground text-sm">Create and manage marketing templates for vendors</p>
+          </div>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full sm:w-auto h-10">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Template
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Template</DialogTitle>
@@ -997,94 +778,94 @@ export default function AdminGreetingTemplates() {
         </Dialog>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <LayoutGrid className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <div>
-                <p className="text-xs text-muted-foreground">Total</p>
-                <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{stats.total}</p>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <LayoutGrid className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Total</p>
+                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{stats.total}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Eye className="w-5 h-5 text-green-600 dark:text-green-400" />
-              <div>
-                <p className="text-xs text-muted-foreground">Published</p>
-                <p className="text-xl font-bold text-green-600 dark:text-green-400">{stats.published}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Eye className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Published</p>
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">{stats.published}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 border-yellow-200 dark:border-yellow-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <EyeOff className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-              <div>
-                <p className="text-xs text-muted-foreground">Drafts</p>
-                <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{stats.draft}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 border-yellow-200 dark:border-yellow-800 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <EyeOff className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Drafts</p>
+                  <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400">{stats.draft}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-              <div>
-                <p className="text-xs text-muted-foreground">Trending</p>
-                <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{stats.trending}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Trending</p>
+                  <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{stats.trending}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Download className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-              <div>
-                <p className="text-xs text-muted-foreground">Downloads</p>
-                <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{stats.totalDownloads}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Download className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Downloads</p>
+                  <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{stats.totalDownloads}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-950 dark:to-pink-900 border-pink-200 dark:border-pink-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Share2 className="w-5 h-5 text-pink-600 dark:text-pink-400" />
-              <div>
-                <p className="text-xs text-muted-foreground">Shares</p>
-                <p className="text-xl font-bold text-pink-600 dark:text-pink-400">{stats.totalShares}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-950 dark:to-pink-900 border-pink-200 dark:border-pink-800 rounded-xl min-h-[var(--card-min-h)]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-pink-600 dark:text-pink-400" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Shares</p>
+                  <p className="text-lg font-bold text-pink-600 dark:text-pink-400">{stats.totalShares}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Search & Filters */}
-      <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search templates by title or description..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+        {/* Search & Filters */}
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search templates by title or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-[var(--input-h)] text-sm"
+            />
+          </div>
 
-        {/* Filters Row */}
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          {/* Poster Type Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="flex-shrink-0">
+          {/* Filters Row */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {/* Poster Type Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-shrink-0 h-9 text-sm">
                 <Tag className="w-4 h-4 mr-2" />
                 Poster Type
                 {selectedPosterTypes.length > 0 && (
@@ -1110,10 +891,10 @@ export default function AdminGreetingTemplates() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Occasion Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="flex-shrink-0">
+            {/* Occasion Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-shrink-0 h-9 text-sm">
                 <Calendar className="w-4 h-4 mr-2" />
                 Occasions
                 {selectedOccasions.length > 0 && (
@@ -1139,10 +920,10 @@ export default function AdminGreetingTemplates() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Industry Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="flex-shrink-0">
+            {/* Industry Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-shrink-0 h-9 text-sm">
                 <Sparkles className="w-4 h-4 mr-2" />
                 Industry
                 {selectedIndustries.length > 0 && (
@@ -1168,10 +949,10 @@ export default function AdminGreetingTemplates() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Status Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="flex-shrink-0">
+            {/* Status Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-shrink-0 h-9 text-sm">
                 <Filter className="w-4 h-4 mr-2" />
                 Status
                 {selectedStatus && (
@@ -1206,43 +987,43 @@ export default function AdminGreetingTemplates() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Clear Filters */}
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="flex-shrink-0">
-              Clear All
-            </Button>
-          )}
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="flex-shrink-0 h-9 text-sm">
+                Clear All
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full max-w-lg grid-cols-4">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="published">Published</TabsTrigger>
-          <TabsTrigger value="draft">Drafts</TabsTrigger>
-          <TabsTrigger value="trending">Trending</TabsTrigger>
-        </TabsList>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full max-w-lg grid-cols-4 h-[var(--input-h)]">
+            <TabsTrigger value="all" className="text-sm">All</TabsTrigger>
+            <TabsTrigger value="published" className="text-sm">Published</TabsTrigger>
+            <TabsTrigger value="draft" className="text-sm">Drafts</TabsTrigger>
+            <TabsTrigger value="trending" className="text-sm">Trending</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value={activeTab} className="mt-6">
-      {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading templates...</div>
-      ) : filteredTemplates.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No templates found</p>
-                {hasActiveFilters && (
-                  <Button variant="link" onClick={clearAllFilters} className="mt-2">
-                    Clear filters
-                  </Button>
-                )}
-          </CardContent>
-        </Card>
-      ) : (
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {filteredTemplates.map((template) => (
-                <Card key={template.id} className="group overflow-hidden hover:shadow-lg transition-shadow">
+          <TabsContent value={activeTab} className="mt-6">
+            {isLoading ? (
+              <div className="text-center py-12 text-muted-foreground">Loading templates...</div>
+            ) : filteredTemplates.length === 0 ? (
+              <Card className="rounded-xl">
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No templates found</p>
+                  {hasActiveFilters && (
+                    <Button variant="link" onClick={clearAllFilters} className="mt-2">
+                      Clear filters
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {filteredTemplates.map((template) => (
+                  <Card key={template.id} className="group overflow-hidden hover:shadow-lg transition-shadow rounded-xl">
                   <div className="relative aspect-square bg-muted overflow-hidden">
                   <img
                     src={template.thumbnailUrl || template.imageUrl}
@@ -1325,16 +1106,16 @@ export default function AdminGreetingTemplates() {
                         {template.shareCount}
                       </span>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
+        {/* Edit Dialog */}
+        <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Template</DialogTitle>
@@ -1350,9 +1131,10 @@ export default function AdminGreetingTemplates() {
         </DialogContent>
       </Dialog>
 
-      {/* Category Management Section */}
-      <CategoryManagement />
-                </div>
+        {/* Category Management Section */}
+        <CategoryManagement />
+      </div>
+    </div>
   );
 }
 

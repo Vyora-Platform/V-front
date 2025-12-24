@@ -122,7 +122,23 @@ const miniWebsiteFormSchema = z.object({
   homeServiceTime: z.string().optional(),
   
   // Layout Selection
-  layoutId: z.string().default("general-modern"),
+  layoutId: z.string().default("hybrid-business"),
+  
+  // Social Media Links (optional)
+  socialMedia: z.object({
+    facebook: z.string().url().optional().or(z.literal("")),
+    instagram: z.string().url().optional().or(z.literal("")),
+    youtube: z.string().url().optional().or(z.literal("")),
+    twitter: z.string().url().optional().or(z.literal("")),
+  }).default({ facebook: "", instagram: "", youtube: "", twitter: "" }),
+  
+  // Trust Numbers (displayed below hero)
+  trustNumbers: z.object({
+    yearsInBusiness: z.number().default(0),
+    happyCustomers: z.number().default(0),
+    starRating: z.number().min(0).max(5).default(0),
+    repeatCustomers: z.number().default(0),
+  }).default({ yearsInBusiness: 0, happyCustomers: 0, starRating: 0, repeatCustomers: 0 }),
 });
 
 type FormValues = z.infer<typeof miniWebsiteFormSchema>;
@@ -139,14 +155,15 @@ const STEPS = [
   { id: 9, name: "Coupons", icon: Tag },
   { id: 10, name: "Catalog", icon: Package },
   { id: 11, name: "E-commerce", icon: Package },
-  { id: 12, name: "Color Theme", icon: Palette },
-  { id: 13, name: "Choose Layout", icon: Globe },
-  { id: 14, name: "Review & Publish", icon: CheckCircle2 },
+  { id: 12, name: "Trust Numbers", icon: Star },
+  { id: 13, name: "Social Media", icon: Globe },
+  { id: 14, name: "Website Layout", icon: Store },
+  { id: 15, name: "Color Theme", icon: Palette },
+  { id: 16, name: "Review & Publish", icon: CheckCircle2 },
 ];
 
-// LocalStorage keys
-const STORAGE_KEY_FORM_DATA = 'vendor_website_builder_form_data';
-const STORAGE_KEY_COMPLETED_STEPS = 'vendor_website_builder_completed_steps';
+// LocalStorage keys - include vendorId for multi-vendor support
+const getStorageKey = (vendorId: string, suffix: string) => `vendor_website_builder_${vendorId}_${suffix}`;
 
 export default function VendorMiniWebsite() {
   const { toast } = useToast();
@@ -162,12 +179,27 @@ export default function VendorMiniWebsite() {
   const [currentStep, setCurrentStep] = useState(validStep);
   const [showPreview, setShowPreview] = useState(false);
   
+  // Auto-save indicator state
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  
   // Subdomain availability state
   const [subdomainAvailable, setSubdomainAvailable] = useState<boolean | null>(null);
   const [subdomainMessage, setSubdomainMessage] = useState<string>("");
   const [checkingSubdomain, setCheckingSubdomain] = useState(false);
+  // Track saved subdomain from existing website - LOCKED once set
+  const [savedSubdomain, setSavedSubdomain] = useState<string | null>(null);
+  const [subdomainLocked, setSubdomainLocked] = useState(false);
   
-  // Track completed steps
+  // Get real vendor ID from localStorage first (before useAuth)
+  const { vendorId } = useAuth();
+  
+  // Storage keys with vendorId
+  const STORAGE_KEY_FORM_DATA = vendorId ? getStorageKey(vendorId, 'form_data') : 'vendor_website_builder_form_data';
+  const STORAGE_KEY_COMPLETED_STEPS = vendorId ? getStorageKey(vendorId, 'completed_steps') : 'vendor_website_builder_completed_steps';
+  const STORAGE_KEY_SUBDOMAIN = vendorId ? getStorageKey(vendorId, 'locked_subdomain') : 'vendor_website_builder_locked_subdomain';
+  
+  // Track completed steps - persisted in localStorage
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_COMPLETED_STEPS);
@@ -177,10 +209,25 @@ export default function VendorMiniWebsite() {
     }
   });
   
+  // Load locked subdomain from localStorage on mount
+  useEffect(() => {
+    if (vendorId) {
+      const lockedSub = localStorage.getItem(STORAGE_KEY_SUBDOMAIN);
+      if (lockedSub) {
+        setSavedSubdomain(lockedSub);
+        setSubdomainLocked(true);
+        setSubdomainAvailable(true);
+        setSubdomainMessage("Your website name (locked)");
+      }
+    }
+  }, [vendorId, STORAGE_KEY_SUBDOMAIN]);
+  
   // Save completed steps to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_COMPLETED_STEPS, JSON.stringify([...completedSteps]));
-  }, [completedSteps]);
+    if (vendorId) {
+      localStorage.setItem(STORAGE_KEY_COMPLETED_STEPS, JSON.stringify([...completedSteps]));
+    }
+  }, [completedSteps, vendorId, STORAGE_KEY_COMPLETED_STEPS]);
   
   // Update step when URL query parameter changes
   useEffect(() => {
@@ -193,14 +240,11 @@ export default function VendorMiniWebsite() {
       }
     }
   }, [location.search]);
-  
-  // Get real vendor ID from localStorage
-  const { vendorId } = useAuth();
 
-  // Fetch existing mini-website (only in edit mode)
+  // Fetch existing mini-website (always fetch to check if one exists)
   const { data: miniWebsite, isLoading: loadingWebsite } = useQuery<MiniWebsite>({
     queryKey: [`/api/vendors/${vendorId}/mini-website`],
-    enabled: !isCreateMode, // Only fetch if NOT in create mode
+    enabled: !!vendorId, // Always fetch when vendor ID is available
   });
 
   // Fetch vendor details for autofill (in both create and edit modes)
@@ -279,20 +323,44 @@ export default function VendorMiniWebsite() {
       homeServiceAvailable: savedFormData?.homeServiceAvailable ?? false,
       homeServiceCharges: savedFormData?.homeServiceCharges || 0,
       homeServiceTime: savedFormData?.homeServiceTime || "",
-      layoutId: savedFormData?.layoutId || "general-modern",
+      layoutId: savedFormData?.layoutId || "hybrid-business",
+      socialMedia: savedFormData?.socialMedia || { facebook: "", instagram: "", youtube: "", twitter: "" },
+      trustNumbers: savedFormData?.trustNumbers || { yearsInBusiness: 0, happyCustomers: 0, starRating: 0, repeatCustomers: 0 },
     },
   });
 
-  // Save form data to localStorage whenever it changes
+  // Save form data to localStorage on every change (instant)
   useEffect(() => {
     const subscription = form.watch((data) => {
-      localStorage.setItem(STORAGE_KEY_FORM_DATA, JSON.stringify(data));
+      if (vendorId) {
+        localStorage.setItem(STORAGE_KEY_FORM_DATA, JSON.stringify(data));
+      }
     });
     return () => subscription.unsubscribe();
-  }, [form]);
+  }, [form, vendorId, STORAGE_KEY_FORM_DATA]);
+  
+  // Save on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const data = form.getValues();
+      if (vendorId) {
+        localStorage.setItem(STORAGE_KEY_FORM_DATA, JSON.stringify(data));
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [form, vendorId, STORAGE_KEY_FORM_DATA]);
 
   // Check subdomain availability function (called on button click)
+  // ONLY check if subdomain is NOT locked
   const checkSubdomainAvailability = async () => {
+    // If subdomain is locked, don't re-check
+    if (subdomainLocked) {
+      setSubdomainAvailable(true);
+      setSubdomainMessage("Your website name (locked)");
+      return;
+    }
+    
     const subdomain = form.getValues("subdomain");
     
     if (!subdomain || subdomain.length < 3) {
@@ -320,6 +388,13 @@ export default function VendorMiniWebsite() {
       const data = await response.json();
       setSubdomainAvailable(data.available);
       setSubdomainMessage(data.reason || (data.available ? "This website name is available!" : "This website name is already taken"));
+      
+      // If available, lock it permanently
+      if (data.available && vendorId) {
+        setSavedSubdomain(subdomain);
+        setSubdomainLocked(true);
+        localStorage.setItem(STORAGE_KEY_SUBDOMAIN, subdomain);
+      }
     } catch (error) {
       console.error("Error checking subdomain:", error);
       setSubdomainAvailable(null);
@@ -329,18 +404,24 @@ export default function VendorMiniWebsite() {
     }
   };
 
-  // Reset availability when subdomain changes
+  // Reset availability when subdomain changes - ONLY if not locked
   const watchedSubdomain = form.watch("subdomain");
   useEffect(() => {
-    // Reset availability state when user types
-    setSubdomainAvailable(null);
-    setSubdomainMessage("");
-  }, [watchedSubdomain]);
+    // Don't reset if subdomain is locked
+    if (subdomainLocked && watchedSubdomain === savedSubdomain) {
+      return;
+    }
+    // Reset availability state when user types a different subdomain
+    if (!subdomainLocked) {
+      setSubdomainAvailable(null);
+      setSubdomainMessage("");
+    }
+  }, [watchedSubdomain, subdomainLocked, savedSubdomain]);
 
-  // Autofill form with vendor details when creating new website
+  // Autofill form with vendor details when creating new website (only if no existing website)
   useEffect(() => {
-    if (isCreateMode && vendor) {
-      console.log("🔄 Auto-filling mini-website with vendor details...");
+    if (isCreateMode && vendor && !miniWebsite && !loadingWebsite) {
+      console.log("🔄 Auto-filling new website with vendor details...");
       console.log("Vendor data:", vendor);
       
       // Generate subdomain from business name
@@ -399,17 +480,19 @@ export default function VendorMiniWebsite() {
         homeServiceAvailable: false,
         homeServiceCharges: 0,
         homeServiceTime: "",
-        layoutId: "general-modern",
+        layoutId: "hybrid-business",
+        socialMedia: { facebook: "", instagram: "", youtube: "", twitter: "" },
+        trustNumbers: { yearsInBusiness: 0, happyCustomers: 0, starRating: 0, repeatCustomers: 0 },
       });
       
-      console.log("✅ Auto-filled mini-website form");
+      console.log("✅ Auto-filled new website form");
     }
-  }, [isCreateMode, vendor, form]);
+  }, [isCreateMode, vendor, form, miniWebsite, loadingWebsite]);
 
-  // Rehydrate form when mini-website data loads (only in edit mode)
+  // Rehydrate form when mini-website data loads (if website exists, use it even in create mode)
   useEffect(() => {
-    if (!isCreateMode && miniWebsite && vendor) {
-      console.log("🔄 Prefilling edit form with miniwebsite and vendor details...");
+    if (miniWebsite && vendor) {
+      console.log("🔄 Prefilling form with existing website data...");
       
       const businessInfo = miniWebsite.businessInfo as any;
       const contactInfo = miniWebsite.contactInfo as any;
@@ -419,6 +502,18 @@ export default function VendorMiniWebsite() {
       const testimonials = miniWebsite.testimonials as any;
       const coupons = miniWebsite.coupons as any;
       const ecommerce = miniWebsite.ecommerce as any;
+      
+      // Save the original subdomain for edit validation and LOCK it
+      if (miniWebsite.subdomain) {
+        setSavedSubdomain(miniWebsite.subdomain);
+        setSubdomainLocked(true);
+        setSubdomainAvailable(true);
+        setSubdomainMessage("Your website name (locked)");
+        // Persist to localStorage
+        if (vendorId) {
+          localStorage.setItem(STORAGE_KEY_SUBDOMAIN, miniWebsite.subdomain);
+        }
+      }
       
       form.reset({
         subdomain: miniWebsite.subdomain || "",
@@ -470,12 +565,14 @@ export default function VendorMiniWebsite() {
         homeServiceAvailable: ecommerce?.homeServiceAvailable || false,
         homeServiceCharges: ecommerce?.homeServiceCharges || 0,
         homeServiceTime: ecommerce?.homeServiceTime || "",
-        layoutId: branding?.layoutId || "general-modern",
+        layoutId: branding?.layoutId || "hybrid-business",
+        socialMedia: (miniWebsite as any).socialMedia || { facebook: "", instagram: "", youtube: "", twitter: "" },
+        trustNumbers: (miniWebsite as any).trustNumbers || { yearsInBusiness: 0, happyCustomers: 0, starRating: 0, repeatCustomers: 0 },
       });
       
-      console.log("✅ Prefilled edit form");
+      console.log("✅ Prefilled form with existing website data");
     }
-  }, [isCreateMode, miniWebsite, vendor, form]);
+  }, [miniWebsite, vendor, form]);
 
   // Helper function to build save payload
   const buildSavePayload = (data: FormValues) => ({
@@ -546,6 +643,8 @@ export default function VendorMiniWebsite() {
       homeServiceCharges: data.homeServiceCharges || 0,
       homeServiceTime: data.homeServiceTime || "",
     },
+    socialMedia: data.socialMedia || { facebook: "", instagram: "", youtube: "", twitter: "" },
+    trustNumbers: data.trustNumbers || { yearsInBusiness: 0, happyCustomers: 0, starRating: 0, repeatCustomers: 0 },
   });
 
   // Silent save mutation (for auto-save on Next - no toast)
@@ -556,13 +655,35 @@ export default function VendorMiniWebsite() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/mini-website`] });
+      setLastSaved(new Date());
+      setIsSaving(false);
       // No toast - silent save
     },
     onError: (error: any) => {
       console.error("Auto-save failed:", error);
+      setIsSaving(false);
       // Silent fail - don't interrupt user
     },
   });
+  
+  // Debounced auto-save to backend (2 second delay)
+  useEffect(() => {
+    let saveTimeout: NodeJS.Timeout;
+    const subscription = form.watch((data) => {
+      // Debounced auto-save to backend
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => {
+        if (data.subdomain && data.businessName && vendorId && !silentSaveMutation.isPending) {
+          setIsSaving(true);
+          silentSaveMutation.mutate(data as FormValues);
+        }
+      }, 2000); // 2 second debounce for backend save
+    });
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(saveTimeout);
+    };
+  }, [form, vendorId, silentSaveMutation]);
 
   // Save mini-website mutation (with toast - for explicit Save Draft)
   const saveMutation = useMutation({
@@ -617,9 +738,9 @@ export default function VendorMiniWebsite() {
   const getSiteUrl = (subdomain: string) => {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (isLocalhost) {
-      return `http://localhost:${window.location.port}/site/${subdomain}`;
+      return `http://localhost:${window.location.port}/${subdomain}`;
     }
-    return `https://${subdomain}.vendorhub.com`;
+    return `${window.location.origin}/${subdomain}`;
   };
 
   // Open preview in new tab
@@ -650,12 +771,16 @@ export default function VendorMiniWebsite() {
         else if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(values.subdomain)) {
           errors.push("Use only lowercase letters, numbers, and hyphens");
         }
-        // Check if availability was verified
-        if (subdomainAvailable === null && values.subdomain && values.subdomain.length >= 3) {
-          errors.push("Please check website name availability first");
-        }
-        if (subdomainAvailable === false && values.subdomain && values.subdomain.length >= 3) {
-          errors.push("This website name is not available");
+        // If subdomain is LOCKED, no availability check needed
+        if (subdomainLocked) {
+          // Already locked and confirmed - no errors
+        } else if (values.subdomain && values.subdomain.length >= 3) {
+          // Not locked - must check availability
+          if (subdomainAvailable === null) {
+            errors.push("Please check & lock website name first");
+          } else if (subdomainAvailable === false) {
+            errors.push("This website name is not available");
+          }
         }
         break;
       case 2: // Business Info
@@ -710,14 +835,18 @@ export default function VendorMiniWebsite() {
         break;
       case 11: // E-commerce - validation handled by form schema
         break;
-      case 12: // Color Theme - colors are pre-selected, valid by default
+      case 12: // Trust Numbers - optional, skippable
         break;
-      case 13: // Choose Layout - must select a layout
+      case 13: // Social Media - optional, skippable
+        break;
+      case 14: // Website Layout - must select a layout
         if (!values.layoutId || !values.layoutId.trim()) {
-          errors.push("Please select a layout for your website");
+          errors.push("Please select a website layout");
         }
         break;
-      case 14: // Review & Publish - no validation needed
+      case 15: // Color Theme - colors are pre-selected, valid by default
+        break;
+      case 16: // Review & Publish - no validation needed
         break;
     }
 
@@ -866,35 +995,62 @@ export default function VendorMiniWebsite() {
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="w-full h-full">
-        {/* Header */}
-        <div className="px-4 py-3 border-b">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold" data-testid="heading-builder">
-                Website Builder {isCreateMode && <span className="text-base text-blue-600">(New Website)</span>}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {isCreateMode ? "Create your business online presence in minutes" : "Edit your mini-website"}
-              </p>
+    <div className="h-screen flex flex-col overflow-hidden max-w-[1440px] mx-auto">
+      <div className="w-full h-full flex flex-col flex-1 overflow-hidden">
+        {/* Header - Fixed on mobile */}
+        <div className="px-4 md:px-6 py-3 md:py-4 border-b sticky top-0 bg-background z-10 flex-shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => window.history.back()}
+                className="flex-shrink-0 h-9 w-9"
+                data-testid="button-back"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg md:text-2xl font-bold truncate" data-testid="heading-builder">
+                  Website Builder
+                </h1>
+                {/* Auto-save indicator */}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {isSaving ? (
+                    <span className="flex items-center gap-1 text-amber-600">
+                      <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                      Saving...
+                    </span>
+                  ) : lastSaved ? (
+                    <span className="flex items-center gap-1 text-green-600">
+                      <CheckCircle2 className="h-3 w-3" />
+                      All changes saved
+                    </span>
+                  ) : (
+                    <span className="hidden sm:block">
+                      {isCreateMode ? "Create your website" : "Edit your website"}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
             <Button
               type="button"
               variant="outline"
               onClick={() => setShowPreview(true)}
-              className="gap-2"
+              className="gap-2 text-xs md:text-sm px-3 md:px-4 h-9 md:h-[var(--input-h)] flex-shrink-0"
               data-testid="button-live-preview"
             >
               <Eye className="h-4 w-4" />
-              Live Preview
+              <span className="hidden sm:inline">Live</span> Preview
             </Button>
           </div>
         </div>
 
-        {/* Progress Stepper */}
-        <div className="px-4 py-3 border-b overflow-x-auto">
-          <div className="flex gap-2 min-w-max">
+        {/* Progress Stepper - Scrollable horizontally on mobile */}
+        <div className="px-4 md:px-6 py-3 border-b overflow-x-auto scrollbar-hide flex-shrink-0">
+          <div className="flex gap-2 md:gap-3 min-w-max pb-1">
             {STEPS.map((step) => {
               const StepIcon = step.icon;
               const isCompleted = completedSteps.has(step.id);
@@ -908,7 +1064,7 @@ export default function VendorMiniWebsite() {
                   type="button"
                   onClick={() => handleStepClick(step.id)}
                   disabled={isLocked}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md border transition-colors ${
+                  className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl border transition-colors text-xs md:text-sm min-h-[var(--input-h)] ${
                     isActive
                       ? "bg-primary text-primary-foreground border-primary"
                       : isCompleted
@@ -923,7 +1079,7 @@ export default function VendorMiniWebsite() {
                   ) : (
                     <StepIcon className="h-4 w-4" />
                   )}
-                  <span className="text-sm font-medium whitespace-nowrap">{step.name}</span>
+                  <span className="font-medium whitespace-nowrap">{step.name}</span>
                   {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                 </button>
               );
@@ -931,46 +1087,62 @@ export default function VendorMiniWebsite() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 gap-0">
+        {/* Main Content - Full height scrollable with fixed bottom nav space */}
+        <div className="flex-1 overflow-y-auto overscroll-contain pb-32 md:pb-6">
           {/* Form Section */}
-          <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-180px)]">
+          <div className="p-4 md:p-6 space-y-4">
             <Form {...form}>
               <form className="space-y-6">
                 {/* Step 1: Choose Your Website Name */}
                 {currentStep === 1 && (
-                  <Card className="border-2">
-                    <CardHeader className="text-center pb-2">
-                      <div className="mx-auto w-16 h-16 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full flex items-center justify-center mb-4">
-                        <Globe className="h-8 w-8 text-white" />
+                  <Card className="border-2 rounded-xl">
+                    <CardHeader className="text-center pb-2 p-4 md:p-6">
+                      <div className="mx-auto w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full flex items-center justify-center mb-4">
+                        <Globe className="h-7 w-7 md:h-8 md:w-8 text-white" />
                       </div>
-                      <CardTitle className="text-2xl">Choose Your Website Name</CardTitle>
-                      <CardDescription className="text-base">
-                        Pick a unique name for your business website. This will be your online address.
+                      <CardTitle className="text-xl md:text-2xl">Choose Your Website Name</CardTitle>
+                      <CardDescription className="text-sm md:text-base">
+                        {subdomainLocked 
+                          ? "Your website name has been confirmed and is permanently locked."
+                          : "Pick a unique name for your business website. This will be your online address."
+                        }
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-6 pt-4">
+                    <CardContent className="space-y-6 pt-4 p-4 md:p-6">
                       <div className="space-y-4">
                         <FormField
                           control={form.control}
                           name="subdomain"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-base font-semibold">Website Name</FormLabel>
+                              <FormLabel className="text-base font-semibold flex items-center gap-2">
+                                Website Name
+                                {subdomainLocked && (
+                                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                    <Lock className="h-3 w-3" />
+                                    Locked
+                                  </Badge>
+                                )}
+                              </FormLabel>
                               <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                   <div className="relative flex-1">
                                     <FormControl>
                                       <Input 
                                         {...field}
-                                        value={field.value.toLowerCase().replace(/[^a-z0-9-]/g, '')}
+                                        value={field.value?.toLowerCase().replace(/[^a-z0-9-]/g, '') || ''}
                                         onChange={(e) => {
-                                          const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-                                          field.onChange(value);
+                                          // Only allow changes if NOT locked
+                                          if (!subdomainLocked) {
+                                            const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                                            field.onChange(value);
+                                          }
                                         }}
                                         data-testid="input-subdomain"
                                         placeholder="yourbusiness"
+                                        disabled={subdomainLocked}
                                         className={`text-lg font-medium pr-10 ${
+                                          subdomainLocked ? 'bg-gray-50 cursor-not-allowed' :
                                           subdomainAvailable === true ? 'border-green-500 focus-visible:ring-green-500' : 
                                           subdomainAvailable === false ? 'border-red-500 focus-visible:ring-red-500' : ''
                                         }`}
@@ -978,41 +1150,56 @@ export default function VendorMiniWebsite() {
                                       />
                                     </FormControl>
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                      {!checkingSubdomain && subdomainAvailable === true && (
+                                      {subdomainLocked ? (
+                                        <Lock className="h-5 w-5 text-green-600" />
+                                      ) : !checkingSubdomain && subdomainAvailable === true ? (
                                         <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                      )}
-                                      {!checkingSubdomain && subdomainAvailable === false && (
+                                      ) : !checkingSubdomain && subdomainAvailable === false ? (
                                         <AlertCircle className="h-5 w-5 text-red-500" />
-                                      )}
+                                      ) : null}
                                     </div>
                                   </div>
-                                  <Button
-                                    type="button"
-                                    onClick={checkSubdomainAvailability}
-                                    disabled={checkingSubdomain || !field.value || field.value.length < 3}
-                                    className="shrink-0 bg-teal-600 hover:bg-teal-700"
-                                  >
-                                    {checkingSubdomain ? (
-                                      <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                        Checking...
-                                      </>
-                                    ) : (
-                                      "Check Availability"
-                                    )}
-                                  </Button>
+                                  {!subdomainLocked && (
+                                    <Button
+                                      type="button"
+                                      onClick={checkSubdomainAvailability}
+                                      disabled={checkingSubdomain || !field.value || field.value.length < 3}
+                                      className="shrink-0 bg-teal-600 hover:bg-teal-700"
+                                    >
+                                      {checkingSubdomain ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                          Checking...
+                                        </>
+                                      ) : (
+                                        "Check & Lock"
+                                      )}
+                                    </Button>
+                                  )}
                                 </div>
                                 
                                 {/* Subdomain preview */}
-                                <div className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg border">
-                                  <p className="text-sm text-muted-foreground mb-1">Your website will be available at:</p>
-                                  <p className="text-lg font-mono font-semibold text-primary break-all">
+                                <div className={`p-4 rounded-lg border ${subdomainLocked ? 'bg-green-50 border-green-200' : 'bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900'}`}>
+                                  <p className="text-sm text-muted-foreground mb-1">
+                                    {subdomainLocked ? "Your permanent website address:" : "Your website will be available at:"}
+                                  </p>
+                                  <p className={`text-lg font-mono font-semibold break-all ${subdomainLocked ? 'text-green-700' : 'text-primary'}`}>
                                     {getSiteUrl(field.value || 'yourbusiness')}
                                   </p>
                                 </div>
                                 
-                                {/* Availability message */}
-                                {subdomainMessage && (
+                                {/* Locked confirmation message */}
+                                {subdomainLocked && (
+                                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <p className="text-sm text-green-700 flex items-center gap-2">
+                                      <CheckCircle2 className="h-4 w-4" />
+                                      This website name is permanently reserved for you. It cannot be changed.
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {/* Availability message - only show if not locked */}
+                                {!subdomainLocked && subdomainMessage && (
                                   <p className={`text-sm flex items-center gap-1 ${
                                     subdomainAvailable === true ? 'text-green-600' : 
                                     subdomainAvailable === false ? 'text-red-600' : 'text-amber-600'
@@ -1028,11 +1215,19 @@ export default function VendorMiniWebsite() {
                                   </p>
                                 )}
                                 
-                                {/* Prompt to check availability */}
-                                {field.value && field.value.length >= 3 && subdomainAvailable === null && !subdomainMessage && (
+                                {/* Prompt to check availability - only if new or changed AND not locked */}
+                                {!subdomainLocked && field.value && field.value.length >= 3 && subdomainAvailable === null && !subdomainMessage && (
                                   <p className="text-sm text-amber-600 flex items-center gap-1">
                                     <AlertCircle className="h-4 w-4" />
-                                    Click "Check Availability" to verify this name is available
+                                    Click "Check & Lock" to verify and lock this name
+                                  </p>
+                                )}
+                                
+                                {/* Show saved indicator for unchanged subdomain */}
+                                {savedSubdomain && field.value === savedSubdomain && (
+                                  <p className="text-sm text-green-600 flex items-center gap-1">
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    This is your current website name
                                   </p>
                                 )}
                                 
@@ -1054,40 +1249,26 @@ export default function VendorMiniWebsite() {
                         />
                       </div>
                       
-                      {/* Info box */}
-                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <div className="flex gap-3">
-                          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                          <div className="text-sm text-blue-800 dark:text-blue-200">
-                            <p className="font-medium mb-1">Why choose a good website name?</p>
-                            <ul className="space-y-1 text-blue-700 dark:text-blue-300">
-                              <li>• Makes it easy for customers to find and remember you</li>
-                              <li>• Represents your brand professionally online</li>
-                              <li>• Can't be changed easily once published</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
                     </CardContent>
                   </Card>
                 )}
 
                 {/* Step 2: Business Info */}
                 {currentStep === 2 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
+                  <Card className="rounded-xl">
+                    <CardHeader className="p-4 md:p-6">
+                      <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                         <Store className="h-5 w-5" />
                         Business Information
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-sm">
                         Core details about your business
                         <span className="block mt-1 text-xs">
                           * Required fields must be filled to proceed
                         </span>
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-4 p-4 md:p-6 pt-0 md:pt-0">
                       <FormField
                         control={form.control}
                         name="businessName"
@@ -1142,9 +1323,10 @@ export default function VendorMiniWebsite() {
                                 onChange={field.onChange}
                                 category="logo"
                                 circular
+                                allowAnyFile
                               />
                             </FormControl>
-                            <p className="text-xs text-muted-foreground">Upload your business logo (circular display)</p>
+                            <p className="text-xs text-muted-foreground">Upload your business logo (any image format)</p>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1155,7 +1337,7 @@ export default function VendorMiniWebsite() {
 
                 {/* Step 3: Contact Info */}
                 {currentStep === 3 && (
-                  <Card>
+                  <Card className="rounded-xl">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Phone className="h-5 w-5" />
@@ -1231,7 +1413,7 @@ export default function VendorMiniWebsite() {
 
                 {/* Step 4: Business Hours */}
                 {currentStep === 4 && (
-                  <Card>
+                  <Card className="rounded-xl">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Clock className="h-5 w-5" />
@@ -1348,7 +1530,7 @@ export default function VendorMiniWebsite() {
                   </Card>
                 )}
 
-                {/* Step 5: Gallery Only */}
+                {/* Step 6: Gallery Only */}
                 {currentStep === 5 && <GalleryOnlyStep form={form} />}
 
                 {/* Step 6: Team & About */}
@@ -1365,7 +1547,7 @@ export default function VendorMiniWebsite() {
 
                 {/* Step 10: Catalog */}
                 {currentStep === 10 && (
-                  <Card>
+                  <Card className="rounded-xl">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Package className="h-5 w-5" />
@@ -1487,13 +1669,16 @@ export default function VendorMiniWebsite() {
                 {/* Step 11: E-commerce Settings */}
                 {currentStep === 11 && <EcommerceSettingsStep form={form} />}
 
-                {/* Step 12: Color Theme */}
-                {currentStep === 12 && <ColorThemeStep form={form} />}
+                {/* Step 12: Trust Numbers */}
+                {currentStep === 12 && <TrustNumbersStep form={form} />}
 
-                {/* Step 13: Choose Layout */}
-                {currentStep === 13 && (
+                {/* Step 13: Social Media Links */}
+                {currentStep === 13 && <SocialMediaStep form={form} />}
+
+                {/* Step 14: Website Layout */}
+                {currentStep === 14 && (
                   <LayoutSelector
-                    selectedLayout={form.watch("layoutId") || "general-modern"}
+                    selectedLayout={form.watch("layoutId") || "hybrid-business"}
                     onLayoutChange={(layoutId) => form.setValue("layoutId", layoutId, { shouldValidate: true, shouldDirty: true })}
                     formData={form.watch()}
                     services={services}
@@ -1502,180 +1687,345 @@ export default function VendorMiniWebsite() {
                   />
                 )}
 
-                {/* Step 14: Review & Publish */}
-                {currentStep === 14 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5" />
-                        Review & Publish
-                      </CardTitle>
-                      <CardDescription>Review your site and publish when ready</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="col-span-2">
-                          <p className="font-medium mb-1">Website URL</p>
-                          <p className="text-muted-foreground break-all">
-                            {form.watch("subdomain") ? getSiteUrl(form.watch("subdomain")) : "Set subdomain in Step 1"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Business Name</p>
-                          <p className="text-muted-foreground">{form.watch("businessName") || "Not set"}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Contact Email</p>
-                          <p className="text-muted-foreground">{form.watch("contactEmail") || "Not set"}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Contact Phone</p>
-                          <p className="text-muted-foreground">{form.watch("contactPhone") || "Not set"}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Gallery Images</p>
-                          <p className="text-muted-foreground">{(form.watch("heroMedia") || []).length}/10 added</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Team Members</p>
-                          <p className="text-muted-foreground">{(form.watch("teamMembers") || []).length} added</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">FAQs</p>
-                          <p className="text-muted-foreground">{(form.watch("faqs") || []).length} added</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Testimonials</p>
-                          <p className="text-muted-foreground">{(form.watch("testimonials") || []).length} added</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Coupons</p>
-                          <p className="text-muted-foreground">{(form.watch("selectedCouponIds") || []).length} selected</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Selected Services</p>
-                          <p className="text-muted-foreground">{(form.watch("selectedServiceIds") || []).length} selected</p>
-                        </div>
-                        <div className="col-span-2 border-t pt-4">
-                          <p className="font-medium mb-2">E-commerce Settings</p>
-                          {form.watch("ecommerceEnabled") ? (
-                            <div className="space-y-1">
-                              <p className="text-sm text-muted-foreground">
-                                ✅ E-commerce Enabled - Mode: {
-                                  form.watch("ecommerceMode") === "cart" ? "Full Cart & Checkout" :
-                                  form.watch("ecommerceMode") === "quotation" ? "Quotation Request Only" :
-                                  "Both Cart & Quotation"
-                                }
-                              </p>
-                              {form.watch("minOrderValue") > 0 && (
-                                <p className="text-sm text-muted-foreground">
-                                  Min. Order: ₹{form.watch("minOrderValue")}
-                                </p>
-                              )}
-                              {form.watch("taxRate") > 0 && (
-                                <p className="text-sm text-muted-foreground">
-                                  Tax Rate: {form.watch("taxRate")}%
-                                </p>
-                              )}
+                {/* Step 15: Color Theme */}
+                {currentStep === 15 && <ColorThemeStep form={form} />}
+
+                {/* Step 16: Review & Publish */}
+                {currentStep === 16 && (
+                  <div className="space-y-6">
+                    {/* Website URL Card - Prominent */}
+                    <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Globe className="h-5 w-5 text-primary" />
+                              <p className="font-semibold text-lg">Your Website URL</p>
                             </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">❌ E-commerce Disabled</p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Previous Button */}
-                      <div className="pt-4">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handlePrevious}
-                          data-testid="button-previous-review"
-                        >
-                          <ChevronLeft className="h-4 w-4 mr-2" />
-                          Previous
-                        </Button>
-                      </div>
-                      
-                      <div className="flex flex-col gap-2 pt-4">
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleSaveDraft}
-                            disabled={saveMutation.isPending}
-                            data-testid="button-save-draft"
-                            className="flex-1"
-                          >
-                            <Save className="h-4 w-4 mr-2" />
-                            Save Draft
-                          </Button>
-                          
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handlePreview}
-                            data-testid="button-preview"
-                            className="flex-1"
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            Preview Site
-                          </Button>
-                        </div>
-                        
-                        <Button
-                          type="button"
-                          onClick={handlePublish}
-                          disabled={publishMutation.isPending || saveMutation.isPending}
-                          data-testid="button-publish"
-                          className="w-full"
-                        >
-                          <Globe className="h-4 w-4 mr-2" />
-                          Publish Site
-                        </Button>
-                        
-                        {form.watch("subdomain") && (
-                          <div className="mt-2 p-3 bg-muted/50 rounded-lg text-sm">
-                            <p className="text-muted-foreground mb-1">Your site URL:</p>
                             <a 
-                              href={getSiteUrl(form.watch("subdomain"))} 
+                              href={getSiteUrl(form.watch("subdomain") || "yoursite")} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="text-primary hover:underline font-mono font-medium break-all"
+                              className="text-primary hover:underline font-mono text-lg break-all"
                             >
-                              {getSiteUrl(form.watch("subdomain"))}
+                              {getSiteUrl(form.watch("subdomain") || "yoursite")}
                             </a>
                           </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handlePreview}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Preview
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Website Sections Overview */}
+                    <Card className="rounded-xl">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-lg">Website Sections Overview</CardTitle>
+                        <CardDescription>All sections that will appear on your published website</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Section Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {/* Logo */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              {form.watch("logo") ? (
+                                <img src={form.watch("logo")} alt="Logo" className="h-8 w-8 rounded object-cover" />
+                              ) : (
+                                <div className="h-8 w-8 rounded bg-muted flex items-center justify-center text-muted-foreground">
+                                  <Package className="h-4 w-4" />
+                                </div>
+                              )}
+                              <span className="font-medium text-sm">Logo</span>
+                            </div>
+                            <Badge variant={form.watch("logo") ? "default" : "secondary"} className="text-xs">
+                              {form.watch("logo") ? "✓ Added" : "Not added"}
+                            </Badge>
+                          </div>
+
+                          {/* Header/Navigation */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Store className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Header</span>
+                            </div>
+                            <Badge variant="default" className="text-xs">✓ Auto-generated</Badge>
+                          </div>
+
+                          {/* Hero Section */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Hero Section</span>
+                            </div>
+                            <Badge variant={(form.watch("heroMedia") || []).length > 0 ? "default" : "secondary"} className="text-xs">
+                              {(form.watch("heroMedia") || []).length} images
+                            </Badge>
+                          </div>
+
+                          {/* Trust Numbers */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Star className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Trust Numbers</span>
+                            </div>
+                            {(() => {
+                              const tn = form.watch("trustNumbers") || {};
+                              const count = [tn.yearsInBusiness, tn.happyCustomers, tn.starRating, tn.repeatCustomers].filter(v => v > 0).length;
+                              return <Badge variant={count > 0 ? "default" : "secondary"} className="text-xs">{count}/4 set</Badge>;
+                            })()}
+                          </div>
+
+                          {/* Services */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Package className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Services</span>
+                            </div>
+                            <Badge variant={(form.watch("selectedServiceIds") || []).length > 0 ? "default" : "secondary"} className="text-xs">
+                              {(form.watch("selectedServiceIds") || []).length} selected
+                            </Badge>
+                          </div>
+
+                          {/* Products */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Package className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Products</span>
+                            </div>
+                            <Badge variant={(form.watch("selectedProductIds") || []).length > 0 ? "default" : "secondary"} className="text-xs">
+                              {(form.watch("selectedProductIds") || []).length} selected
+                            </Badge>
+                          </div>
+
+                          {/* Coupons */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Tag className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Coupons</span>
+                            </div>
+                            <Badge variant={(form.watch("selectedCouponIds") || []).length > 0 ? "default" : "secondary"} className="text-xs">
+                              {(form.watch("selectedCouponIds") || []).length} active
+                            </Badge>
+                          </div>
+
+                          {/* About Us */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Info className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">About Us</span>
+                            </div>
+                            <Badge variant={form.watch("description") ? "default" : "secondary"} className="text-xs">
+                              {form.watch("description") ? "✓ Added" : "Not added"}
+                            </Badge>
+                          </div>
+
+                          {/* Team */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Users className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Team</span>
+                            </div>
+                            <Badge variant={(form.watch("teamMembers") || []).length > 0 ? "default" : "secondary"} className="text-xs">
+                              {(form.watch("teamMembers") || []).length} members
+                            </Badge>
+                          </div>
+
+                          {/* Testimonials */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Star className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Testimonials</span>
+                            </div>
+                            <Badge variant={(form.watch("testimonials") || []).length >= 3 ? "default" : "secondary"} className="text-xs">
+                              {(form.watch("testimonials") || []).length} reviews
+                            </Badge>
+                          </div>
+
+                          {/* FAQs */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">FAQs</span>
+                            </div>
+                            <Badge variant={(form.watch("faqs") || []).length > 0 ? "default" : "secondary"} className="text-xs">
+                              {(form.watch("faqs") || []).length} questions
+                            </Badge>
+                          </div>
+
+                          {/* Social Media */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Globe className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Social Links</span>
+                            </div>
+                            {(() => {
+                              const sm = form.watch("socialMedia") || {};
+                              const count = [sm.facebook, sm.instagram, sm.youtube, sm.twitter].filter(v => v).length;
+                              return <Badge variant={count > 0 ? "default" : "secondary"} className="text-xs">{count} links</Badge>;
+                            })()}
+                          </div>
+
+                          {/* Footer */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Store className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Footer</span>
+                            </div>
+                            <Badge variant="default" className="text-xs">✓ Auto-generated</Badge>
+                          </div>
+
+                          {/* Color Theme */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Palette className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Theme</span>
+                            </div>
+                            <div className="flex gap-1">
+                              <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: form.watch("primaryColor") || "#0f766e" }} />
+                              <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: form.watch("secondaryColor") || "#14b8a6" }} />
+                              <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: form.watch("accentColor") || "#0d9488" }} />
+                            </div>
+                          </div>
+
+                          {/* E-commerce */}
+                          <div className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Package className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">E-commerce</span>
+                            </div>
+                            <Badge variant={form.watch("ecommerceEnabled") ? "default" : "secondary"} className="text-xs">
+                              {form.watch("ecommerceEnabled") ? "✓ Enabled" : "Disabled"}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Business Details Summary */}
+                        <div className="mt-6 pt-4 border-t">
+                          <h4 className="font-medium mb-3">Business Details</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                              <Store className="h-5 w-5 text-primary mt-0.5" />
+                              <div>
+                                <p className="font-medium">{form.watch("businessName") || "Not set"}</p>
+                                <p className="text-muted-foreground text-xs">{form.watch("tagline") || "No tagline"}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                              <Phone className="h-5 w-5 text-primary mt-0.5" />
+                              <div>
+                                <p className="font-medium">{form.watch("contactPhone") || "Not set"}</p>
+                                <p className="text-muted-foreground text-xs">{form.watch("contactEmail") || "No email"}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Action Buttons */}
+                    <Card className="border-2 rounded-xl">
+                      <CardContent className="p-4 md:p-6">
+                        <div className="flex flex-col gap-4">
+                          {/* Navigation */}
+                          <div className="flex justify-between items-center pb-4 border-b">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handlePrevious}
+                              data-testid="button-previous-review"
+                              className="h-[var(--input-h)] text-sm"
+                            >
+                              <ChevronLeft className="h-4 w-4 mr-2" />
+                              Previous Step
+                            </Button>
+                            <div className="text-sm text-muted-foreground">
+                              Step 16 of 16
+                            </div>
+                          </div>
+
+                          {/* Action Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleSaveDraft}
+                              disabled={saveMutation.isPending}
+                              data-testid="button-save-draft"
+                              className="h-[var(--cta-h)] text-sm"
+                            >
+                              <Save className="h-5 w-5 mr-2" />
+                              Save Draft
+                            </Button>
+                            
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handlePreview}
+                              data-testid="button-preview"
+                              className="h-[var(--cta-h)] text-sm"
+                            >
+                              <Eye className="h-5 w-5 mr-2" />
+                              Preview Site
+                            </Button>
+                          </div>
+
+                          {/* Publish Button */}
+                          <Button
+                            type="button"
+                            onClick={handlePublish}
+                            disabled={publishMutation.isPending || saveMutation.isPending}
+                            data-testid="button-publish"
+                            className="w-full h-[var(--cta-h)] md:h-14 text-base md:text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                          >
+                            <Globe className="h-5 w-5 mr-2" />
+                            {publishMutation.isPending ? "Publishing..." : "Publish Website"}
+                          </Button>
+
+                          <p className="text-center text-xs md:text-sm text-muted-foreground">
+                            Once published, your website will be live at the URL above
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 )}
 
-                {/* Navigation Buttons - Show on all steps except Review (step 14) */}
+                {/* Navigation Buttons - Fixed at bottom on mobile */}
                 {currentStep < STEPS.length && (
-                  <div className="flex gap-2 pt-6 border-t mt-6">
-                    {currentStep > 1 && (
+                  <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 md:relative md:border-0 md:p-0 md:pt-6 md:mt-6 z-20">
+                    <div className="flex gap-3 max-w-[1440px] mx-auto">
                       <Button
                         type="button"
                         variant="outline"
                         onClick={handlePrevious}
+                        disabled={currentStep === 1}
                         data-testid="button-previous"
+                        className="flex-1 md:flex-none h-12 md:h-[var(--cta-h)] text-sm"
                       >
                         <ChevronLeft className="h-4 w-4 mr-2" />
-                        Previous
+                        Back
                       </Button>
-                    )}
                     
-                    <Button
-                      type="button"
-                      onClick={handleNext}
-                      data-testid="button-next"
-                      className="ml-auto"
-                    >
-                      Save & Next
-                      <ChevronRight className="h-4 w-4 ml-2" />
-                    </Button>
+                      <Button
+                        type="button"
+                        onClick={handleNext}
+                        data-testid="button-next"
+                        className="flex-1 md:flex-none md:ml-auto h-12 md:h-[var(--cta-h)] text-sm bg-teal-600 hover:bg-teal-700"
+                      >
+                        Save & Next
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </div>
                   </div>
                 )}
               </form>
@@ -1685,9 +2035,9 @@ export default function VendorMiniWebsite() {
 
         {/* Live Preview Dialog */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="max-w-[95vw] max-h-[95vh] w-full p-0 overflow-hidden">
-            <DialogHeader className="px-6 py-4 border-b">
-              <DialogTitle className="flex items-center gap-2">
+          <DialogContent className="w-[95vw] max-w-7xl max-h-[95vh] p-0 overflow-hidden">
+            <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b shrink-0">
+              <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
                 <Eye className="h-5 w-5 text-blue-600" />
                 Live Preview
               </DialogTitle>
@@ -1709,7 +2059,7 @@ function GalleryOnlyStep({ form }: { form: any }) {
   };
 
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <ImageIcon className="h-5 w-5" />
@@ -1787,7 +2137,283 @@ function GalleryOnlyStep({ form }: { form: any }) {
   );
 }
 
-// Color Theme Step Component (Step 12 - Before Choose Layout)
+// Trust Numbers Step Component - Display trust metrics below hero
+function TrustNumbersStep({ form }: { form: any }) {
+  const trustNumbers = form.watch("trustNumbers") || { yearsInBusiness: 0, happyCustomers: 0, starRating: 0, repeatCustomers: 0 };
+  
+  return (
+    <Card className="rounded-xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Star className="h-5 w-5" />
+          Trust Numbers
+        </CardTitle>
+        <CardDescription>
+          Add credibility metrics that will be displayed below your hero section. You can skip this step if you prefer.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="trustNumbers.yearsInBusiness"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2">
+                  <span className="text-2xl">🏆</span>
+                  Years in Business
+                </FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    min={0}
+                    placeholder="e.g., 5"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormDescription>How many years have you been in business?</FormDescription>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="trustNumbers.happyCustomers"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2">
+                  <span className="text-2xl">😊</span>
+                  Happy Customers
+                </FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    min={0}
+                    placeholder="e.g., 1000"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormDescription>Approximate number of happy customers</FormDescription>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="trustNumbers.starRating"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2">
+                  <span className="text-2xl">⭐</span>
+                  Star Rating
+                </FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    min={0}
+                    max={5}
+                    step={0.1}
+                    placeholder="e.g., 4.8"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormDescription>Your average star rating (0-5)</FormDescription>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="trustNumbers.repeatCustomers"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2">
+                  <span className="text-2xl">🔄</span>
+                  Repeat Customers %
+                </FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    min={0}
+                    max={100}
+                    placeholder="e.g., 85"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormDescription>Percentage of repeat customers</FormDescription>
+              </FormItem>
+            )}
+          />
+        </div>
+        
+        {/* Preview */}
+        <div className="border rounded-xl p-4 bg-muted/30">
+          <p className="text-sm font-medium mb-3">Preview (displayed below hero section):</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div className="p-3 bg-background rounded-lg shadow-sm">
+              <p className="text-2xl font-bold text-primary">{trustNumbers.yearsInBusiness}+</p>
+              <p className="text-xs text-muted-foreground">Years in Business</p>
+            </div>
+            <div className="p-3 bg-background rounded-lg shadow-sm">
+              <p className="text-2xl font-bold text-primary">{trustNumbers.happyCustomers}+</p>
+              <p className="text-xs text-muted-foreground">Happy Customers</p>
+            </div>
+            <div className="p-3 bg-background rounded-lg shadow-sm">
+              <p className="text-2xl font-bold text-primary flex items-center justify-center gap-1">
+                {trustNumbers.starRating} <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              </p>
+              <p className="text-xs text-muted-foreground">Star Rating</p>
+            </div>
+            <div className="p-3 bg-background rounded-lg shadow-sm">
+              <p className="text-2xl font-bold text-primary">{trustNumbers.repeatCustomers}%+</p>
+              <p className="text-xs text-muted-foreground">Repeat Customers</p>
+            </div>
+          </div>
+        </div>
+        
+        <p className="text-sm text-muted-foreground text-center">
+          💡 Leave fields as 0 to hide them on your website
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Social Media Links Step Component
+function SocialMediaStep({ form }: { form: any }) {
+  const socialMedia = form.watch("socialMedia") || { facebook: "", instagram: "", youtube: "", twitter: "" };
+  
+  return (
+    <Card className="rounded-xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Globe className="h-5 w-5" />
+          Social Media Links
+        </CardTitle>
+        <CardDescription>
+          Add your social media links. Only filled links will appear in your website footer with their official logos. You can skip this step.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <FormField
+          control={form.control}
+          name="socialMedia.facebook"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                Facebook
+              </FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="https://facebook.com/yourbusiness"
+                  {...field}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="socialMedia.instagram"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#E4405F]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/></svg>
+                Instagram
+              </FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="https://instagram.com/yourbusiness"
+                  {...field}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="socialMedia.youtube"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#FF0000]" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                YouTube
+              </FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="https://youtube.com/@yourbusiness"
+                  {...field}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="socialMedia.twitter"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                Twitter / X
+              </FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="https://twitter.com/yourbusiness"
+                  {...field}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        
+        {/* Preview */}
+        <div className="border rounded-xl p-4 bg-muted/30">
+          <p className="text-sm font-medium mb-3">Preview (displayed in footer):</p>
+          <div className="flex items-center gap-4 justify-center">
+            {socialMedia.facebook && (
+              <a href={socialMedia.facebook} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white hover:opacity-80">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              </a>
+            )}
+            {socialMedia.instagram && (
+              <a href={socialMedia.instagram} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] flex items-center justify-center text-white hover:opacity-80">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/></svg>
+              </a>
+            )}
+            {socialMedia.youtube && (
+              <a href={socialMedia.youtube} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#FF0000] flex items-center justify-center text-white hover:opacity-80">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              </a>
+            )}
+            {socialMedia.twitter && (
+              <a href={socialMedia.twitter} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-black flex items-center justify-center text-white hover:opacity-80">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              </a>
+            )}
+            {!socialMedia.facebook && !socialMedia.instagram && !socialMedia.youtube && !socialMedia.twitter && (
+              <p className="text-sm text-muted-foreground">No social media links added yet</p>
+            )}
+          </div>
+        </div>
+        
+        <p className="text-sm text-muted-foreground text-center">
+          💡 Only filled links will appear in your website footer
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Color Theme Step Component (Step 15 - Before Publish)
 function ColorThemeStep({ form }: { form: any }) {
   // Handle color theme change
   const handleThemeChange = (theme: { primary: string; secondary: string; accent: string }) => {
@@ -1798,7 +2424,7 @@ function ColorThemeStep({ form }: { form: any }) {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="rounded-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5" />
@@ -1849,7 +2475,7 @@ function GalleryStep({ form }: { form: any }) {
       />
 
       {/* Gallery Images Card */}
-      <Card>
+      <Card className="rounded-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ImageIcon className="h-5 w-5" />
@@ -1929,7 +2555,7 @@ function TeamMembersStep({ form }: { form: any }) {
   };
 
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Users className="h-5 w-5" />
@@ -1978,6 +2604,7 @@ function TeamMembersStep({ form }: { form: any }) {
               onChange={(url) => setNewMember({ ...newMember, photo: url })}
               category="team"
               circular
+              allowAnyFile
             />
           </div>
           <Button type="button" onClick={addTeamMember} className="w-full" data-testid="button-add-team">
@@ -2194,7 +2821,7 @@ function FAQsStep({ form }: { form: any }) {
   const currentFaqs = form.watch("faqs") || [];
 
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <HelpCircle className="h-5 w-5" />
@@ -2400,7 +3027,7 @@ function TestimonialsStep({ form }: { form: any }) {
   const remaining = Math.max(0, 3 - testimonials.length);
 
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Star className="h-5 w-5" />
@@ -2588,7 +3215,7 @@ function CouponsStep({ form }: { form: any }) {
   });
 
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Tag className="h-5 w-5" />
@@ -2653,6 +3280,8 @@ function LivePreview({
   products?: VendorProduct[];
 }) {
   const { vendorId } = useAuth();
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  
   const primaryColor = formData.primaryColor || "#2563eb";
   const secondaryColor = formData.secondaryColor || "#f97316";
   const accentColor = formData.accentColor || "#06b6d4";
@@ -2680,181 +3309,335 @@ function LivePreview({
     { title: 'Student Discount', description: 'Show your ID to avail the offer.', badge: null, cta: 'View Details', color: '#fce7f3' },
   ];
 
+  // Fullscreen Image Modal
+  const FullscreenModal = () => {
+    if (!fullscreenImage) return null;
+    return (
+      <div 
+        className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center cursor-pointer"
+        onClick={() => setFullscreenImage(null)}
+      >
+        <button 
+          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <X className="w-6 h-6" />
+        </button>
+        <img 
+          src={fullscreenImage} 
+          alt="Fullscreen" 
+          className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+        />
+      </div>
+    );
+  };
+
   return (
-    <div className="w-full min-h-screen bg-white font-sans">
-      {/* ===== HEADER - Clean & Minimal ===== */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4">
+    <div className="w-full min-h-screen bg-white" style={{ fontFamily: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" }}>
+      <FullscreenModal />
+      {/* ===== HEADER - Professional Navigation ===== */}
+      <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-3 md:py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
-            <div className="flex items-center gap-2 md:gap-3">
-            <div 
-                className="w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs md:text-sm"
-              style={{ backgroundColor: primaryColor }}
-            >
-                {formData.businessName?.charAt(0) || "Y"}
+            <div className="flex items-center gap-2.5 md:gap-3">
+              {formData.logo ? (
+                <img src={formData.logo} alt={formData.businessName || "Logo"} className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-cover" />
+              ) : (
+                <div 
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm md:text-base shadow-md"
+                  style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
+                >
+                  {formData.businessName?.charAt(0)?.toUpperCase() || "Y"}
+                </div>
+              )}
+              <div className="flex flex-col">
+                <span className="text-base md:text-lg font-bold text-gray-900 tracking-tight">{formData.businessName || "Your Business"}</span>
+                {formData.tagline && <span className="text-[10px] md:text-xs text-gray-500 hidden sm:block">{formData.tagline}</span>}
+              </div>
             </div>
-              <span className="text-base md:text-xl font-bold text-gray-900">{formData.businessName || "YourBrand"}</span>
-          </div>
             
             {/* Navigation - Hidden on mobile */}
-            <nav className="hidden lg:flex items-center gap-6 md:gap-8">
-              <a href="#offerings" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">Our Offerings</a>
-              <a href="#gallery" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">Gallery</a>
-              <a href="#about" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">About Us</a>
-              <a href="#faq" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">FAQs</a>
-          </nav>
+            <nav className="hidden lg:flex items-center gap-1">
+              <a href="#products" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Products</a>
+              <a href="#services" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Services</a>
+              <a href="#gallery" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Gallery</a>
+              <a href="#about" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">About</a>
+              <a href="#testimonials" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Reviews</a>
+              <a href="#contact" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Contact</a>
+            </nav>
             
-            {/* CTA Button */}
-            <Button 
-              size="sm"
-              className="rounded-full px-4 md:px-6 font-medium shadow-sm text-xs md:text-sm"
-              style={{ backgroundColor: secondaryColor, color: 'white' }}
-            >
-              Inquire Now
-          </Button>
+            {/* CTA Buttons */}
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline"
+                size="sm"
+                className="hidden md:inline-flex rounded-full px-5 h-9 font-semibold text-xs border-2 hover:bg-gray-50"
+                style={{ borderColor: primaryColor, color: primaryColor }}
+              >
+                <Phone className="w-3.5 h-3.5 mr-1.5" />
+                Call Now
+              </Button>
+              <Button 
+                size="sm"
+                className="rounded-full px-5 h-9 font-semibold text-xs shadow-md hover:shadow-lg transition-all"
+                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`, color: 'white' }}
+              >
+                Get Quote
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
       </header>
 
-      {/* ===== HERO SECTION - Clean Split Layout ===== */}
-      <section className="py-10 md:py-16 lg:py-20" style={{ background: `linear-gradient(135deg, ${primaryColor}10, ${accentColor}15)` }}>
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
+      {/* ===== HERO SECTION - Premium Split Layout ===== */}
+      <section className="relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-30" style={{ 
+          background: `radial-gradient(circle at 30% 20%, ${primaryColor}15 0%, transparent 50%), radial-gradient(circle at 80% 80%, ${accentColor}10 0%, transparent 40%)`
+        }} />
+        
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-12 md:py-20 lg:py-24 relative">
+          <div className="grid lg:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-center">
             {/* Left Content */}
-            <div className="text-center lg:text-left">
-              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 md:mb-4 leading-tight">
-                {formData.businessName || "Your Modern"}<br className="hidden md:block" />
-                {formData.tagline ? "" : "Business Name"}
+            <div className="text-center lg:text-left order-2 lg:order-1">
+              {/* Category Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4 md:mb-6" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: primaryColor }} />
+                {formData.tagline || "Welcome to our business"}
+              </div>
+              
+              <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold text-gray-900 mb-4 md:mb-6 leading-[1.1] tracking-tight">
+                {formData.businessName || "Your Business Name"}
               </h1>
               
-              {/* Rating */}
-              <div className="flex items-center gap-2 mb-3 md:mb-4 justify-center lg:justify-start">
-                <div className="flex">
-                  {[1,2,3,4,5].map(i => (
-                    <span key={i} className="text-yellow-400 text-sm md:text-lg">★</span>
-                  ))}
-              </div>
-                <span className="text-xs md:text-sm text-gray-600">4.9 (1,200 reviews)</span>
+              <p className="text-gray-600 text-sm md:text-base lg:text-lg mb-6 md:mb-8 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                {formData.description?.substring(0, 150) || "Discover our premium products and services. We are committed to delivering exceptional quality and outstanding customer experience."}
+                {formData.description && formData.description.length > 150 && "..."}
+              </p>
+              
+              {/* Rating & Location */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 mb-6 md:mb-8 justify-center lg:justify-start">
+                {(formData.trustNumbers?.starRating || 0) > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex">
+                      {[1,2,3,4,5].map(i => (
+                        <Star 
+                          key={i} 
+                          className={`w-4 h-4 md:w-5 md:h-5 ${i <= (formData.trustNumbers?.starRating || 5) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-sm font-semibold text-gray-800">{formData.trustNumbers?.starRating || "5.0"}</span>
+                    <span className="text-xs text-gray-500">({formData.trustNumbers?.happyCustomers || "500"}+ reviews)</span>
+                  </div>
+                )}
+                {formData.address && (
+                  <div className="flex items-center gap-1.5 text-gray-500">
+                    <MapPin className="w-4 h-4" style={{ color: primaryColor }} />
+                    <span className="text-xs md:text-sm">{formData.address.substring(0, 40)}{formData.address.length > 40 && "..."}</span>
+                  </div>
+                )}
               </div>
               
-              {/* Address */}
-              <div className="flex items-center gap-2 text-gray-600 mb-6 md:mb-8 justify-center lg:justify-start">
-                <span className="text-gray-400">📍</span>
-                <span className="text-xs md:text-sm">{formData.address || "123 Main Street, Anytown, India"}</span>
-              </div>
-              
-              {/* CTA Buttons */}
-              <div className="flex flex-wrap gap-2 md:gap-3 justify-center lg:justify-start">
-                  <Button 
-                  className="rounded-full px-4 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-medium"
-                  style={{ backgroundColor: primaryColor, color: 'white' }}
+              {/* CTA Buttons - Equal Size */}
+              <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
+                <Button 
+                  className="rounded-full h-11 md:h-12 px-6 md:px-8 text-sm font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                  style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`, color: 'white' }}
                   onClick={() => formData.googleMapsUrl && window.open(formData.googleMapsUrl, '_blank')}
-                  >
-                  📍 Directions
-                  </Button>
-                  <Button 
-                    variant="outline"
-                  className="rounded-full px-4 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-medium border-gray-300"
-                  onClick={() => formData.contactPhone && window.open(`tel:${formData.contactPhone}`, '_self')}
                 >
-                  📞 Contact Us
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Get Directions
                 </Button>
                 <Button 
-                  className="rounded-full px-4 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-medium bg-green-500 hover:bg-green-600 text-white"
-                  onClick={() => formData.contactPhone && window.open(`https://wa.me/${formData.contactPhone.replace(/\D/g, '')}`, '_blank')}
-                  >
-                    💬 WhatsApp
-                  </Button>
+                  variant="outline"
+                  className="rounded-full h-11 md:h-12 px-6 md:px-8 text-sm font-semibold border-2 hover:bg-gray-50 transition-all"
+                  style={{ borderColor: primaryColor, color: primaryColor }}
+                  onClick={() => formData.contactPhone && window.open(`tel:${formData.contactPhone}`, '_self')}
+                >
+                  <Phone className="w-4 h-4 mr-2" />
+                  Contact Us
+                </Button>
+                <Button 
+                  className="rounded-full h-11 md:h-12 px-6 md:px-8 text-sm font-semibold shadow-lg hover:shadow-xl transition-all bg-[#25D366] hover:bg-[#20BD5A]"
+                  onClick={() => formData.contactPhone && window.open(`https://wa.me/${formData.contactPhone?.replace(/\D/g, '')}`, '_blank')}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  WhatsApp
+                </Button>
               </div>
             </div>
             
             {/* Right - Hero Image */}
-            <div className="relative hidden lg:block">
-                  {formData.heroMedia && Array.isArray(formData.heroMedia) && formData.heroMedia.length > 0 ? (
-                <div className="rounded-2xl overflow-hidden shadow-2xl">
+            <div className="relative order-1 lg:order-2">
+              <div className="relative">
+                {/* Decorative elements */}
+                <div className="absolute -top-4 -right-4 w-24 h-24 md:w-32 md:h-32 rounded-full opacity-20" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }} />
+                <div className="absolute -bottom-4 -left-4 w-16 h-16 md:w-24 md:h-24 rounded-full opacity-20" style={{ background: `linear-gradient(135deg, ${accentColor}, ${primaryColor})` }} />
+                
+                {formData.heroMedia && Array.isArray(formData.heroMedia) && formData.heroMedia.length > 0 ? (
+                  <div className="rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl relative">
                     <img 
                       src={formData.heroMedia[0]} 
-                    alt={formData.businessName || "Business"} 
-                    className="w-full h-[350px] md:h-[400px] object-cover"
+                      alt={formData.businessName || "Business"} 
+                      className="w-full h-[280px] md:h-[400px] lg:h-[480px] object-cover cursor-pointer hover:scale-105 transition-transform duration-500"
+                      onClick={() => setFullscreenImage(formData.heroMedia[0])}
                     />
-                </div>
-                  ) : (
-                <div 
-                  className="rounded-2xl overflow-hidden shadow-2xl h-[350px] md:h-[400px] flex items-center justify-center"
-                  style={{ background: `linear-gradient(135deg, ${primaryColor}20, ${accentColor}30)` }}
-                >
-                  <div className="text-center p-8">
-                    <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 bg-white/50 rounded-2xl flex items-center justify-center">
-                      <span className="text-3xl md:text-4xl">🏢</span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                  </div>
+                ) : (
+                  <div 
+                    className="rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl h-[280px] md:h-[400px] lg:h-[480px] flex items-center justify-center"
+                    style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}
+                  >
+                    <div className="text-center p-8">
+                      <div className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}20, ${accentColor}30)` }}>
+                        <ImageIcon className="w-10 h-10 md:w-12 md:h-12" style={{ color: primaryColor }} />
+                      </div>
+                      <p className="font-semibold text-sm md:text-base" style={{ color: primaryColor }}>Your Hero Image</p>
+                      <p className="text-xs text-gray-500 mt-1">Upload in Gallery step</p>
                     </div>
-                    <p className="font-medium" style={{ color: primaryColor }}>Your Hero Image</p>
-                </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* ===== TRUST NUMBERS SECTION ===== */}
+      <section className="relative py-8 md:py-12 border-y" style={{ background: `linear-gradient(135deg, ${primaryColor}08, ${accentColor}05)` }}>
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+            {/* Years in Business */}
+            <div className="text-center group">
+              <div className="relative inline-flex items-center justify-center mb-3">
+                <div className="absolute inset-0 rounded-full opacity-20 group-hover:scale-110 transition-transform" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }} />
+                <div className="relative w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}10)` }}>
+                  <Clock className="w-6 h-6 md:w-7 md:h-7" style={{ color: primaryColor }} />
+                </div>
+              </div>
+              <div className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight mb-1" style={{ color: primaryColor }}>
+                {formData.trustNumbers?.yearsInBusiness || "5"}+
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-medium">Years in Business</div>
+            </div>
+            
+            {/* Happy Customers */}
+            <div className="text-center group">
+              <div className="relative inline-flex items-center justify-center mb-3">
+                <div className="absolute inset-0 rounded-full opacity-20 group-hover:scale-110 transition-transform" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }} />
+                <div className="relative w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}10)` }}>
+                  <Users className="w-6 h-6 md:w-7 md:h-7" style={{ color: primaryColor }} />
+                </div>
+              </div>
+              <div className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight mb-1" style={{ color: primaryColor }}>
+                {formData.trustNumbers?.happyCustomers || "1000"}+
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-medium">Happy Customers</div>
+            </div>
+            
+            {/* Star Rating */}
+            <div className="text-center group">
+              <div className="relative inline-flex items-center justify-center mb-3">
+                <div className="absolute inset-0 rounded-full opacity-20 group-hover:scale-110 transition-transform" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }} />
+                <div className="relative w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}10)` }}>
+                  <Star className="w-6 h-6 md:w-7 md:h-7 fill-yellow-400 text-yellow-400" />
+                </div>
+              </div>
+              <div className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight mb-1 flex items-center justify-center gap-1" style={{ color: primaryColor }}>
+                {formData.trustNumbers?.starRating || "4.9"}
+                <Star className="w-5 h-5 md:w-6 md:h-6 fill-yellow-400 text-yellow-400" />
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-medium">Star Rating</div>
+            </div>
+            
+            {/* Repeat Customers */}
+            <div className="text-center group">
+              <div className="relative inline-flex items-center justify-center mb-3">
+                <div className="absolute inset-0 rounded-full opacity-20 group-hover:scale-110 transition-transform" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }} />
+                <div className="relative w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}10)` }}>
+                  <CheckCircle2 className="w-6 h-6 md:w-7 md:h-7" style={{ color: primaryColor }} />
+                </div>
+              </div>
+              <div className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight mb-1" style={{ color: primaryColor }}>
+                {formData.trustNumbers?.repeatCustomers || "85"}%
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-medium">Repeat Customers</div>
+            </div>
+          </div>
+        </div>
       </section>
       
       {/* ===== OFFERS AND COUPONS ===== */}
-      <section className="py-10 md:py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8">Offers and Coupons</h2>
+      <section className="py-12 md:py-16 lg:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${secondaryColor}15`, color: secondaryColor }}>
+              <Tag className="w-3.5 h-3.5" />
+              Special Deals
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">Offers & Coupons</h2>
+            <p className="text-gray-500 text-sm md:text-base mt-2 max-w-xl mx-auto">Don't miss out on our exclusive deals and discounts</p>
+          </div>
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {coupons.length > 0 ? (
               coupons.slice(0, 4).map((coupon: any, idx: number) => (
-                <div key={coupon.id} className="rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all bg-white">
+                <div key={coupon.id} className="group rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 bg-white hover:-translate-y-1">
                   <div 
-                    className="h-24 md:h-36 flex items-center justify-center relative"
-                    style={{ backgroundColor: idx === 0 ? '#dcfce7' : idx === 1 ? '#fef3c7' : idx === 2 ? '#dbeafe' : '#fce7f3' }}
+                    className="h-28 md:h-36 flex items-center justify-center relative overflow-hidden"
+                    style={{ background: `linear-gradient(135deg, ${idx === 0 ? '#dcfce7' : idx === 1 ? '#fef3c7' : idx === 2 ? '#dbeafe' : '#fce7f3'}, ${idx === 0 ? '#bbf7d0' : idx === 1 ? '#fde68a' : idx === 2 ? '#bfdbfe' : '#fbcfe8'})` }}
                   >
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
                     {coupon.discountType === 'percentage' && (
-                      <div className="absolute top-2 left-2">
-                        <Badge className="text-[10px] md:text-xs" style={{ backgroundColor: primaryColor, color: 'white' }}>
-                          {coupon.discountValue}% DISCOUNT
+                      <div className="absolute top-3 left-3">
+                        <Badge className="text-[10px] md:text-xs font-bold px-2.5 py-1 shadow-md" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`, color: 'white' }}>
+                          {coupon.discountValue}% OFF
                         </Badge>
-            </div>
+                      </div>
                     )}
-                    <span className="text-3xl md:text-4xl">{idx === 0 ? '🎉' : idx === 1 ? '⭐' : idx === 2 ? '🆕' : '🎓'}</span>
-            </div>
-                  <div className="p-3 md:p-4">
-                    <h3 className="font-semibold text-gray-900 mb-1 text-xs md:text-sm line-clamp-1">
+                    <span className="text-4xl md:text-5xl group-hover:scale-110 transition-transform">{idx === 0 ? '🎉' : idx === 1 ? '⭐' : idx === 2 ? '🆕' : '🎓'}</span>
+                  </div>
+                  <div className="p-4 md:p-5">
+                    <h3 className="font-bold text-gray-900 mb-1.5 text-sm md:text-base line-clamp-1">
                       {coupon.discountType === 'percentage' ? `${coupon.discountValue}% Off` : `₹${coupon.discountValue} Off`}
                     </h3>
-                    <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3 line-clamp-2">{coupon.description || "Special Offer"}</p>
+                    <p className="text-xs md:text-sm text-gray-500 mb-3 md:mb-4 line-clamp-2">{coupon.description || "Limited time special offer"}</p>
                     <Button 
                       size="sm" 
-                      className="w-full rounded-lg text-[10px] md:text-xs h-7 md:h-8"
-                      style={{ backgroundColor: secondaryColor, color: 'white' }}
+                      className="w-full rounded-xl text-xs md:text-sm h-9 md:h-10 font-semibold shadow-md hover:shadow-lg transition-all"
+                      style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`, color: 'white' }}
                     >
                       Get Code
                     </Button>
-            </div>
-            </div>
+                  </div>
+                </div>
               ))
             ) : (
               defaultOffers.map((offer, idx) => (
-                <div key={idx} className="rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all bg-white">
+                <div key={idx} className="group rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 bg-white hover:-translate-y-1">
                   <div 
-                    className="h-24 md:h-36 flex items-center justify-center relative"
-                    style={{ backgroundColor: offer.color }}
+                    className="h-28 md:h-36 flex items-center justify-center relative overflow-hidden"
+                    style={{ background: `linear-gradient(135deg, ${offer.color}, ${offer.color}dd)` }}
                   >
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
                     {offer.badge && (
-                      <div className="absolute top-2 left-2">
-                        <Badge className="text-[10px] md:text-xs" style={{ backgroundColor: primaryColor, color: 'white' }}>{offer.badge}</Badge>
-          </div>
+                      <div className="absolute top-3 left-3">
+                        <Badge className="text-[10px] md:text-xs font-bold px-2.5 py-1 shadow-md" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`, color: 'white' }}>{offer.badge}</Badge>
+                      </div>
                     )}
-                    <span className="text-3xl md:text-4xl">{idx === 0 ? '🎉' : idx === 1 ? '⭐' : idx === 2 ? '🆕' : '🎓'}</span>
-        </div>
-                  <div className="p-3 md:p-4">
-                    <h3 className="font-semibold text-gray-900 mb-1 text-xs md:text-sm line-clamp-1">{offer.title}</h3>
-                    <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3 line-clamp-2">{offer.description}</p>
+                    <span className="text-4xl md:text-5xl group-hover:scale-110 transition-transform">{idx === 0 ? '🎉' : idx === 1 ? '⭐' : idx === 2 ? '🆕' : '🎓'}</span>
+                  </div>
+                  <div className="p-4 md:p-5">
+                    <h3 className="font-bold text-gray-900 mb-1.5 text-sm md:text-base line-clamp-1">{offer.title}</h3>
+                    <p className="text-xs md:text-sm text-gray-500 mb-3 md:mb-4 line-clamp-2">{offer.description}</p>
                     <Button 
                       size="sm" 
-                      className="w-full rounded-lg text-[10px] md:text-xs h-7 md:h-8"
-                      style={{ backgroundColor: secondaryColor, color: 'white' }}
+                      className="w-full rounded-xl text-xs md:text-sm h-9 md:h-10 font-semibold shadow-md hover:shadow-lg transition-all"
+                      style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`, color: 'white' }}
                     >
                       {offer.cta}
                     </Button>
@@ -2862,300 +3645,748 @@ function LivePreview({
                 </div>
               ))
             )}
-            </div>
           </div>
+        </div>
       </section>
 
-      {/* ===== OUR SERVICES ===== */}
-      <section id="offerings" className="py-10 md:py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="text-center mb-6 md:mb-10">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">Our Services</h2>
-            <p className="text-gray-500 text-xs md:text-sm max-w-xl mx-auto">Discover the range of professional services we offer to help you achieve your goals.</p>
+      {/* ===== OUR PRODUCTS ===== */}
+      {(products.length > 0 || true) && (
+        <section id="products" className="py-12 md:py-16 lg:py-20 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+            {/* Section Header */}
+            <div className="text-center mb-8 md:mb-12">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
+                <Package className="w-3.5 h-3.5" />
+                Shop Now
+              </div>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">Our Products</h2>
+              <p className="text-gray-500 text-sm md:text-base mt-2 max-w-xl mx-auto">Explore our curated collection of premium products</p>
             </div>
-          
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-            {(services.length > 0 ? services : [
-              { id: '1', name: 'Service One', shortDescription: 'A short, catchy description.', price: 1999 },
-              { id: '2', name: 'Service Two', shortDescription: 'A short, catchy description.', price: 2499 },
-              { id: '3', name: 'Service Three', shortDescription: 'A short, catchy description.', price: 1499 },
-              { id: '4', name: 'Consulting', shortDescription: 'Expert guidance for your business.', price: 4999 },
-            ]).slice(0, 4).map((service: any, idx: number) => (
-              <div key={service.id || idx} className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all overflow-hidden">
-                <div className="h-28 md:h-40 bg-gray-100 flex items-center justify-center">
-                    {service.images && service.images.length > 0 ? (
-                      <img src={service.images[0]} alt={service.name} className="w-full h-full object-cover" />
+            
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              {(products.length > 0 ? products : [
+                { id: '1', name: 'Premium Product A', description: 'High-quality product with exceptional features and modern design.', salePrice: 3999, price: 4999 },
+                { id: '2', name: 'Exclusive Product B', description: 'Limited edition product crafted with precision and care.', salePrice: 6499, price: 7999 },
+                { id: '3', name: 'Essential Product C', description: 'Everyday essentials designed for your comfort and convenience.', salePrice: 2499 },
+                { id: '4', name: 'Signature Product D', description: 'Our signature offering that defines quality and excellence.', salePrice: 7999, price: 9999 },
+              ]).slice(0, 4).map((product: any, idx: number) => (
+                <div key={product.id || idx} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden hover:-translate-y-1">
+                  <div className="relative h-36 md:h-48 lg:h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+                    {product.price && product.salePrice && product.price > product.salePrice && (
+                      <div className="absolute top-3 left-3 z-10">
+                        <Badge className="text-[10px] font-bold bg-red-500 text-white px-2 py-0.5">
+                          {Math.round((1 - product.salePrice / product.price) * 100)}% OFF
+                        </Badge>
+                      </div>
+                    )}
+                    {product.image ? (
+                      <img src={product.image} alt={product.name} className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300" />
                     ) : (
-                    <div className="text-gray-300">
-                      {selectedLayout?.icon && <selectedLayout.icon className="w-12 h-12 md:w-16 md:h-16" />}
+                      <div className="w-full h-full rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}10, ${accentColor}15)` }}>
+                        <Package className="w-12 h-12 md:w-16 md:h-16" style={{ color: `${primaryColor}40` }} />
+                      </div>
+                    )}
                   </div>
+                  <div className="p-4 md:p-5">
+                    <h3 className="font-bold text-gray-900 mb-1.5 text-sm md:text-base line-clamp-1">{product.name}</h3>
+                    <p className="text-xs md:text-sm text-gray-500 mb-3 md:mb-4 line-clamp-2">{product.description}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="font-extrabold text-base md:text-lg" style={{ color: primaryColor }}>
+                          ₹{(product.salePrice || product.price)?.toLocaleString()}
+                        </span>
+                        {product.price && product.salePrice && product.price > product.salePrice && (
+                          <span className="text-[10px] md:text-xs text-gray-400 line-through">₹{product.price?.toLocaleString()}</span>
                         )}
                       </div>
-                <div className="p-3 md:p-4">
-                  <h3 className="font-semibold text-gray-900 mb-1 text-xs md:text-sm line-clamp-1">{service.name}</h3>
-                  <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3 line-clamp-2">{service.shortDescription || service.description}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm md:text-base" style={{ color: primaryColor }}>₹{service.price?.toLocaleString()}</span>
-                    <Button 
-                      size="sm" 
-                      className="rounded-lg text-[10px] md:text-xs px-3 md:px-4 h-6 md:h-8"
-                      style={{ backgroundColor: secondaryColor, color: 'white' }}
-                    >
-                      Book Now
+                      <Button 
+                        size="sm" 
+                        className="rounded-xl text-xs h-9 px-4 font-semibold shadow-md hover:shadow-lg transition-all"
+                        style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`, color: 'white' }}
+                      >
+                        Add to Cart
                       </Button>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-      </section>
-
-      {/* ===== OUR PRODUCTS ===== */}
-      <section className="py-10 md:py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8">Our Products</h2>
-          
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-            {(products.length > 0 ? products : [
-              { id: '1', name: 'Product A', description: 'A short, catchy description.', salePrice: 3999 },
-              { id: '2', name: 'Product B', description: 'A short, catchy description.', salePrice: 6499 },
-              { id: '3', name: 'Product C', description: 'A short, catchy description.', salePrice: 2499 },
-              { id: '4', name: 'Product D', description: 'A short, catchy description.', salePrice: 7999 },
-            ]).slice(0, 4).map((product: any, idx: number) => (
-              <div key={product.id || idx} className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all overflow-hidden">
-                <div className="h-32 md:h-48 bg-gray-50 flex items-center justify-center p-3 md:p-4">
-                    {product.image ? (
-                    <img src={product.image} alt={product.name} className="w-full h-full object-contain" />
-                    ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
-                      <Package className="w-10 h-10 md:w-16 md:h-16 text-gray-300" />
-                    </div>
-                    )}
-                  </div>
-                <div className="p-3 md:p-4">
-                  <h3 className="font-semibold text-gray-900 mb-1 text-xs md:text-sm line-clamp-1">{product.name}</h3>
-                  <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3 line-clamp-2">{product.description}</p>
-                    <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 md:gap-2">
-                      <span className="font-bold text-sm md:text-base" style={{ color: primaryColor }}>
-                        ₹{(product.salePrice || product.price)?.toLocaleString()}
-                      </span>
-                      {product.price && product.salePrice && product.price > product.salePrice && (
-                        <span className="text-[10px] md:text-xs text-gray-400 line-through">₹{product.price?.toLocaleString()}</span>
-                      )}
-                </div>
-                    <Button 
-                      size="sm" 
-                      className="rounded-lg text-[10px] md:text-xs px-2 md:px-4 h-6 md:h-8"
-                      style={{ backgroundColor: secondaryColor, color: 'white' }}
-                    >
-                      Add to Cart
-                    </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-      </section>
-
-      {/* ===== ABOUT US & TEAM ===== */}
-      <section id="about" className="py-10 md:py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          {/* About Text */}
-          <div className="text-center mb-8 md:mb-12">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-3 md:mb-4">About Us</h2>
-            <p className="text-gray-500 max-w-2xl mx-auto text-xs md:text-sm leading-relaxed">
-              {formData.description || "Our mission is to provide the highest quality products and services to our valued customers. Learn more about our journey, our team, and our commitment to excellence."}
-            </p>
-      </div>
-
-          {/* Our Team */}
-      {formData.teamMembers && Array.isArray(formData.teamMembers) && formData.teamMembers.length > 0 && (
-            <div className="text-center">
-              <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-6 md:mb-8">Our Team</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 max-w-3xl mx-auto">
-                {(formData.teamMembers || []).slice(0, 4).map((member: any, idx: number) => (
-                  <div key={idx} className="text-center">
-                  <div 
-                      className="w-14 h-14 md:w-20 md:h-20 rounded-full mx-auto mb-2 md:mb-3 flex items-center justify-center text-lg md:text-2xl font-bold text-white shadow-md overflow-hidden"
-                      style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
-                  >
-                    {member.photo ? (
-                      <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
-                    ) : (
-                      member.name?.charAt(0)
-                    )}
-                  </div>
-                    <h4 className="font-semibold text-gray-900 text-xs md:text-sm">{member.name}</h4>
-                    <p className="text-[10px] md:text-xs" style={{ color: primaryColor }}>{member.role}</p>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-        </div>
-      </section>
-
-      {/* ===== BUSINESS HOURS ===== */}
-      {formData.businessHours && formData.businessHours.length > 0 && (
-        <section className="py-10 md:py-16 bg-white">
-          <div className="max-w-4xl mx-auto px-4 md:px-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8 text-center">Business Hours</h2>
             
-            <div className="bg-gray-50 rounded-2xl p-4 md:p-6 border border-gray-100">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                {/* Working Hours */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3 md:mb-4 text-xs md:text-sm">Working Hours</h3>
-                  <div className="space-y-2 md:space-y-3 text-xs md:text-sm">
-                    {formData.businessHours.slice(0, 3).map((day: any, idx: number) => (
-                      <div key={idx} className="flex justify-between">
-                        <span className="text-gray-600">{day.day}</span>
-                        {day.isOpen ? (
-                          <span className="text-gray-900">{day.slots?.[0]?.open || '9:00 AM'} - {day.slots?.[0]?.close || '6:00 PM'}</span>
-                  ) : (
-                    <span className="text-red-500 font-medium">Closed</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-                {/* Break Time */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3 md:mb-4 text-xs md:text-sm">Break Time</h3>
-                  <div className="space-y-2 md:space-y-3 text-xs md:text-sm">
-                    {formData.businessHours.slice(0, 3).map((day: any, idx: number) => (
-                      <div key={idx} className="flex justify-between">
-                        <span className="text-gray-600">{day.day}</span>
-                        {day.isOpen ? (
-                          <span className="text-gray-900">1:00 PM - 2:00 PM</span>
-                        ) : (
-                          <span className="text-red-500 font-medium">Closed</span>
-                        )}
-            </div>
-                    ))}
-                    </div>
-                  </div>
-                </div>
+            {/* View All Button */}
+            <div className="text-center mt-8 md:mt-10">
+              <Button 
+                variant="outline" 
+                className="rounded-full h-11 px-8 font-semibold border-2 hover:bg-gray-50"
+                style={{ borderColor: primaryColor, color: primaryColor }}
+              >
+                View All Products
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
             </div>
           </div>
         </section>
       )}
 
-      {/* ===== FAQs ===== */}
-      {formData.faqs && Array.isArray(formData.faqs) && formData.faqs.length > 0 && (
-        <section id="faq" className="py-10 md:py-16 bg-gray-50">
-          <div className="max-w-3xl mx-auto px-4 md:px-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8 text-center">Frequently Asked Questions</h2>
-            
-            <div className="space-y-2 md:space-y-3">
-              {(formData.faqs || []).slice(0, 5).map((faq: any, idx: number) => (
-                <div key={idx} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                  <button className="w-full px-4 md:px-6 py-3 md:py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors">
-                    <span className="font-medium text-gray-900 text-xs md:text-sm pr-4">{faq.question}</span>
-                    <span className="text-gray-400 flex-shrink-0">▼</span>
-                  </button>
-                  <div className="px-4 md:px-6 pb-3 md:pb-4">
-                    <p className="text-gray-500 text-xs md:text-sm">{faq.answer}</p>
-                  </div>
-                  </div>
-              ))}
-                  </div>
+      {/* ===== OUR SERVICES ===== */}
+      {(services.length > 0 || true) && (
+        <section id="services" className="py-12 md:py-16 lg:py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+            {/* Section Header */}
+            <div className="text-center mb-8 md:mb-12">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
+                <Store className="w-3.5 h-3.5" />
+                What We Offer
               </div>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">Our Services</h2>
+              <p className="text-gray-500 text-sm md:text-base mt-2 max-w-xl mx-auto">Professional services tailored to meet your unique needs</p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              {(services.length > 0 ? services : [
+                { id: '1', name: 'Premium Consultation', shortDescription: 'Expert advice and personalized recommendations for your specific needs.', price: 1999 },
+                { id: '2', name: 'Professional Service', shortDescription: 'High-quality service delivered by our experienced professionals.', price: 2499 },
+                { id: '3', name: 'Custom Solutions', shortDescription: 'Tailored solutions designed specifically for your requirements.', price: 1499 },
+                { id: '4', name: 'VIP Package', shortDescription: 'Exclusive package with premium features and priority support.', price: 4999 },
+              ]).slice(0, 4).map((service: any, idx: number) => (
+                <div key={service.id || idx} className="group bg-white rounded-2xl border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden hover:-translate-y-1">
+                  <div className="h-32 md:h-44 flex items-center justify-center relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${primaryColor}08, ${accentColor}12)` }}>
+                    {service.images && service.images.length > 0 ? (
+                      <img src={service.images[0]} alt={service.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                    ) : (
+                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}>
+                        {selectedLayout?.icon ? <selectedLayout.icon className="w-8 h-8 md:w-10 md:h-10" style={{ color: primaryColor }} /> : <Store className="w-8 h-8 md:w-10 md:h-10" style={{ color: primaryColor }} />}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 md:p-5">
+                    <h3 className="font-bold text-gray-900 mb-1.5 text-sm md:text-base line-clamp-1">{service.name}</h3>
+                    <p className="text-xs md:text-sm text-gray-500 mb-3 md:mb-4 line-clamp-2">{service.shortDescription || service.description}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-gray-400">Starting from</span>
+                        <span className="font-extrabold text-base md:text-lg" style={{ color: primaryColor }}>₹{service.price?.toLocaleString()}</span>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        className="rounded-xl text-xs h-9 px-4 font-semibold shadow-md hover:shadow-lg transition-all"
+                        style={{ background: `linear-gradient(135deg, ${accentColor}, ${primaryColor})`, color: 'white' }}
+                      >
+                        Book Now
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* View All Button */}
+            <div className="text-center mt-8 md:mt-10">
+              <Button 
+                variant="outline" 
+                className="rounded-full h-11 px-8 font-semibold border-2 hover:bg-gray-50"
+                style={{ borderColor: accentColor, color: accentColor }}
+              >
+                View All Services
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
         </section>
       )}
 
       {/* ===== GALLERY ===== */}
-      {formData.heroMedia && Array.isArray(formData.heroMedia) && formData.heroMedia.length > 1 && (
-        <section id="gallery" className="py-10 md:py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 md:px-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8 text-center">Gallery</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+      <section id="gallery" className="py-12 md:py-16 lg:py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
+              <ImageIcon className="w-3.5 h-3.5" />
+              Visual Gallery
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">Our Gallery</h2>
+            <p className="text-gray-500 text-sm md:text-base mt-2 max-w-xl mx-auto">Take a visual tour of our work and space</p>
+          </div>
+          
+          {formData.heroMedia && Array.isArray(formData.heroMedia) && formData.heroMedia.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               {formData.heroMedia.slice(0, 8).map((url: string, idx: number) => (
                 <div 
                   key={idx} 
-                  className={`rounded-lg md:rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer ${idx === 0 ? 'col-span-2 row-span-2' : ''}`}
+                  className={`group relative rounded-xl md:rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer ${idx === 0 ? 'col-span-2 row-span-2' : ''}`}
+                  onClick={() => setFullscreenImage(url)}
                 >
                   <img 
                     src={url} 
                     alt={`Gallery ${idx + 1}`} 
-                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                    style={{ minHeight: idx === 0 ? '200px' : '100px' }}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    style={{ minHeight: idx === 0 ? '300px' : '150px' }}
                   />
-                  </div>
-              ))}
-                </div>
-              </div>
-        </section>
-      )}
-
-      {/* ===== TESTIMONIALS ===== */}
-      {formData.testimonials && Array.isArray(formData.testimonials) && formData.testimonials.length > 0 && (
-        <section className="py-10 md:py-16 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 md:px-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8 text-center">Customer Reviews</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {(formData.testimonials || []).slice(0, 3).map((testimonial: any, idx: number) => (
-                <div key={idx} className="bg-white rounded-xl p-4 md:p-6 shadow-sm border border-gray-100">
-                  <div className="flex items-center gap-1 mb-3 md:mb-4">
-                    {Array.from({ length: testimonial.rating || 5 }).map((_, i) => (
-                      <span key={i} className="text-yellow-400 text-sm md:text-lg">★</span>
-                    ))}
-                </div>
-                  <p className="text-gray-600 mb-4 md:mb-6 text-xs md:text-sm leading-relaxed">"{testimonial.reviewText}"</p>
-                  <div className="flex items-center gap-3 border-t pt-3 md:pt-4">
-                    <div 
-                      className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-bold text-xs md:text-sm"
-                      style={{ backgroundColor: accentColor }}
-                    >
-                      {testimonial.customerName?.charAt(0) || "C"}
-              </div>
-                <div>
-                      <p className="font-semibold text-xs md:text-sm">{testimonial.customerName}</p>
-                      {testimonial.customerLocation && (
-                        <p className="text-[10px] md:text-xs text-gray-500">📍 {testimonial.customerLocation}</p>
-                      )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                      <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                      </svg>
                     </div>
                   </div>
-                      </div>
-                    ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              {[1,2,3,4].map((_, idx) => (
+                <div key={idx} className="rounded-xl md:rounded-2xl overflow-hidden h-[150px] md:h-[200px] flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}10, ${accentColor}15)` }}>
+                  <ImageIcon className="w-10 h-10" style={{ color: `${primaryColor}40` }} />
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-center text-xs text-gray-400 mt-4">Click on any image to view fullscreen</p>
+        </div>
+      </section>
+
+      {/* ===== ABOUT US & TEAM ===== */}
+      <section id="about" className="py-12 md:py-16 lg:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
+              <Info className="w-3.5 h-3.5" />
+              Who We Are
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">About Us</h2>
+          </div>
+          
+          {/* About Content */}
+          <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center mb-12 md:mb-16">
+            <div>
+              <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4" style={{ color: primaryColor }}>Our Story</h3>
+              <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-6">
+                {formData.description || "Welcome to our business! We are dedicated to providing exceptional products and services that exceed your expectations. Our team of professionals is committed to delivering quality, innovation, and outstanding customer experience in everything we do."}
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}>
+                    <CheckCircle2 className="w-4 h-4" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">Quality First</h4>
+                    <p className="text-xs text-gray-500">Premium products & services</p>
                   </div>
                 </div>
-        </section>
-      )}
-
-      {/* ===== FOOTER - Clean & Minimal ===== */}
-      <footer className="bg-white border-t border-gray-100 py-6 md:py-8">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            {/* Copyright */}
-            <p className="text-xs md:text-sm text-gray-500">
-              © {new Date().getFullYear()} {formData.businessName || "YourBrand"}. All rights reserved.
-              </p>
-            
-            {/* Footer Links */}
-            <nav className="flex items-center gap-4 md:gap-6 text-xs md:text-sm">
-              <a href="#offerings" className="text-gray-600 hover:text-gray-900 transition-colors">Our Offerings</a>
-              <a href="#gallery" className="text-gray-600 hover:text-gray-900 transition-colors">Gallery</a>
-              <a href="#about" className="text-gray-600 hover:text-gray-900 transition-colors">About Us</a>
-              <a href="#faq" className="text-gray-600 hover:text-gray-900 transition-colors">FAQs</a>
-            </nav>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}>
+                    <Users className="w-4 h-4" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">Customer Focus</h4>
+                    <p className="text-xs text-gray-500">Your satisfaction matters</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}>
+                    <Star className="w-4 h-4" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">Excellence</h4>
+                    <p className="text-xs text-gray-500">Best-in-class delivery</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}>
+                    <Clock className="w-4 h-4" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">On Time</h4>
+                    <p className="text-xs text-gray-500">Timely service delivery</p>
+                  </div>
+                </div>
+              </div>
             </div>
+            <div className="relative">
+              {formData.heroMedia && formData.heroMedia.length > 0 ? (
+                <div className="rounded-2xl overflow-hidden shadow-xl">
+                  <img src={formData.heroMedia[0]} alt="About" className="w-full h-[300px] md:h-[400px] object-cover" />
+                </div>
+              ) : (
+                <div className="rounded-2xl h-[300px] md:h-[400px] flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}10, ${accentColor}15)` }}>
+                  <Store className="w-16 h-16" style={{ color: `${primaryColor}40` }} />
+                </div>
+              )}
+            </div>
+          </div>
           
-          {/* Vyora Branding */}
-          <div className="text-center mt-6 md:mt-8 pt-4 md:pt-6 border-t border-gray-100">
-            <a 
-              href="https://vyora.club" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs md:text-sm text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <span>This website is created with</span>
-              <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-500">Vyora.club</span>
-            </a>
+          {/* Our Team */}
+          {formData.teamMembers && Array.isArray(formData.teamMembers) && formData.teamMembers.length > 0 && (
+            <div className="pt-8 md:pt-12 border-t">
+              <div className="text-center mb-8 md:mb-10">
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900">Meet Our Team</h3>
+                <p className="text-gray-500 text-sm mt-2">The people behind our success</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
+                {(formData.teamMembers || []).slice(0, 4).map((member: any, idx: number) => (
+                  <div key={idx} className="text-center group">
+                    <div className="relative mb-4">
+                      <div 
+                        className="w-20 h-20 md:w-24 md:h-24 rounded-2xl mx-auto flex items-center justify-center text-2xl md:text-3xl font-bold text-white shadow-lg overflow-hidden group-hover:scale-105 transition-transform"
+                        style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
+                      >
+                        {member.photo ? (
+                          <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                        ) : (
+                          member.name?.charAt(0)?.toUpperCase()
+                        )}
+                      </div>
+                    </div>
+                    <h4 className="font-bold text-gray-900 text-sm md:text-base">{member.name}</h4>
+                    <p className="text-xs md:text-sm font-medium" style={{ color: primaryColor }}>{member.role}</p>
+                    {member.bio && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{member.bio}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== BUSINESS HOURS ===== */}
+      <section className="py-12 md:py-16 lg:py-20 bg-gray-50">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
+              <Clock className="w-3.5 h-3.5" />
+              When to Visit
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">Business Hours</h2>
+            <p className="text-gray-500 text-sm md:text-base mt-2">Plan your visit during our operating hours</p>
+          </div>
+          
+          <div className="bg-white rounded-2xl md:rounded-3xl p-6 md:p-8 shadow-lg border border-gray-100">
+            <div className="grid md:grid-cols-2 gap-6 md:gap-10">
+              {/* Working Hours */}
+              <div>
+                <div className="flex items-center gap-2 mb-4 md:mb-6">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}>
+                    <Clock className="w-4 h-4" style={{ color: primaryColor }} />
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-sm md:text-base">Working Hours</h3>
+                </div>
+                <div className="space-y-3">
+                  {(formData.businessHours && formData.businessHours.length > 0 ? formData.businessHours : [
+                    { day: 'Monday', isOpen: true, slots: [{ open: '09:00', close: '18:00' }] },
+                    { day: 'Tuesday', isOpen: true, slots: [{ open: '09:00', close: '18:00' }] },
+                    { day: 'Wednesday', isOpen: true, slots: [{ open: '09:00', close: '18:00' }] },
+                    { day: 'Thursday', isOpen: true, slots: [{ open: '09:00', close: '18:00' }] },
+                    { day: 'Friday', isOpen: true, slots: [{ open: '09:00', close: '18:00' }] },
+                    { day: 'Saturday', isOpen: true, slots: [{ open: '10:00', close: '16:00' }] },
+                    { day: 'Sunday', isOpen: false, slots: [] },
+                  ]).map((day: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                      <span className="font-medium text-gray-700 text-sm">{day.day}</span>
+                      {day.isOpen ? (
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}>
+                          {day.slots?.[0]?.open || '09:00'} - {day.slots?.[0]?.close || '18:00'}
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-500">Closed</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Break Time */}
+              <div>
+                <div className="flex items-center gap-2 mb-4 md:mb-6">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${accentColor}15, ${primaryColor}20)` }}>
+                    <svg className="w-4 h-4" style={{ color: accentColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-sm md:text-base">Break Time</h3>
+                </div>
+                <div className="p-4 md:p-6 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+                  <div className="text-center">
+                    <p className="text-2xl md:text-3xl font-bold" style={{ color: accentColor }}>1:00 PM - 2:00 PM</p>
+                    <p className="text-gray-500 text-xs md:text-sm mt-2">Daily Lunch Break</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-4 rounded-xl" style={{ background: `linear-gradient(135deg, ${primaryColor}08, ${accentColor}05)` }}>
+                  <p className="text-xs md:text-sm text-gray-600">
+                    <strong className="text-gray-900">Note:</strong> We may be closed on public holidays. Please call ahead to confirm.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== TESTIMONIALS ===== */}
+      <section id="testimonials" className="py-12 md:py-16 lg:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
+              <Star className="w-3.5 h-3.5" />
+              What People Say
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">Customer Testimonials</h2>
+            <p className="text-gray-500 text-sm md:text-base mt-2 max-w-xl mx-auto">Hear from our satisfied customers</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {(formData.testimonials && formData.testimonials.length > 0 ? formData.testimonials : [
+              { customerName: 'John Doe', customerLocation: 'Mumbai', rating: 5, reviewText: 'Exceptional service and amazing quality! The team went above and beyond to meet our needs. Highly recommended!' },
+              { customerName: 'Sarah Smith', customerLocation: 'Delhi', rating: 5, reviewText: 'Best experience ever! Professional, timely, and the results exceeded my expectations. Will definitely come back!' },
+              { customerName: 'Raj Patel', customerLocation: 'Bangalore', rating: 5, reviewText: 'Outstanding products and incredible customer service. They truly care about their customers. Five stars!' },
+            ]).slice(0, 3).map((testimonial: any, idx: number) => (
+              <div key={idx} className="bg-white rounded-2xl p-5 md:p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
+                <div className="flex items-center gap-1 mb-4">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star 
+                      key={i} 
+                      className={`w-4 h-4 md:w-5 md:h-5 ${i < (testimonial.rating || 5) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`}
+                    />
+                  ))}
+                </div>
+                <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-base leading-relaxed italic">"{testimonial.reviewText}"</p>
+                <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+                  <div 
+                    className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white font-bold text-sm md:text-base shadow-md"
+                    style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
+                  >
+                    {testimonial.customerName?.charAt(0)?.toUpperCase() || "C"}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm md:text-base">{testimonial.customerName}</p>
+                    {testimonial.customerLocation && (
+                      <p className="text-xs md:text-sm text-gray-500 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {testimonial.customerLocation}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FAQs ===== */}
+      <section id="faq" className="py-12 md:py-16 lg:py-20 bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
+              <HelpCircle className="w-3.5 h-3.5" />
+              Got Questions?
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">Frequently Asked Questions</h2>
+            <p className="text-gray-500 text-sm md:text-base mt-2 max-w-xl mx-auto">Find answers to common questions</p>
+          </div>
+          
+          <div className="space-y-3 md:space-y-4">
+            {(formData.faqs && formData.faqs.length > 0 ? formData.faqs : [
+              { question: 'What are your working hours?', answer: 'We are open Monday to Saturday from 9 AM to 6 PM. We are closed on Sundays and public holidays.' },
+              { question: 'Do you offer home delivery?', answer: 'Yes, we offer home delivery for products within our service area. Delivery charges may apply based on location.' },
+              { question: 'What payment methods do you accept?', answer: 'We accept cash on delivery, UPI, and bank transfers. Online payment options coming soon!' },
+            ]).slice(0, 5).map((faq: any, idx: number) => (
+              <div key={idx} className="bg-white rounded-xl md:rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full px-5 md:px-6 py-4 md:py-5 text-left flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                  <span className="font-semibold text-gray-900 text-sm md:text-base pr-4">{faq.question}</span>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${primaryColor}15` }}>
+                    <ChevronRight className="w-4 h-4" style={{ color: primaryColor }} />
+                  </div>
+                </button>
+                <div className="px-5 md:px-6 pb-4 md:pb-5">
+                  <p className="text-gray-600 text-sm md:text-base leading-relaxed">{faq.answer}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== CONTACT US ===== */}
+      <section id="contact" className="py-12 md:py-16 lg:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
+              <Phone className="w-3.5 h-3.5" />
+              Get in Touch
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">Contact Us</h2>
+            <p className="text-gray-500 text-sm md:text-base mt-2 max-w-xl mx-auto">We'd love to hear from you</p>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-8 md:gap-12">
+            {/* Contact Info */}
+            <div className="space-y-6">
+              <div className="bg-gray-50 rounded-2xl p-6 md:p-8">
+                <h3 className="font-bold text-gray-900 text-lg md:text-xl mb-6">Contact Information</h3>
+                
+                <div className="space-y-4 md:space-y-5">
+                  {formData.contactPhone && (
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}>
+                        <Phone className="w-5 h-5" style={{ color: primaryColor }} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">Phone</p>
+                        <a href={`tel:${formData.contactPhone}`} className="text-gray-600 text-sm hover:underline">{formData.contactPhone}</a>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {formData.contactEmail && (
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}>
+                        <svg className="w-5 h-5" style={{ color: primaryColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">Email</p>
+                        <a href={`mailto:${formData.contactEmail}`} className="text-gray-600 text-sm hover:underline">{formData.contactEmail}</a>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {formData.address && (
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${accentColor}20)` }}>
+                        <MapPin className="w-5 h-5" style={{ color: primaryColor }} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">Address</p>
+                        <p className="text-gray-600 text-sm">{formData.address}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* CTA Buttons */}
+                <div className="flex flex-wrap gap-3 mt-6 md:mt-8">
+                  <Button 
+                    className="rounded-full h-11 px-6 text-sm font-semibold shadow-lg hover:shadow-xl transition-all"
+                    style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`, color: 'white' }}
+                    onClick={() => formData.contactPhone && window.open(`tel:${formData.contactPhone}`, '_self')}
+                  >
+                    <Phone className="w-4 h-4 mr-2" />
+                    Call Now
+                  </Button>
+                  <Button 
+                    className="rounded-full h-11 px-6 text-sm font-semibold shadow-lg hover:shadow-xl transition-all bg-[#25D366] hover:bg-[#20BD5A]"
+                    onClick={() => formData.contactPhone && window.open(`https://wa.me/${formData.contactPhone?.replace(/\D/g, '')}`, '_blank')}
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    WhatsApp
+                  </Button>
+                  {formData.googleMapsUrl && (
+                    <Button 
+                      variant="outline"
+                      className="rounded-full h-11 px-6 text-sm font-semibold border-2 hover:bg-gray-50"
+                      style={{ borderColor: primaryColor, color: primaryColor }}
+                      onClick={() => window.open(formData.googleMapsUrl, '_blank')}
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Directions
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Map Embed or Contact Form Placeholder */}
+            <div className="rounded-2xl overflow-hidden h-[300px] md:h-[400px] lg:h-full min-h-[300px]" style={{ background: `linear-gradient(135deg, ${primaryColor}08, ${accentColor}05)` }}>
+              {formData.googleMapsUrl ? (
+                <iframe
+                  src={formData.googleMapsUrl.includes('embed') ? formData.googleMapsUrl : `https://www.google.com/maps?q=${encodeURIComponent(formData.address || '')}&output=embed`}
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Location Map"
+                />
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: `linear-gradient(135deg, ${primaryColor}20, ${accentColor}30)` }}>
+                    <MapPin className="w-8 h-8" style={{ color: primaryColor }} />
+                  </div>
+                  <p className="font-semibold text-gray-900">Find Us</p>
+                  <p className="text-sm text-gray-500 mt-1">{formData.address || 'Add your address to show map'}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FOOTER - Professional & Detailed ===== */}
+      <footer className="bg-gray-900 text-white">
+        {/* Main Footer Content */}
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-12 md:py-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10">
+            {/* Brand Column */}
+            <div className="lg:col-span-1">
+              <div className="flex items-center gap-3 mb-4">
+                {formData.logo ? (
+                  <img src={formData.logo} alt={formData.businessName || "Logo"} className="w-10 h-10 rounded-xl object-cover" />
+                ) : (
+                  <div 
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
+                  >
+                    {formData.businessName?.charAt(0)?.toUpperCase() || "Y"}
+                  </div>
+                )}
+                <span className="text-lg font-bold">{formData.businessName || "Your Business"}</span>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed mb-6">
+                {formData.tagline || "Delivering excellence and quality in everything we do. Your satisfaction is our priority."}
+              </p>
+              
+              {/* Social Media Links */}
+              <div className="flex items-center gap-2">
+                {formData.socialMedia?.facebook && (
+                  <a 
+                    href={formData.socialMedia.facebook} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-[#1877F2] flex items-center justify-center text-white transition-all hover:scale-110"
+                    aria-label="Facebook"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                  </a>
+                )}
+                {formData.socialMedia?.instagram && (
+                  <a 
+                    href={formData.socialMedia.instagram} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-500 flex items-center justify-center text-white transition-all hover:scale-110"
+                    aria-label="Instagram"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/></svg>
+                  </a>
+                )}
+                {formData.socialMedia?.youtube && (
+                  <a 
+                    href={formData.socialMedia.youtube} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-[#FF0000] flex items-center justify-center text-white transition-all hover:scale-110"
+                    aria-label="YouTube"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                  </a>
+                )}
+                {formData.socialMedia?.twitter && (
+                  <a 
+                    href={formData.socialMedia.twitter} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-black flex items-center justify-center text-white transition-all hover:scale-110"
+                    aria-label="Twitter/X"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  </a>
+                )}
+                {!formData.socialMedia?.facebook && !formData.socialMedia?.instagram && !formData.socialMedia?.youtube && !formData.socialMedia?.twitter && (
+                  <>
+                    <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-white/50">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    </div>
+                    <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-white/50">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03z"/></svg>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            {/* Quick Links */}
+            <div>
+              <h3 className="font-bold text-sm mb-4">Quick Links</h3>
+              <ul className="space-y-2.5">
+                <li><a href="#products" className="text-gray-400 hover:text-white text-sm transition-colors">Products</a></li>
+                <li><a href="#services" className="text-gray-400 hover:text-white text-sm transition-colors">Services</a></li>
+                <li><a href="#gallery" className="text-gray-400 hover:text-white text-sm transition-colors">Gallery</a></li>
+                <li><a href="#about" className="text-gray-400 hover:text-white text-sm transition-colors">About Us</a></li>
+                <li><a href="#testimonials" className="text-gray-400 hover:text-white text-sm transition-colors">Reviews</a></li>
+              </ul>
+            </div>
+            
+            {/* Support */}
+            <div>
+              <h3 className="font-bold text-sm mb-4">Support</h3>
+              <ul className="space-y-2.5">
+                <li><a href="#faq" className="text-gray-400 hover:text-white text-sm transition-colors">FAQs</a></li>
+                <li><a href="#contact" className="text-gray-400 hover:text-white text-sm transition-colors">Contact Us</a></li>
+                <li><span className="text-gray-400 text-sm">Privacy Policy</span></li>
+                <li><span className="text-gray-400 text-sm">Terms of Service</span></li>
+              </ul>
+            </div>
+            
+            {/* Contact Info */}
+            <div>
+              <h3 className="font-bold text-sm mb-4">Contact</h3>
+              <ul className="space-y-3">
+                {formData.contactPhone && (
+                  <li className="flex items-start gap-3">
+                    <Phone className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <a href={`tel:${formData.contactPhone}`} className="text-gray-400 hover:text-white text-sm transition-colors">{formData.contactPhone}</a>
+                  </li>
+                )}
+                {formData.contactEmail && (
+                  <li className="flex items-start gap-3">
+                    <svg className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <a href={`mailto:${formData.contactEmail}`} className="text-gray-400 hover:text-white text-sm transition-colors break-all">{formData.contactEmail}</a>
+                  </li>
+                )}
+                {formData.address && (
+                  <li className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-400 text-sm">{formData.address}</span>
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        {/* Bottom Bar */}
+        <div className="border-t border-gray-800">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4 md:py-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              {/* Copyright */}
+              <p className="text-gray-500 text-xs md:text-sm">
+                © {new Date().getFullYear()} {formData.businessName || "Your Business"}. All rights reserved.
+              </p>
+              
+              {/* Vyora Branding */}
+              <a 
+                href="https://vyora.club" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="group flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 transition-all"
+              >
+                <span className="text-xs text-gray-500">Created with</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                    <span className="text-white text-[10px] font-bold">V</span>
+                  </div>
+                  <span className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 group-hover:from-blue-300 group-hover:to-purple-300 transition-all">Vyora.club</span>
+                </div>
+              </a>
+            </div>
           </div>
         </div>
       </footer>
@@ -3211,7 +4442,7 @@ function EcommerceSettingsStep({ form }: { form: any }) {
   }, []); // Only run once on mount
 
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Package className="h-5 w-5" />

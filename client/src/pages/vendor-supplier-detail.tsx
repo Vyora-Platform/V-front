@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { Supplier } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { getApiUrl } from "@/lib/config";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -63,9 +64,9 @@ export default function VendorSupplierDetail() {
 
   // Fetch supplier details
   const { data: supplier, isLoading } = useQuery<Supplier>({
-    queryKey: ['/api/vendors', vendorId, 'suppliers', supplierId],
+    queryKey: [`/api/vendors/${vendorId}/suppliers/${supplierId}`],
     queryFn: async () => {
-      const response = await fetch(`/api/vendors/${vendorId}/suppliers/${supplierId}`);
+      const response = await fetch(getApiUrl(`/api/vendors/${vendorId}/suppliers/${supplierId}`));
       if (!response.ok) throw new Error('Failed to fetch supplier');
       return response.json();
     },
@@ -74,9 +75,9 @@ export default function VendorSupplierDetail() {
 
   // Fetch payment history
   const { data: payments = [], isLoading: paymentsLoading } = useQuery<SupplierPayment[]>({
-    queryKey: ['/api/vendors', vendorId, 'suppliers', supplierId, 'payments'],
+    queryKey: [`/api/vendors/${vendorId}/suppliers/${supplierId}/payments`],
     queryFn: async () => {
-      const response = await fetch(`/api/vendors/${vendorId}/suppliers/${supplierId}/payments`);
+      const response = await fetch(getApiUrl(`/api/vendors/${vendorId}/suppliers/${supplierId}/payments`));
       if (!response.ok) throw new Error('Failed to fetch payments');
       return response.json();
     },
@@ -96,7 +97,7 @@ export default function VendorSupplierDetail() {
 
   const recordPaymentMutation = useMutation({
     mutationFn: async (data: PaymentFormValues) => {
-      const response = await fetch(`/api/vendors/${vendorId}/suppliers/${supplierId}/payments`, {
+      const response = await fetch(getApiUrl(`/api/vendors/${vendorId}/suppliers/${supplierId}/payments`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -105,9 +106,9 @@ export default function VendorSupplierDetail() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'suppliers', supplierId, 'payments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'suppliers', supplierId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'suppliers'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suppliers/${supplierId}/payments`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suppliers/${supplierId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suppliers`] });
       toast({ title: "Payment recorded successfully" });
       setPaymentDialogOpen(false);
       paymentForm.reset();
@@ -123,16 +124,16 @@ export default function VendorSupplierDetail() {
 
   const deletePaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const response = await fetch(`/api/vendors/${vendorId}/suppliers/${supplierId}/payments/${paymentId}`, {
+      const response = await fetch(getApiUrl(`/api/vendors/${vendorId}/suppliers/${supplierId}/payments/${paymentId}`), {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete payment');
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'suppliers', supplierId, 'payments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'suppliers', supplierId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/vendors', vendorId, 'suppliers'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suppliers/${supplierId}/payments`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suppliers/${supplierId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/suppliers`] });
       toast({ title: "Payment deleted successfully" });
     },
   });

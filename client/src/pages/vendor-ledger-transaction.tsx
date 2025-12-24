@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,9 +13,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Save, Plus, X } from "lucide-react";
+import { getApiUrl } from "@/lib/config";
+import { 
+  ArrowLeft, 
+  Save, 
+  Plus, 
+  X, 
+  Users,
+  Calendar,
+  FileText,
+  Camera,
+  Banknote,
+  Smartphone,
+  Building2,
+  CreditCard,
+  ChevronDown,
+  Repeat,
+  TrendingUp,
+  TrendingDown,
+  ChevronRight
+} from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
@@ -45,16 +65,42 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
+const PAYMENT_METHODS = [
+  { id: "cash", label: "Cash", icon: Banknote },
+  { id: "upi", label: "UPI", icon: Smartphone },
+  { id: "bank", label: "Bank", icon: Building2 },
+  { id: "card", label: "Card", icon: CreditCard },
+];
+
+const CATEGORIES_IN = [
+  { id: "product_sale", label: "Product Sale" },
+  { id: "service", label: "Service" },
+  { id: "loan_received", label: "Loan Received" },
+  { id: "advance", label: "Advance" },
+  { id: "subscription", label: "Subscription" },
+  { id: "other", label: "Other" },
+];
+
+const CATEGORIES_OUT = [
+  { id: "expense", label: "Expense" },
+  { id: "purchase", label: "Purchase" },
+  { id: "refund", label: "Refund" },
+  { id: "salary", label: "Salary" },
+  { id: "rent", label: "Rent" },
+  { id: "utility", label: "Utility" },
+  { id: "other", label: "Other" },
+];
+
 export default function VendorLedgerTransaction() {
   const { vendorId } = useAuth();
   const { id } = useParams();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [customerOpen, setCustomerOpen] = useState(false);
-  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [customerSheetOpen, setCustomerSheetOpen] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   // ⚠️ LEDGER IMMUTABILITY: Ledgers should not be edited once recorded
-  // Redirect to main ledger if someone tries to edit
   const isEditing = !!id && id !== "new";
   
   useEffect(() => {
@@ -72,12 +118,6 @@ export default function VendorLedgerTransaction() {
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/vendors", vendorId, "customers"],
     enabled: !!vendorId,
-  });
-
-  // Fetch transaction if editing
-  const { data: transaction, isLoading: transactionLoading } = useQuery({
-    queryKey: ["/api/ledger-transactions", id],
-    enabled: isEditing,
   });
 
   const form = useForm<FormData>({
@@ -99,33 +139,12 @@ export default function VendorLedgerTransaction() {
     },
   });
 
-  // Populate form when editing
-  useEffect(() => {
-    if (transaction && isEditing) {
-      form.reset({
-        customerId: transaction.customerId || null,
-        type: transaction.type,
-        amount: transaction.amount,
-        transactionDate: new Date(transaction.transactionDate).toISOString().split('T')[0],
-        category: transaction.category,
-        paymentMethod: transaction.paymentMethod,
-        description: transaction.description || "",
-        note: transaction.note || "",
-        isRecurring: transaction.isRecurring || false,
-        recurringPattern: transaction.recurringPattern || null,
-        recurringStartDate: transaction.recurringStartDate ? new Date(transaction.recurringStartDate).toISOString().split('T')[0] : "",
-        recurringEndDate: transaction.recurringEndDate ? new Date(transaction.recurringEndDate).toISOString().split('T')[0] : "",
-        attachments: transaction.attachments || [],
-      });
-    }
-  }, [transaction, isEditing, form]);
-
   const createMutation = useMutation({
     mutationFn: (data: FormData) => apiRequest("POST", `/api/vendors/${vendorId}/ledger-transactions`, data),
     onSuccess: () => {
       toast({
-        title: "Transaction created",
-        description: "The transaction has been added to your ledger.",
+        title: "Entry added!",
+        description: `₹${form.getValues('amount').toLocaleString()} ${form.getValues('type') === "in" ? "received" : "paid"} successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "ledger-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "ledger-summary"] });
@@ -140,43 +159,51 @@ export default function VendorLedgerTransaction() {
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: (data: FormData) => apiRequest("PATCH", `/api/ledger-transactions/${id}`, data),
-    onSuccess: () => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
+    if (!validTypes.includes(file.type)) {
       toast({
-        title: "Transaction updated",
-        description: "The transaction has been updated successfully.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "ledger-transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "ledger-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/ledger-transactions", id] });
-      navigate("/vendor/ledger");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update transaction",
+        title: "Invalid file type",
+        description: "Only images and PDF files are allowed",
         variant: "destructive",
       });
-    },
-  });
-
-  const onSubmit = (data: FormData) => {
-    if (isEditing) {
-      updateMutation.mutate(data);
-    } else {
-      createMutation.mutate(data);
+      return;
     }
-  };
 
-  const selectedCustomer = customers.find(c => c.id === form.watch("customerId"));
-  const isRecurring = form.watch("isRecurring");
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Maximum file size is 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const addAttachment = () => {
-    if (attachmentUrl.trim()) {
+    try {
+      setUploadingFile(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(getApiUrl(`/api/upload/ledger-attachment?vendorId=${vendorId}`), {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("Upload failed");
+
+      const data = await response.json();
       const currentAttachments = form.getValues("attachments");
-      form.setValue("attachments", [...currentAttachments, attachmentUrl.trim()]);
-      setAttachmentUrl("");
+      form.setValue("attachments", [...currentAttachments, data.url]);
+
+      toast({ title: "File uploaded", description: "Attachment added successfully" });
+    } catch (error) {
+      toast({ title: "Upload failed", description: "Failed to upload file.", variant: "destructive" });
+    } finally {
+      setUploadingFile(false);
+      event.target.value = "";
     }
   };
 
@@ -185,289 +212,386 @@ export default function VendorLedgerTransaction() {
     form.setValue("attachments", currentAttachments.filter((_, i) => i !== index));
   };
 
-  if (isEditing && transactionLoading) {
+  const onSubmit = (data: FormData) => {
+    createMutation.mutate(data);
+  };
 
-    // Show loading while vendor ID initializes
-    if (!vendorId) { return <LoadingSpinner />; }
+  const selectedCustomer = customers.find(c => c.id === form.watch("customerId"));
+  const isRecurring = form.watch("isRecurring");
+  const transactionType = form.watch("type");
+  const amount = form.watch("amount");
+  const categories = transactionType === "in" ? CATEGORIES_IN : CATEGORIES_OUT;
 
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-8">
-            <div className="space-y-4">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="h-12 bg-muted animate-pulse rounded" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  if (!vendorId) {
+    return <LoadingSpinner />;
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-3xl">
+    <div className="flex flex-col min-h-screen bg-background">
+      {/* Sticky Header - Transaction Type Selection */}
+      <div className="sticky top-0 z-50 bg-background border-b">
+        <div className="flex items-center gap-3 px-4 py-3">
       <Button
         variant="ghost"
+            size="icon"
         onClick={() => navigate("/vendor/ledger")}
-        className="mb-4"
-        data-testid="button-back"
+            className="-ml-2"
       >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Ledger
+            <ArrowLeft className="h-5 w-5" />
       </Button>
+          <div className="flex-1">
+            <h1 className="text-lg font-semibold">Add Entry</h1>
+            <p className="text-xs text-muted-foreground">Record a transaction</p>
+          </div>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle data-testid="heading-transaction-form">
-            {isEditing ? "Edit Transaction" : "Add New Transaction"}
-          </CardTitle>
-          <CardDescription>
-            {isEditing ? "Update transaction details" : "Record a new money in or out transaction"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        {/* Transaction Type Toggle */}
+        <div className="px-4 pb-4">
+          <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                form.setValue("type", "in");
+                form.setValue("category", "product_sale");
+              }}
+              className={`flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${
+                transactionType === "in"
+                  ? "bg-green-600 text-white shadow-md"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <TrendingUp className="h-5 w-5" />
+              <span>You Got (IN)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                form.setValue("type", "out");
+                form.setValue("category", "expense");
+              }}
+              className={`flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${
+                transactionType === "out"
+                  ? "bg-red-600 text-white shadow-md"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <TrendingDown className="h-5 w-5" />
+              <span>You Gave (OUT)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Form Content - Scrollable */}
+      <div className="flex-1 overflow-auto pb-24">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form className="p-4 space-y-4">
+            {/* Amount - Big Input */}
+            <Card className={`overflow-hidden border-2 ${
+              transactionType === "in" ? "border-green-500" : "border-red-500"
+            }`}>
+              <CardContent className={`p-6 ${
+                transactionType === "in" 
+                  ? "bg-gradient-to-br from-green-500/10 to-green-500/5" 
+                  : "bg-gradient-to-br from-red-500/10 to-red-500/5"
+              }`}>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {transactionType === "in" ? "Amount Received" : "Amount Paid"}
+                  </p>
+                  <div className="flex items-center justify-center">
+                    <span className={`text-3xl font-bold mr-2 ${
+                      transactionType === "in" ? "text-green-600" : "text-red-600"
+                    }`}>₹</span>
+                    <input
+                      type="number"
+                      value={amount || ""}
+                      onChange={(e) => form.setValue("amount", parseFloat(e.target.value) || 0)}
+                      placeholder="0"
+                      className={`text-5xl font-bold bg-transparent border-none outline-none text-center w-full max-w-[200px] ${
+                        transactionType === "in" ? "text-green-600" : "text-red-600"
+                      } placeholder:text-muted-foreground/50`}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
               {/* Customer Selection */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
+                <button
+                  type="button"
+                  onClick={() => setCustomerSheetOpen(true)}
+                  className="w-full flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-medium">
+                        {selectedCustomer ? selectedCustomer.name : "Select Customer"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedCustomer ? selectedCustomer.phone : "Link to a customer (optional)"}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </CardContent>
+            </Card>
+
+            {/* Date */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
               <FormField
                 control={form.control}
-                name="customerId"
+                  name="transactionDate"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Customer (Optional)</FormLabel>
-                    <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
-                      <PopoverTrigger asChild>
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Calendar className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <FormLabel className="text-sm font-medium">Date</FormLabel>
+                            <p className="text-xs text-muted-foreground">When did this happen?</p>
+                          </div>
+                        </div>
                         <FormControl>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className="justify-between"
-                            data-testid="button-select-customer"
-                          >
-                            {selectedCustomer ? selectedCustomer.name : "Select customer (optional)"}
-                          </Button>
+                          <Input 
+                            type="date" 
+                            {...field} 
+                            className="w-auto border-0 bg-muted/50 rounded-lg text-right"
+                          />
                         </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[400px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search customer..." data-testid="input-search-customer" />
-                          <CommandEmpty>No customer found.</CommandEmpty>
-                          <CommandGroup>
-                            <CommandItem
-                              value="none"
-                              onSelect={() => {
-                                field.onChange(null);
-                                setCustomerOpen(false);
-                              }}
-                            >
-                              None (General transaction)
-                            </CommandItem>
-                            {customers.map((customer) => (
-                              <CommandItem
-                                key={customer.id}
-                                value={customer.id}
-                                onSelect={() => {
-                                  field.onChange(customer.id);
-                                  setCustomerOpen(false);
-                                }}
-                                data-testid={`customer-option-${customer.id}`}
-                              >
-                                <div>
-                                  <div className="font-medium">{customer.name}</div>
-                                  <div className="text-sm text-muted-foreground">{customer.phone}</div>
                                 </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <FormDescription>
-                      Link this transaction to a customer or leave empty for general transactions
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              </CardContent>
+            </Card>
 
-              {/* Type and Amount */}
-              <div className="grid grid-cols-2 gap-4">
+            {/* Payment Method */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="paymentMethod"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Transaction Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-transaction-type">
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="in">In (Received)</SelectItem>
-                          <SelectItem value="out">Out (Paid)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel className="text-sm font-medium mb-3 block">Payment Mode</FormLabel>
+                      <div className="grid grid-cols-4 gap-2">
+                        {PAYMENT_METHODS.map((method) => {
+                          const Icon = method.icon;
+                          const isSelected = field.value === method.id;
+                          return (
+                            <button
+                              key={method.id}
+                              type="button"
+                              onClick={() => field.onChange(method.id)}
+                              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                                isSelected 
+                                  ? "border-primary bg-primary/5 text-primary" 
+                                  : "border-transparent bg-muted/50 text-muted-foreground hover:border-muted-foreground/30"
+                              }`}
+                            >
+                              <Icon className="h-5 w-5" />
+                              <span className="text-xs font-medium">{method.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              </CardContent>
+            </Card>
 
+            {/* Description */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
                 <FormField
                   control={form.control}
-                  name="amount"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Amount (₹)</FormLabel>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <FormLabel className="text-sm font-medium">Details (Optional)</FormLabel>
+                          <p className="text-xs text-muted-foreground">Add a note about this entry</p>
+                        </div>
+                      </div>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
+                        <Textarea
+                          placeholder="e.g., Payment for order #123"
                           {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                          data-testid="input-amount"
+                          value={field.value || ""}
+                          className="rounded-xl border-muted resize-none"
+                          rows={2}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              </CardContent>
+            </Card>
+
+            {/* Attachments */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Camera className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Attach Bill/Receipt</p>
+                    <p className="text-xs text-muted-foreground">Add photo proof</p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <Input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={handleFileUpload}
+                      disabled={uploadingFile}
+                      className="hidden"
+                    />
+                    <div className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      uploadingFile ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+                    }`}>
+                      {uploadingFile ? "Uploading..." : "Add Photo"}
+                    </div>
+                  </label>
               </div>
 
-              {/* Date */}
-              <FormField
-                control={form.control}
-                name="transactionDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Transaction Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} data-testid="input-transaction-date" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                {form.watch("attachments").length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {form.watch("attachments").map((attachment, index) => (
+                      <div
+                        key={index}
+                        className="relative w-16 h-16 rounded-lg overflow-hidden border bg-muted"
+                      >
+                        {attachment.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                          <img src={attachment} alt="Attachment" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <FileText className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(index)}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
-              />
+              </CardContent>
+            </Card>
 
-              {/* Category and Payment Method */}
-              <div className="grid grid-cols-2 gap-4">
+            {/* More Options Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowMoreOptions(!showMoreOptions)}
+              className="w-full flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>{showMoreOptions ? "Hide" : "Show"} more options</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${showMoreOptions ? "rotate-180" : ""}`} />
+            </button>
+
+            {showMoreOptions && (
+              <div className="space-y-4">
+                {/* Category */}
+                <Card className="overflow-hidden">
+                  <CardContent className="p-4">
                 <FormField
                   control={form.control}
                   name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-category">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="product_sale">Product Sale</SelectItem>
-                          <SelectItem value="service">Service</SelectItem>
-                          <SelectItem value="expense">Expense</SelectItem>
-                          <SelectItem value="advance">Advance</SelectItem>
-                          <SelectItem value="refund">Refund</SelectItem>
-                          <SelectItem value="subscription">Subscription</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="paymentMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payment Method</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-payment-method">
-                            <SelectValue placeholder="Select payment method" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="bank">Bank Transfer</SelectItem>
-                          <SelectItem value="upi">UPI</SelectItem>
-                          <SelectItem value="card">Card</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                          <FormLabel className="text-sm font-medium mb-3 block">Category</FormLabel>
+                          <div className="flex flex-wrap gap-2">
+                            {categories.map((cat) => (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => field.onChange(cat.id)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                                  field.value === cat.id
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-border bg-background hover:border-primary/50"
+                                }`}
+                              >
+                                {cat.label}
+                              </button>
+                            ))}
               </div>
-
-              {/* Description */}
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Brief description of the transaction"
-                        className="resize-none"
-                        rows={2}
-                        {...field}
-                        data-testid="input-description"
-                      />
-                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+                  </CardContent>
+                </Card>
 
-              {/* Internal Note */}
+                {/* Private Note */}
+                <Card className="overflow-hidden">
+                  <CardContent className="p-4">
               <FormField
                 control={form.control}
                 name="note"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Internal Note (Optional)</FormLabel>
+                          <FormLabel className="text-sm font-medium">Private Note</FormLabel>
+                          <FormDescription className="text-xs">Only visible to you</FormDescription>
                     <FormControl>
                       <Textarea
-                        placeholder="Internal notes (not visible to customer)"
-                        className="resize-none"
+                              placeholder="Add a private note..."
+                              {...field}
+                              value={field.value || ""}
+                              className="rounded-xl border-muted resize-none mt-2"
                         rows={2}
-                        {...field}
-                        data-testid="input-note"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+                  </CardContent>
+                </Card>
 
-              {/* Recurring Transaction */}
-              <div className="space-y-4">
+                {/* Recurring */}
+                <Card className="overflow-hidden">
+                  <CardContent className="p-4">
                 <FormField
                   control={form.control}
                   name="isRecurring"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Recurring Transaction</FormLabel>
-                        <FormDescription>
-                          Set up automatic recurring transactions
-                        </FormDescription>
+                        <FormItem className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Repeat className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <FormLabel className="text-sm font-medium">Recurring Entry</FormLabel>
+                              <FormDescription className="text-xs">Repeat this automatically</FormDescription>
+                            </div>
                       </div>
                       <FormControl>
                         <Switch
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          data-testid="switch-recurring"
                         />
                       </FormControl>
                     </FormItem>
@@ -475,16 +599,16 @@ export default function VendorLedgerTransaction() {
                 />
 
                 {isRecurring && (
-                  <div className="space-y-4 pl-4 border-l-2">
+                      <div className="mt-4 space-y-4">
                     <FormField
                       control={form.control}
                       name="recurringPattern"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Frequency</FormLabel>
+                              <FormLabel className="text-sm font-medium">Repeat</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value || undefined}>
                             <FormControl>
-                              <SelectTrigger data-testid="select-recurring-pattern">
+                                  <SelectTrigger className="rounded-xl">
                                 <SelectValue placeholder="Select frequency" />
                               </SelectTrigger>
                             </FormControl>
@@ -500,87 +624,91 @@ export default function VendorLedgerTransaction() {
                         </FormItem>
                       )}
                     />
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="recurringStartDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Start Date (Optional)</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} data-testid="input-recurring-start-date" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="recurringEndDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>End Date (Optional)</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} data-testid="input-recurring-end-date" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
                   </div>
                 )}
+                  </CardContent>
+                </Card>
               </div>
-
-              {/* Attachments */}
-              <div className="space-y-2">
-                <FormLabel>Attachments (Optional)</FormLabel>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter attachment URL"
-                    value={attachmentUrl}
-                    onChange={(e) => setAttachmentUrl(e.target.value)}
-                    data-testid="input-attachment-url"
-                  />
-                  <Button type="button" onClick={addAttachment} variant="outline" data-testid="button-add-attachment">
-                    <Plus className="h-4 w-4" />
-                  </Button>
+            )}
+          </form>
+        </Form>
                 </div>
-                {form.watch("attachments").length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    {form.watch("attachments").map((url, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded">
-                        <span className="flex-1 text-sm truncate">{url}</span>
+
+      {/* Fixed Bottom Button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t safe-area-inset-bottom">
                         <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeAttachment(index)}
-                          data-testid={`button-remove-attachment-${index}`}
+          type="submit"
+          size="lg"
+          disabled={createMutation.isPending || amount <= 0}
+          onClick={form.handleSubmit(onSubmit)}
+          className={`w-full h-14 rounded-xl text-lg font-semibold ${
+            transactionType === "in" 
+              ? "bg-green-600 hover:bg-green-700" 
+              : "bg-red-600 hover:bg-red-700"
+          }`}
                         >
-                          <X className="h-4 w-4" />
+          {createMutation.isPending ? (
+            "Saving..."
+          ) : (
+            <>
+              <Save className="h-5 w-5 mr-2" />
+              Save Entry
+            </>
+          )}
                         </Button>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              <div className="flex gap-4">
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-transaction">
-                  <Save className="h-4 w-4 mr-2" />
-                  {isEditing ? "Update Transaction" : "Save Transaction"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => navigate("/vendor/ledger")} data-testid="button-cancel">
-                  Cancel
-                </Button>
+      {/* Customer Selection Sheet */}
+      <Sheet open={customerSheetOpen} onOpenChange={setCustomerSheetOpen}>
+        <SheetContent side="bottom" className="h-[70vh] rounded-t-2xl">
+          <SheetHeader className="pb-4">
+            <SheetTitle>Select Customer</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-2 overflow-auto h-[calc(100%-60px)] pb-4">
+            {/* No Customer Option */}
+            <button
+              type="button"
+              onClick={() => {
+                form.setValue("customerId", null);
+                setCustomerSheetOpen(false);
+              }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                <X className="h-5 w-5 text-muted-foreground" />
               </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+              <div className="text-left">
+                <p className="text-sm font-medium">No Customer</p>
+                <p className="text-xs text-muted-foreground">General transaction</p>
+              </div>
+            </button>
+
+            {customers.map((customer) => (
+              <button
+                key={customer.id}
+                type="button"
+                onClick={() => {
+                  form.setValue("customerId", customer.id);
+                  setCustomerSheetOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors ${
+                  form.watch("customerId") === customer.id ? "bg-primary/5 border border-primary" : ""
+                }`}
+              >
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-lg font-bold text-primary">
+                    {customer.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium">{customer.name}</p>
+                  <p className="text-xs text-muted-foreground">{customer.phone}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -357,15 +357,15 @@ export default function VendorAnalytics() {
     <div className="min-h-screen bg-background pb-20 md:pb-6">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b">
-        <div className="flex items-center justify-between p-4 max-w-7xl mx-auto">
+        <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 max-w-[1440px] mx-auto">
           <div className="flex items-center gap-3">
             <Link href="/vendor/dashboard">
-              <Button variant="ghost" size="icon" className="shrink-0">
+              <Button variant="ghost" size="icon" className="shrink-0 h-10 w-10 md:hidden">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-primary" />
+            <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-primary hidden md:block" />
               Analytics
             </h1>
           </div>
@@ -375,12 +375,12 @@ export default function VendorAnalytics() {
               size="icon"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="shrink-0"
+              className="shrink-0 h-10 w-10"
             >
               <RefreshCw className={cn("w-4 h-4", isFetching && "animate-spin")} />
             </Button>
             <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-[130px] h-9 text-xs">
+              <SelectTrigger className="w-[130px] h-10 text-sm rounded-lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -395,36 +395,36 @@ export default function VendorAnalytics() {
         </div>
       </div>
 
-      <div className="p-4 max-w-7xl mx-auto space-y-6">
+      <div className="px-4 md:px-6 py-4 max-w-[1440px] mx-auto space-y-6">
         {/* Main KPIs Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {isLoading ? (
             [1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-muted/50 rounded-2xl p-4 animate-pulse h-28" />
+              <div key={i} className="bg-muted/50 rounded-xl p-4 animate-pulse min-h-[var(--card-min-h)]" />
             ))
           ) : (
             mainKPIs.map((kpi) => {
               const Icon = kpi.icon;
               return (
                 <Link key={kpi.title} href={kpi.link}>
-                  <Card className="cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all border-0 shadow-md">
+                  <Card className="cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm rounded-xl min-h-[var(--card-min-h)]">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-muted-foreground font-medium">{kpi.title}</span>
+                        <span className="text-xs font-medium text-muted-foreground">{kpi.title}</span>
                         <div className={cn(
-                          "w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-lg",
+                          "w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg",
                           "bg-gradient-to-br",
                           kpi.gradient
                         )}>
-                          <Icon className="w-4 h-4" />
+                          <Icon className="w-5 h-5" />
                         </div>
                       </div>
                       <div className="text-xl md:text-2xl font-bold">{kpi.value}</div>
-                      <div className="flex items-center gap-1 mt-1">
+                      <div className="flex items-center gap-1 mt-2">
                         {kpi.positive ? (
-                          <ArrowUpRight className="w-3 h-3 text-emerald-500" />
+                          <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
                         ) : (
-                          <ArrowDownRight className="w-3 h-3 text-rose-500" />
+                          <ArrowDownRight className="w-3.5 h-3.5 text-rose-500" />
                         )}
                         <span className={cn(
                           "text-xs font-medium",
@@ -443,34 +443,33 @@ export default function VendorAnalytics() {
 
         {/* Tabs for different sections */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <ScrollArea className="w-full whitespace-nowrap">
+          <div className="overflow-x-auto pb-2 scrollbar-hide">
             <TabsList className="inline-flex h-auto p-1 w-max">
-              <TabsTrigger value="overview" className="text-xs py-2 px-3">Overview</TabsTrigger>
-              <TabsTrigger value="sales" className="text-xs py-2 px-3">Sales</TabsTrigger>
-              <TabsTrigger value="customers" className="text-xs py-2 px-3">Customers</TabsTrigger>
-              <TabsTrigger value="inventory" className="text-xs py-2 px-3">Inventory</TabsTrigger>
-              <TabsTrigger value="financial" className="text-xs py-2 px-3">Financial</TabsTrigger>
-              <TabsTrigger value="website" className="text-xs py-2 px-3">Website</TabsTrigger>
+              <TabsTrigger value="overview" className="text-sm py-2.5 px-4">Overview</TabsTrigger>
+              <TabsTrigger value="sales" className="text-sm py-2.5 px-4">Sales</TabsTrigger>
+              <TabsTrigger value="customers" className="text-sm py-2.5 px-4">Customers</TabsTrigger>
+              <TabsTrigger value="inventory" className="text-sm py-2.5 px-4">Inventory</TabsTrigger>
+              <TabsTrigger value="financial" className="text-sm py-2.5 px-4">Financial</TabsTrigger>
+              <TabsTrigger value="website" className="text-sm py-2.5 px-4">Website</TabsTrigger>
             </TabsList>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          </div>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="mt-4 space-y-4">
+          <TabsContent value="overview" className="mt-4 space-y-6">
             {/* Revenue Stats */}
             <div>
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
                 <IndianRupee className="w-4 h-4 text-emerald-500" />
                 Revenue Overview
               </h3>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 lg:grid-cols-3 gap-3">
                 {revenueStats.map((stat) => {
                   const Icon = stat.icon;
                   return (
-                    <Card key={stat.title} className="border-0 shadow-md">
+                    <Card key={stat.title} className="shadow-sm rounded-xl">
                       <CardContent className="p-4">
                         <Icon className={cn("w-5 h-5 mb-2", stat.color)} />
-                        <p className="text-lg font-bold">{stat.value}</p>
+                        <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
                         <p className="text-xs text-muted-foreground">{stat.title}</p>
                       </CardContent>
                     </Card>
@@ -481,20 +480,20 @@ export default function VendorAnalytics() {
 
             {/* Order Status */}
             <div>
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 text-blue-500" />
                 Order Status
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {orderStatusStats.map((stat) => {
                   const Icon = stat.icon;
                   return (
                     <div
                       key={stat.title}
-                      className={cn("rounded-2xl p-4", stat.bgColor, "border border-border/30")}
+                      className={cn("rounded-xl p-4 min-h-[var(--card-min-h)]", stat.bgColor, "border border-border/30")}
                     >
                       <Icon className={cn("w-5 h-5 mb-2", stat.color)} />
-                      <p className="text-xl font-bold">{stat.value}</p>
+                      <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
                       <p className="text-xs text-muted-foreground">{stat.title}</p>
                     </div>
                   );
@@ -504,23 +503,23 @@ export default function VendorAnalytics() {
           </TabsContent>
 
           {/* Sales Tab */}
-          <TabsContent value="sales" className="mt-4 space-y-4">
+          <TabsContent value="sales" className="mt-4 space-y-6">
             {/* Order Status */}
             <div>
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 text-blue-500" />
                 Order Status Breakdown
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {orderStatusStats.map((stat) => {
                   const Icon = stat.icon;
                   return (
                     <div
                       key={stat.title}
-                      className={cn("rounded-2xl p-4", stat.bgColor, "border border-border/30")}
+                      className={cn("rounded-xl p-4 min-h-[var(--card-min-h)]", stat.bgColor, "border border-border/30")}
                     >
                       <Icon className={cn("w-5 h-5 mb-2", stat.color)} />
-                      <p className="text-xl font-bold">{stat.value}</p>
+                      <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
                       <p className="text-xs text-muted-foreground">{stat.title}</p>
                     </div>
                   );
@@ -529,14 +528,14 @@ export default function VendorAnalytics() {
             </div>
 
             {/* Revenue Stats */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 lg:grid-cols-3 gap-3">
               {revenueStats.map((stat) => {
                 const Icon = stat.icon;
                 return (
-                  <Card key={stat.title} className="border-0 shadow-md">
+                  <Card key={stat.title} className="shadow-sm rounded-xl">
                     <CardContent className="p-4">
                       <Icon className={cn("w-5 h-5 mb-2", stat.color)} />
-                      <p className="text-lg font-bold">{stat.value}</p>
+                      <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
                       <p className="text-xs text-muted-foreground">{stat.title}</p>
                     </CardContent>
                   </Card>
@@ -546,26 +545,26 @@ export default function VendorAnalytics() {
           </TabsContent>
 
           {/* Customers Tab */}
-          <TabsContent value="customers" className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <TabsContent value="customers" className="mt-4 space-y-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {customerStats.map((stat) => {
                 const Icon = stat.icon;
                 return (
                   <Link key={stat.title} href={stat.link}>
-                    <Card className="cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all h-full">
+                    <Card className="cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all h-full rounded-xl shadow-sm min-h-[var(--card-min-h)]">
                       <CardContent className="p-4">
                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-3", stat.bgColor)}>
                           <Icon className={cn("w-5 h-5", stat.color)} />
                         </div>
-                        <p className="text-xl font-bold">{stat.value}</p>
+                        <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
                         <p className="text-xs text-muted-foreground">{stat.title}</p>
-                        <div className="flex items-center gap-1 mt-1">
+                        <div className="flex items-center gap-1 mt-2">
                           {stat.positive ? (
-                            <ArrowUpRight className="w-3 h-3 text-emerald-500" />
+                            <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
                           ) : (
-                            <ArrowDownRight className="w-3 h-3 text-rose-500" />
+                            <ArrowDownRight className="w-3.5 h-3.5 text-rose-500" />
                           )}
-                          <span className={cn("text-xs", stat.positive ? "text-emerald-600" : "text-rose-600")}>
+                          <span className={cn("text-xs font-medium", stat.positive ? "text-emerald-600" : "text-rose-600")}>
                             {Math.abs(stat.change)}%
                           </span>
                         </div>
@@ -578,16 +577,16 @@ export default function VendorAnalytics() {
           </TabsContent>
 
           {/* Inventory Tab */}
-          <TabsContent value="inventory" className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <TabsContent value="inventory" className="mt-4 space-y-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {inventoryStats.map((stat) => {
                 const Icon = stat.icon;
                 return (
-                  <div key={stat.title} className={cn("rounded-2xl p-4", stat.bgColor, "border border-border/30")}>
+                  <div key={stat.title} className={cn("rounded-xl p-4 min-h-[var(--card-min-h)]", stat.bgColor, "border border-border/30")}>
                     <Icon className={cn("w-5 h-5 mb-2", stat.color)} />
-                    <p className="text-xl font-bold">{stat.value}</p>
+                    <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
                     <p className="text-xs text-muted-foreground">{stat.title}</p>
-                    <p className="text-[10px] text-muted-foreground/70">{stat.subtitle}</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">{stat.subtitle}</p>
                   </div>
                 );
               })}
@@ -595,23 +594,23 @@ export default function VendorAnalytics() {
           </TabsContent>
 
           {/* Financial Tab */}
-          <TabsContent value="financial" className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <TabsContent value="financial" className="mt-4 space-y-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {financialStats.map((stat) => {
                 const Icon = stat.icon;
                 return (
-                  <Card key={stat.title} className="border-0 shadow-md">
+                  <Card key={stat.title} className="shadow-sm rounded-xl min-h-[var(--card-min-h)]">
                     <CardContent className="p-4">
                       <Icon className={cn("w-5 h-5 mb-2", stat.color)} />
-                      <p className="text-lg font-bold">{stat.value}</p>
+                      <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
                       <p className="text-xs text-muted-foreground">{stat.title}</p>
-                      <div className="flex items-center gap-1 mt-1">
+                      <div className="flex items-center gap-1 mt-2">
                         {stat.positive ? (
-                          <ArrowUpRight className="w-3 h-3 text-emerald-500" />
+                          <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
                         ) : (
-                          <ArrowDownRight className="w-3 h-3 text-rose-500" />
+                          <ArrowDownRight className="w-3.5 h-3.5 text-rose-500" />
                         )}
-                        <span className={cn("text-xs", stat.positive ? "text-emerald-600" : "text-rose-600")}>
+                        <span className={cn("text-xs font-medium", stat.positive ? "text-emerald-600" : "text-rose-600")}>
                           {Math.abs(stat.change)}%
                         </span>
                       </div>
@@ -623,23 +622,23 @@ export default function VendorAnalytics() {
           </TabsContent>
 
           {/* Website Tab */}
-          <TabsContent value="website" className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <TabsContent value="website" className="mt-4 space-y-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {websiteStats.map((stat) => {
                 const Icon = stat.icon;
                 return (
-                  <Card key={stat.title} className="border-0 shadow-md">
+                  <Card key={stat.title} className="shadow-sm rounded-xl min-h-[var(--card-min-h)]">
                     <CardContent className="p-4">
                       <Icon className={cn("w-5 h-5 mb-2", stat.color)} />
-                      <p className="text-xl font-bold">{stat.value}</p>
+                      <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
                       <p className="text-xs text-muted-foreground">{stat.title}</p>
-                      <div className="flex items-center gap-1 mt-1">
+                      <div className="flex items-center gap-1 mt-2">
                         {stat.positive ? (
-                          <ArrowUpRight className="w-3 h-3 text-emerald-500" />
+                          <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
                         ) : (
-                          <ArrowDownRight className="w-3 h-3 text-rose-500" />
+                          <ArrowDownRight className="w-3.5 h-3.5 text-rose-500" />
                         )}
-                        <span className={cn("text-xs", stat.positive ? "text-emerald-600" : "text-rose-600")}>
+                        <span className={cn("text-xs font-medium", stat.positive ? "text-emerald-600" : "text-rose-600")}>
                           {Math.abs(stat.change)}%
                         </span>
                       </div>
@@ -651,24 +650,24 @@ export default function VendorAnalytics() {
 
             {/* Downloads & Shares */}
             <div className="grid grid-cols-2 gap-3">
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+              <Card className="shadow-sm rounded-xl">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
                     <Download className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-xl font-bold">{analytics?.downloads?.value || 0}</p>
+                    <p className="text-xl md:text-2xl font-bold">{analytics?.downloads?.value || 0}</p>
                     <p className="text-xs text-muted-foreground">Downloads</p>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              <Card className="shadow-sm rounded-xl">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center shrink-0">
                     <Share2 className="w-6 h-6 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-xl font-bold">{analytics?.shares?.value || 0}</p>
+                    <p className="text-xl md:text-2xl font-bold">{analytics?.shares?.value || 0}</p>
                     <p className="text-xs text-muted-foreground">Shares</p>
                   </div>
                 </CardContent>

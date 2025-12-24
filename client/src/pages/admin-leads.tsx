@@ -122,7 +122,7 @@ export default function AdminLeadsPage() {
   };
 
   // Fetch leads with filters - React Query will refetch when any of these values change
-  const { data, isLoading } = useQuery<{ leads: Lead[]; total: number }>({
+  const { data, isLoading, isFetching } = useQuery<{ leads: Lead[]; total: number }>({
     queryKey: [
       "/api/admin/leads",
       search,
@@ -145,7 +145,8 @@ export default function AdminLeadsPage() {
       if (!response.ok) throw new Error("Failed to fetch leads");
       return response.json();
     },
-    enabled: vendors.length > 0, // Only fetch leads after vendors are loaded
+    staleTime: 1000 * 30, // Cache for 30 seconds
+    refetchOnWindowFocus: false,
   });
 
   const leads = data?.leads || [];
@@ -222,44 +223,47 @@ export default function AdminLeadsPage() {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 pb-16 md:pb-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">All Leads</h1>
-          <p className="text-muted-foreground mt-1">
-            Aggregated leads from all vendors • {total} total
-          </p>
+    <div className="min-h-screen bg-background overflow-y-auto pb-20 md:pb-6">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">All Leads</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Aggregated leads from all vendors • {total} total
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Enterprise-Level Filters - Single Row */}
-      <Card>
-        <CardContent className="pt-6">
-          {/* Top Row: Search + Main Filters */}
-          <div className="flex flex-col lg:flex-row gap-3 mb-3">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[300px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, phone, email, or company..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-leads"
-              />
-            </div>
+        {/* Enterprise-Level Filters - Single Row */}
+        <Card className="rounded-xl">
+          <CardContent className="p-3 md:p-4 lg:pt-6">
+            {/* Top Row: Search + Main Filters */}
+            <div className="flex flex-col lg:flex-row gap-3 mb-3">
+              {/* Search */}
+              <div className="relative flex-1 min-w-[200px] lg:min-w-[300px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, phone, email, or company..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 h-10 text-sm"
+                  data-testid="input-search-leads"
+                />
+              </div>
 
-            {/* Vendor Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-[180px] justify-between" data-testid="dropdown-vendors">
-                  <span className="truncate">
-                    {selectedVendors.length > 0 ? `Vendors (${selectedVendors.length})` : "All Vendors"}
-                  </span>
-                  <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
-                </Button>
-              </PopoverTrigger>
+              {/* Filters Row */}
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide lg:pb-0">
+                {/* Vendor Filter */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="shrink-0 h-10 text-sm lg:w-[180px] justify-between" data-testid="dropdown-vendors">
+                      <span className="truncate">
+                        {selectedVendors.length > 0 ? `Vendors (${selectedVendors.length})` : "All Vendors"}
+                      </span>
+                      <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
               <PopoverContent className="w-[300px] p-3" align="start">
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {vendors.map((vendor) => (
@@ -279,16 +283,16 @@ export default function AdminLeadsPage() {
               </PopoverContent>
             </Popover>
 
-            {/* Category Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-[180px] justify-between" data-testid="dropdown-categories">
-                  <span className="truncate">
-                    {selectedCategories.length > 0 ? `Categories (${selectedCategories.length})` : "All Categories"}
-                  </span>
-                  <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
-                </Button>
-              </PopoverTrigger>
+                {/* Category Filter */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="shrink-0 h-10 text-sm lg:w-[180px] justify-between" data-testid="dropdown-categories">
+                      <span className="truncate">
+                        {selectedCategories.length > 0 ? `Categories (${selectedCategories.length})` : "All Categories"}
+                      </span>
+                      <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
               <PopoverContent className="w-[250px] p-3" align="start">
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {uniqueCategories.map((category) => (
@@ -308,16 +312,16 @@ export default function AdminLeadsPage() {
               </PopoverContent>
             </Popover>
 
-            {/* Status Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-[160px] justify-between" data-testid="dropdown-status">
-                  <span className="truncate">
-                    {selectedStatuses.length > 0 ? `Status (${selectedStatuses.length})` : "All Status"}
-                  </span>
-                  <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
-                </Button>
-              </PopoverTrigger>
+                {/* Status Filter */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="shrink-0 h-10 text-sm lg:w-[160px] justify-between" data-testid="dropdown-status">
+                      <span className="truncate">
+                        {selectedStatuses.length > 0 ? `Status (${selectedStatuses.length})` : "All Status"}
+                      </span>
+                      <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
               <PopoverContent className="w-[200px] p-3" align="start">
                 <div className="space-y-2">
                   {STATUS_OPTIONS.map((option) => (
@@ -395,14 +399,14 @@ export default function AdminLeadsPage() {
               </PopoverContent>
             </Popover>
 
-            {/* More Filters */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-[140px]" data-testid="button-more-filters">
-                  <Filter className="w-4 h-4 mr-2" />
-                  More
-                </Button>
-              </PopoverTrigger>
+                {/* More Filters */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="shrink-0 h-10 text-sm lg:w-[140px]" data-testid="button-more-filters">
+                      <Filter className="w-4 h-4 mr-2" />
+                      More
+                    </Button>
+                  </PopoverTrigger>
               <PopoverContent className="w-[400px] p-4" align="start">
                 <div className="space-y-4">
                   {/* Employee Filter */}
@@ -502,21 +506,22 @@ export default function AdminLeadsPage() {
               </PopoverContent>
             </Popover>
 
-            {/* Clear Filters Button */}
-            {(selectedVendors.length > 0 || selectedCategories.length > 0 || selectedStatuses.length > 0 || selectedSources.length > 0 || 
-              selectedPriorities.length > 0 || selectedEmployees.length > 0 || leadScoreMin || leadScoreMax || 
-              startDate || endDate || search) && (
-              <Button
-                variant="ghost"
-                onClick={clearFilters}
-                className="w-full lg:w-auto"
-                data-testid="button-clear-filters"
-              >
-                <X className="w-4 h-4 mr-2" />
-                Clear
-              </Button>
-            )}
-          </div>
+                {/* Clear Filters Button */}
+                {(selectedVendors.length > 0 || selectedCategories.length > 0 || selectedStatuses.length > 0 || selectedSources.length > 0 || 
+                  selectedPriorities.length > 0 || selectedEmployees.length > 0 || leadScoreMin || leadScoreMax || 
+                  startDate || endDate || search) && (
+                  <Button
+                    variant="ghost"
+                    onClick={clearFilters}
+                    className="shrink-0 h-10 text-sm lg:w-auto"
+                    data-testid="button-clear-filters"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
 
           {/* Bottom Row: Sort Options */}
           <div className="flex items-center gap-3 pt-3 border-t">
@@ -545,11 +550,11 @@ export default function AdminLeadsPage() {
         </CardContent>
       </Card>
 
-      {/* Leads Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+        {/* Leads Table */}
+        <Card className="rounded-xl">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Lead Name</TableHead>
@@ -635,10 +640,11 @@ export default function AdminLeadsPage() {
                   ))
                 )}
               </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
