@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getVendorId } from "@/hooks/useVendor";
+import { useSubscription } from "@/hooks/useSubscription";
 
 interface AppSidebarProps {
   userRole?: "vendor" | "admin" | "employee";
@@ -53,29 +54,32 @@ interface AppSidebarProps {
 }
 
 const vendorMenuItems = [
-  { title: "Dashboard", url: "/vendor/dashboard", icon: LayoutDashboard },
-  { title: "POS", url: "/vendor/pos", icon: CreditCard },
-  { title: "Bookings", url: "/vendor/bookings", icon: Calendar },
-  { title: "Appointments", url: "/vendor/appointments", icon: User },
-  { title: "Orders", url: "/vendor/orders", icon: ShoppingCart },
-  { title: "Customers", url: "/vendor/customers", icon: Users },
-  { title: "Suppliers", url: "/vendor/suppliers", icon: Warehouse },
-  { title: "Expenses", url: "/vendor/expenses", icon: Receipt },
-  { title: "Leads", url: "/vendor/leads", icon: TrendingUp },
-  { title: "Quotations", url: "/vendor/quotations", icon: FileText },
-  { title: "Hisab Kitab", url: "/vendor/ledger", icon: BookOpen },
-  { title: "Services Catalogue", url: "/vendor/services-catalogue", icon: Package },
-  { title: "Products Catalogue", url: "/vendor/products-catalogue", icon: Boxes },
-  { title: "Stock Turnover", url: "/vendor/stock-turnover", icon: TrendingUp },
-  { title: "Employees", url: "/vendor/employees", icon: Users },
-  { title: "Attendance", url: "/vendor/attendance", icon: Clock },
-  { title: "Leaves", url: "/vendor/leaves", icon: CalendarDays },
-  { title: "Tasks", url: "/vendor/tasks", icon: ListTodo },
-  { title: "Greeting & Marketing", url: (vendorId: string) => `/vendors/${vendorId}/greeting`, icon: Sparkles },
-  { title: "Mini Website", url: "/vendor/website", icon: Globe },
-  { title: "Additional Services", url: "/vendor/additional-services", icon: Crown },
-  { title: "Account", url: "/vendor/account", icon: UserRound },
+  { title: "Dashboard", url: "/vendor/dashboard", icon: LayoutDashboard, requiresPro: true },
+  { title: "POS", url: "/vendor/pos", icon: CreditCard, requiresPro: true },
+  { title: "Bookings", url: "/vendor/bookings", icon: Calendar, requiresPro: true },
+  { title: "Appointments", url: "/vendor/appointments", icon: User, requiresPro: true },
+  { title: "Orders", url: "/vendor/orders", icon: ShoppingCart, requiresPro: true },
+  { title: "Customers", url: "/vendor/customers", icon: Users, requiresPro: true },
+  { title: "Suppliers", url: "/vendor/suppliers", icon: Warehouse, requiresPro: true },
+  { title: "Expenses", url: "/vendor/expenses", icon: Receipt, requiresPro: true },
+  { title: "Leads", url: "/vendor/leads", icon: TrendingUp, requiresPro: true },
+  { title: "Quotations", url: "/vendor/quotations", icon: FileText, requiresPro: true },
+  { title: "Hisab Kitab", url: "/vendor/ledger", icon: BookOpen, requiresPro: true },
+  { title: "Services Catalogue", url: "/vendor/services-catalogue", icon: Package, requiresPro: true },
+  { title: "Products Catalogue", url: "/vendor/products-catalogue", icon: Boxes, requiresPro: true },
+  { title: "Stock Turnover", url: "/vendor/stock-turnover", icon: TrendingUp, requiresPro: true },
+  { title: "Employees", url: "/vendor/employees", icon: Users, requiresPro: true },
+  { title: "Attendance", url: "/vendor/attendance", icon: Clock, requiresPro: true },
+  { title: "Leaves", url: "/vendor/leaves", icon: CalendarDays, requiresPro: true },
+  { title: "Tasks", url: "/vendor/tasks", icon: ListTodo, requiresPro: true },
+  { title: "Greeting & Marketing", url: (vendorId: string) => `/vendors/${vendorId}/greeting`, icon: Sparkles, requiresPro: true },
+  { title: "Mini Website", url: "/vendor/website", icon: Globe, requiresPro: true },
+  { title: "Additional Services", url: "/vendor/additional-services", icon: Crown, requiresPro: true },
+
+  // 👇 ALWAYS ENABLED
+  { title: "Account", url: "/vendor/account", icon: UserRound, requiresPro: false },
 ];
+
 
 const adminMenuItems = [
   { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
@@ -95,6 +99,7 @@ const adminMenuItems = [
 
 export function AppSidebar({ userRole = "vendor", vendorId: propVendorId, modulePermissions = [] }: AppSidebarProps) {
   const [location, setLocation] = useLocation();
+  const { isPro } = useSubscription();
   
   // Use prop vendorId if provided, otherwise get from localStorage
   let vendorId = propVendorId;
@@ -176,16 +181,39 @@ export function AppSidebar({ userRole = "vendor", vendorId: propVendorId, module
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => {
-                const itemUrl = typeof item.url === 'function' ? item.url(vendorId) : item.url;
+             {menuItems.map((item) => {
+                const itemUrl =
+                  typeof item.url === "function"
+                    ? item.url(vendorId)
+                    : item.url;
+
                 const isActive = location === itemUrl;
+
+                // 🔐 Disable logic
+                const isDisabled =
+                  userRole === "vendor" &&
+                  item.requiresPro &&
+                  !isPro;
+
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive}>
-                      <Link href={itemUrl} data-testid={`nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}>
-                        <item.icon className="w-4 h-4" />
-                        <span>{item.title}</span>
-                      </Link>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      disabled={isDisabled}
+                      className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}
+                    >
+                      {isDisabled ? (
+                        <div className="flex items-center gap-2">
+                          <item.icon className="w-4 h-4" />
+                          <span>{item.title}</span>
+                        </div>
+                      ) : (
+                        <Link href={itemUrl}>
+                          <item.icon className="w-4 h-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
