@@ -73,7 +73,7 @@ const vendorMenuItems = [
   { title: "Tasks", url: "/vendor/tasks", icon: ListTodo },
   { title: "Greeting & Marketing", url: (vendorId: string) => `/vendors/${vendorId}/greeting`, icon: Sparkles },
   { title: "Mini Website", url: "/vendor/website", icon: Globe },
-  //{ title: "Additional Services", url: "/vendor/additional-services", icon: Crown },
+  { title: "Additional Services", url: "/vendor/additional-services", icon: Crown },
   { title: "Account", url: "/vendor/account", icon: UserRound },
 ];
 
