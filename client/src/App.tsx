@@ -79,6 +79,8 @@ import VendorCustomerLedger from "@/pages/vendor-customer-ledger";
 import VendorLedgerCustomerSelection from "@/pages/vendor-ledger-customer-selection";
 import VendorLedgerCustomerDashboard from "@/pages/vendor-ledger-customer-dashboard";
 import VendorLedgerCustomerTransaction from "@/pages/vendor-ledger-customer-transaction";
+import VendorLedgerSupplierDashboard from "@/pages/vendor-ledger-supplier-dashboard";
+import VendorLedgerSupplierTransaction from "@/pages/vendor-ledger-supplier-transaction";
 import AdminGreetingTemplates from "@/pages/admin-greeting-templates";
 import VendorGreetingBrowse from "@/pages/vendor-greeting-browse";
 import VendorGreetingCustomize from "@/pages/vendor-greeting-customize";
@@ -123,9 +125,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       
       if (!authenticated) {
         console.warn('🔒 [Auth] Invalid or expired token, redirecting to login...');
-        // ✅ IMPORTANT: Don't clear localStorage here!
-        // Let user explicitly logout to clear data
-        // This prevents data loss on refresh
         setLocation('/login');
       } else {
         console.log('✅ [Auth] Token validated successfully');
@@ -152,6 +151,74 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   
   // If not valid, don't render (will redirect)
   if (!isValid) {
+    return null;
+  }
+  
+  return <>{children}</>;
+}
+
+// Protected Route for Onboarding - Redirects completed vendors to dashboard
+function OnboardingRoute({ children }: { children: React.ReactNode }) {
+  const [, setLocation] = useLocation();
+  const [isChecking, setIsChecking] = useState(true);
+  const [isValid, setIsValid] = useState(false);
+  const [shouldShowOnboarding, setShouldShowOnboarding] = useState(false);
+  
+  const vendorId = getVendorId();
+  
+  // Fetch vendor data to check onboarding status
+  const { data: vendor, isLoading: isLoadingVendor } = useQuery<Vendor>({
+    queryKey: ["/api/vendors", vendorId],
+    enabled: !!vendorId,
+  });
+  
+  useEffect(() => {
+    const checkAuth = async () => {
+      console.log('🔍 [OnboardingRoute] Validating JWT token...');
+      const authenticated = await isAuthenticated();
+      
+      if (!authenticated) {
+        console.warn('🔒 [OnboardingRoute] Invalid or expired token, redirecting to login...');
+        setLocation('/login');
+        setIsChecking(false);
+        return;
+      }
+      
+      setIsValid(true);
+      setIsChecking(false);
+    };
+    
+    checkAuth();
+  }, [setLocation]);
+  
+  // Check if vendor onboarding is complete
+  useEffect(() => {
+    if (!isChecking && isValid && !isLoadingVendor) {
+      // If vendor exists and onboarding is complete, redirect to dashboard
+      if (vendor && vendor.onboardingComplete) {
+        console.log('✅ [OnboardingRoute] Vendor onboarding complete, redirecting to dashboard...');
+        setLocation('/vendor/dashboard');
+        return;
+      }
+      
+      // Otherwise show onboarding
+      setShouldShowOnboarding(true);
+    }
+  }, [isChecking, isValid, isLoadingVendor, vendor, setLocation]);
+  
+  // Show loading state
+  if (isChecking || (vendorId && isLoadingVendor)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!isValid || !shouldShowOnboarding) {
     return null;
   }
   
@@ -189,13 +256,13 @@ function VendorLayout({ children }: { children: React.ReactNode }) {
   
   // Fetch vendor data for profile display (only if vendorId exists)
   // MUST be called before any conditional returns to follow Rules of Hooks
-  const { data: vendor } = useQuery<Vendor>({
+  const { data: vendor, isLoading: isLoadingVendor } = useQuery<Vendor>({
     queryKey: ["/api/vendors", vendorId],
     enabled: !!vendorId && isValid, // Only fetch if vendorId exists AND auth is valid
   });
   
   // Show loading state while checking auth
-  if (isChecking) {
+  if (isChecking || (vendorId && isLoadingVendor && isValid)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -208,6 +275,22 @@ function VendorLayout({ children }: { children: React.ReactNode }) {
   
   // If not valid, don't render (will redirect)
   if (!isValid) {
+    return null;
+  }
+  
+  // IMPORTANT: Check if vendor onboarding is complete
+  // If vendor exists but onboarding is not complete, redirect to onboarding
+  if (vendor && !vendor.onboardingComplete) {
+    console.warn('🔒 [VendorLayout] Onboarding not complete, redirecting to onboarding...');
+    setLocation('/onboarding');
+    return null;
+  }
+  
+  // If no vendorId found for a vendor user, redirect to onboarding
+  const userRole = localStorage.getItem('userRole');
+  if (userRole === 'vendor' && !vendorId) {
+    console.warn('🔒 [VendorLayout] No vendor ID found, redirecting to onboarding...');
+    setLocation('/onboarding');
     return null;
   }
 
@@ -231,7 +314,7 @@ function VendorLayout({ children }: { children: React.ReactNode }) {
           <AppSidebar userRole="vendor" vendorId={vendorId} />
         </div>
         <div className="flex flex-col flex-1 min-w-0 min-h-screen">
-          <header className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-20 shadow-md shrink-0">
+          <header className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-[100] shadow-md shrink-0">
             <div className="flex items-center gap-3">
               {/* Hide sidebar toggle on mobile */}
               <div className="hidden md:block">
@@ -241,8 +324,8 @@ function VendorLayout({ children }: { children: React.ReactNode }) {
               {/* Vyora Logo + Welcome Message */}
               <div className="flex items-center gap-3 md:pl-3 md:border-l border-white/30">
                 {/* Vyora Logo */}
-                <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-white flex items-center justify-center shadow-lg shrink-0">
-                  <span className="text-blue-600 font-bold text-base md:text-xl">V</span>
+                <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-white flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                  <img src="https://abizuwqnqkbicrhorcig.storage.supabase.co/storage/v1/object/public/vyora-bucket/partners-vyora/p/IMAGE/logo-vyora.png" alt="Vyora" className="w-7 h-7 md:w-9 md:h-9 object-contain" />
                 </div>
                 {/* Welcome Message */}
                 <div className="flex flex-col">
@@ -258,7 +341,7 @@ function VendorLayout({ children }: { children: React.ReactNode }) {
               <NotificationBell className="hidden md:flex text-white" />
             </div>
           </header>
-          <main className="flex-1 overflow-y-auto overscroll-contain pb-20 md:pb-6">
+          <main className="flex-1 overflow-y-auto overscroll-contain pb-20 md:pb-6 relative z-0">
             {children}
           </main>
           {/* Mobile Bottom Navigation */}
@@ -350,7 +433,7 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
           <AppSidebar userRole={userRole === "employee" ? "employee" : "admin"} modulePermissions={modulePermissions} />
         </div>
         <div className="flex flex-col flex-1 min-w-0 min-h-screen">
-          <header className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-border bg-background sticky top-0 z-20 shrink-0">
+          <header className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-border bg-background sticky top-0 z-[100] shrink-0">
             {/* Hide sidebar toggle on mobile */}
             <div className="hidden md:block">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
@@ -396,9 +479,9 @@ function Router() {
 
       {/* Protected Routes - Onboarding */}
       <Route path="/onboarding">
-        <ProtectedRoute>
+        <OnboardingRoute>
           <VendorOnboarding />
-        </ProtectedRoute>
+        </OnboardingRoute>
       </Route>
 
       {/* Protected Vendor Routes - VendorLayout handles authentication */}
@@ -625,14 +708,14 @@ function Router() {
           <VendorBilling />
         </VendorLayout>
       </Route>
-      <Route path="/vendor/quotations">
-        <VendorLayout>
-          <VendorQuotations />
-        </VendorLayout>
-      </Route>
       <Route path="/vendor/quotations/:id">
         <VendorLayout>
           <VendorQuotationDetail />
+        </VendorLayout>
+      </Route>
+      <Route path="/vendor/quotations">
+        <VendorLayout>
+          <VendorQuotations />
         </VendorLayout>
       </Route>
       <Route path="/vendor/coupons">
@@ -663,6 +746,16 @@ function Router() {
       <Route path="/vendors/:vendorId/ledger/customer/:customerId">
         <VendorLayout>
           <VendorLedgerCustomerDashboard />
+        </VendorLayout>
+      </Route>
+      <Route path="/vendors/:vendorId/ledger/supplier/:supplierId/transaction/new">
+        <VendorLayout>
+          <VendorLedgerSupplierTransaction />
+        </VendorLayout>
+      </Route>
+      <Route path="/vendors/:vendorId/ledger/supplier/:supplierId">
+        <VendorLayout>
+          <VendorLedgerSupplierDashboard />
         </VendorLayout>
       </Route>
       <Route path="/vendor/ledger/transaction/:id">

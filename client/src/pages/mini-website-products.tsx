@@ -36,6 +36,50 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { MiniWebsite, VendorProduct } from "@shared/schema";
 
+// Get short abbreviation for units
+const getUnitAbbreviation = (unit: string): string => {
+  const abbrevMap: Record<string, string> = {
+    'kilogram': 'kg',
+    'Kilogram': 'kg',
+    'kg': 'kg',
+    'gram': 'g',
+    'Gram': 'g',
+    'g': 'g',
+    'piece': 'pc',
+    'Piece': 'pc',
+    'pieces': 'pcs',
+    'Pieces': 'pcs',
+    'pc': 'pc',
+    'pcs': 'pcs',
+    'liter': 'L',
+    'Liter': 'L',
+    'litre': 'L',
+    'Litre': 'L',
+    'L': 'L',
+    'milliliter': 'ml',
+    'Milliliter': 'ml',
+    'ml': 'ml',
+    'meter': 'm',
+    'Meter': 'm',
+    'm': 'm',
+    'dozen': 'dz',
+    'Dozen': 'dz',
+    'box': 'box',
+    'Box': 'box',
+    'pack': 'pack',
+    'Pack': 'pack',
+    'packet': 'pkt',
+    'Packet': 'pkt',
+    'bottle': 'btl',
+    'Bottle': 'btl',
+    'can': 'can',
+    'Can': 'can',
+    'unit': 'unit',
+    'Unit': 'unit',
+  };
+  return abbrevMap[unit] || unit?.toLowerCase() || 'unit';
+};
+
 interface CartItem {
   type: 'product';
   id: string;
@@ -507,7 +551,14 @@ export default function MiniWebsiteProducts() {
             {/* Back Button + Title Row */}
             <div className="flex items-center gap-3 mb-2">
               <button
-                onClick={() => setLocation(`/${subdomain}`)}
+                onClick={() => {
+                  // Standard e-commerce back navigation
+                  if (window.history.length > 1) {
+                    window.history.back();
+                  } else {
+                    setLocation(`/${subdomain}`);
+                  }
+                }}
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-700" />
@@ -750,12 +801,19 @@ export default function MiniWebsiteProducts() {
                     )}
 
                     <div className="flex items-baseline gap-2 mb-3">
-                      <span className="text-lg md:text-2xl font-bold" style={{ color: primaryColor }}>
-                        ₹{(product.sellingPrice || product.price || 0).toLocaleString()}
-                      </span>
-                      {product.mrp && product.mrp > (product.sellingPrice || product.price || 0) && (
+                      <div className="flex items-baseline">
+                        <span className="text-lg md:text-2xl font-bold" style={{ color: primaryColor }}>
+                          ₹{(product as any).sellingPrice || product.price || 0}
+                        </span>
+                        {product.unit && (
+                          <span className="text-xs md:text-sm text-muted-foreground ml-0.5">
+                            /{getUnitAbbreviation(product.unit)}
+                          </span>
+                        )}
+                      </div>
+                      {(product as any).mrp && (product as any).mrp > ((product as any).sellingPrice || product.price || 0) && (
                         <span className="text-xs line-through text-muted-foreground">
-                          ₹{product.mrp.toLocaleString()}
+                          ₹{(product as any).mrp}
                         </span>
                       )}
                     </div>

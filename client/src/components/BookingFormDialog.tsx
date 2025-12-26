@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Plus, Trash2, Clock, IndianRupee } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Trash2, Clock, IndianRupee, UserCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +43,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getVendorId } from "@/hooks/useVendor";
-import type { VendorCatalogue, Customer } from "@shared/schema";
+import type { VendorCatalogue, Customer, Employee } from "@shared/schema";
 
 // Time slot options
 const TIME_SLOTS = [
@@ -73,6 +73,7 @@ const bookingFormSchema = z.object({
   collectionAddress: z.string().optional(),
   notes: z.string().optional(),
   paymentStatus: z.enum(["pending", "paid", "refunded"]).default("pending"),
+  assignedTo: z.string().optional(),
 }).refine(
   (data) => {
     // Require collection address when home collection is enabled
@@ -120,6 +121,12 @@ export function BookingFormDialog({
     enabled: open,
   });
 
+  // Fetch vendor's employees for assignment
+  const { data: employees = [], isLoading: employeesLoading } = useQuery<Employee[]>({
+    queryKey: [`/api/vendors/${VENDOR_ID}/employees`],
+    enabled: open,
+  });
+
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
@@ -135,6 +142,7 @@ export function BookingFormDialog({
       collectionAddress: "",
       notes: "",
       paymentStatus: "pending",
+      assignedTo: "",
     },
   });
 
@@ -190,7 +198,7 @@ export function BookingFormDialog({
         status: "pending",
         paymentStatus: data.paymentStatus || "pending",
         notes: data.notes || null,
-        assignedTo: null,
+        assignedTo: data.assignedTo && data.assignedTo !== "none" ? data.assignedTo : null,
         source: "manual", // Manual booking from vendor portal
       };
 
@@ -571,6 +579,46 @@ export function BookingFormDialog({
                 Add any additional charges like express fees, special handling, etc.
               </p>
             </Card>
+
+            {/* Assign To Employee */}
+            <FormField
+              control={form.control}
+              name="assignedTo"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1.5">
+                    <UserCheck className="h-3.5 w-3.5" />
+                    Assign To
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder={employeesLoading ? "Loading..." : "Select employee (optional)"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        <span className="text-muted-foreground">Unassigned</span>
+                      </SelectItem>
+                      {employees.filter(e => e.status === 'active').map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          <div className="flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                              {employee.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                              <span>{employee.name}</span>
+                              <span className="text-xs text-muted-foreground">{employee.role}</span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Payment Status */}
             <FormField

@@ -3,7 +3,10 @@ import { useState, useEffect } from 'react';
 /**
  * Hook to get the current vendor ID from localStorage
  * Returns the vendorId or null if not found
- * Falls back to userId if vendorId is not set (since user IS vendor)
+ * 
+ * IMPORTANT: vendorId is different from userId!
+ * - userId is set after signup
+ * - vendorId is set after onboarding completion
  * 
  * This hook properly handles:
  * - Initial load (returns null first, then updates with actual value)
@@ -12,13 +15,14 @@ import { useState, useEffect } from 'react';
  */
 export function useVendorId(): string | null {
   const [vendorId, setVendorId] = useState<string | null>(() => {
-    // Initialize immediately on first render to avoid flashing
-    return localStorage.getItem('vendorId') || localStorage.getItem('userId') || null;
+    // IMPORTANT: Don't fallback to userId - vendorId is different!
+    // vendorId is only set after onboarding is complete
+    return localStorage.getItem('vendorId');
   });
 
   useEffect(() => {
     // Double-check after mount to handle any edge cases
-    const id = localStorage.getItem('vendorId') || localStorage.getItem('userId');
+    const id = localStorage.getItem('vendorId');
     if (id !== vendorId) {
       setVendorId(id);
     }
@@ -30,23 +34,18 @@ export function useVendorId(): string | null {
 /**
  * Synchronously get vendor ID from localStorage
  * Use this in API calls or when you need immediate access
- * Falls back to userId if vendorId is not set (since user IS vendor)
  * Returns null if not found (doesn't throw error)
+ * 
+ * IMPORTANT: vendorId is different from userId!
+ * - userId is set after signup
+ * - vendorId is set after onboarding completion
  */
 export function getVendorId(): string | null {
-  // First try to get vendorId (set after onboarding/login)
-  let vendorId = localStorage.getItem('vendorId');
-  
-  // Fallback to userId if vendorId not found (user IS vendor)
-  if (!vendorId) {
-    vendorId = localStorage.getItem('userId');
-    if (vendorId) {
-      console.log('📝 Using userId as vendorId:', vendorId);
-    }
-  }
+  const vendorId = localStorage.getItem('vendorId');
   
   if (!vendorId) {
-    console.warn('⚠️ No vendor ID found in localStorage. User may not be logged in.');
+    // This is expected if user hasn't completed onboarding yet
+    console.log('📝 No vendor ID found - user may need to complete onboarding');
     return null;
   }
   

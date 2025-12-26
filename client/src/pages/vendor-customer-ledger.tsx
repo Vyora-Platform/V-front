@@ -36,6 +36,8 @@ type LedgerTransaction = {
   note: string | null;
   isRecurring: boolean;
   recurringPattern: string | null;
+  excludeFromBalance: boolean | null;
+  isPOSSale: boolean | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -116,10 +118,20 @@ export default function VendorCustomerLedger() {
     }).format(amount);
   };
 
-  // Calculate totals
+  // Calculate totals - show all amounts including POS sales
   const totalIn = transactions.filter(t => t.type === "in").reduce((sum, t) => sum + t.amount, 0);
   const totalOut = transactions.filter(t => t.type === "out").reduce((sum, t) => sum + t.amount, 0);
-  const balance = balanceData?.balance || (totalIn - totalOut);
+  
+  // Balance calculation - Khatabook style:
+  // "You Gave" (type=out) = Credit given = Customer owes you MORE
+  // "You Got" (type=in) = Payment received = Customer owes you LESS
+  // Balance = totalGave - totalGot = what customer owes you
+  // Positive = "You will GET", Negative = "You will GIVE"
+  // POS paid amounts (excludeFromBalance=true) are excluded
+  const balanceTransactions = transactions.filter(t => !t.excludeFromBalance);
+  const balanceGave = balanceTransactions.filter(t => t.type === "out").reduce((sum, t) => sum + t.amount, 0);
+  const balanceGot = balanceTransactions.filter(t => t.type === "in").reduce((sum, t) => sum + t.amount, 0);
+  const balance = balanceData?.balance ?? (balanceGave - balanceGot);
 
   const groupedTransactions = groupTransactionsByDate(
     [...transactions].sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
@@ -152,7 +164,7 @@ export default function VendorCustomerLedger() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky Header - Khatabook Style */}
-      <div className="sticky top-0 z-50 bg-background">
+      <div className="sticky top-0 z-30 bg-background">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-3">
@@ -343,10 +355,28 @@ export default function VendorCustomerLedger() {
                           <p className="text-sm text-foreground line-clamp-1">{transaction.description}</p>
                         )}
                         
-                        <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-                          <span className="capitalize">{transaction.paymentMethod}</span>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground flex-wrap">
+                          <span className="capitalize">{transaction.paymentMethod === 'credit' ? 'Due' : transaction.paymentMethod}</span>
                           <span>•</span>
                           <span>{format(new Date(transaction.transactionDate), 'hh:mm a')}</span>
+                          {transaction.isPOSSale && (
+                            <>
+                              <span>•</span>
+                              <span className="text-blue-600 font-medium">POS Sale</span>
+                            </>
+                          )}
+                          {transaction.excludeFromBalance && transaction.type === "in" && (
+                            <>
+                              <span>•</span>
+                              <span className="text-amber-600 text-[10px]">Paid (Settled)</span>
+                            </>
+                          )}
+                          {!transaction.excludeFromBalance && transaction.paymentMethod === 'credit' && transaction.isPOSSale && (
+                            <>
+                              <span>•</span>
+                              <span className="text-orange-600 font-medium text-[10px]">Pending Payment</span>
+                            </>
+                          )}
                         </div>
                       </div>
 

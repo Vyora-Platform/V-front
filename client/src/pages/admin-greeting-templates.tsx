@@ -1,42 +1,52 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, Image as ImageIcon, Search, TrendingUp, Calendar, Eye, EyeOff, Copy, ChevronDown, Filter, Download, Share2, Sparkles, Tag, LayoutGrid, Square, RectangleVertical, RectangleHorizontal, BarChart3, FolderOpen, Palette, Gift, Heart, Megaphone, PartyPopper, ShoppingBag, Bell, Sun, Moon, Camera, Star, GripVertical } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { 
+  Plus, Edit2, Trash2, Image as ImageIcon, Search, TrendingUp, Eye, EyeOff, 
+  ChevronLeft, ChevronRight, Download, Share2, Sparkles, FolderOpen, 
+  LayoutGrid, Loader2, Power, PowerOff, ArrowLeft
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertGreetingTemplateSchema, type GreetingTemplate, type InsertGreetingTemplate } from "@shared/schema";
+import type { GreetingTemplate, Category } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { getApiUrl } from "@/lib/config";
+import { useLocation } from "wouter";
+
+// Simplified schema for template creation
+const templateFormSchema = z.object({
+  templateCategoryId: z.string().min(1, "Template category is required"),
+  businessCategories: z.array(z.string()).min(1, "Select at least one business category"),
+});
+
+type TemplateFormData = z.infer<typeof templateFormSchema>;
 
 // Available icons for categories
 const availableIcons = [
-  { value: "Sparkles", label: "Sparkles", Icon: Sparkles },
-  { value: "Gift", label: "Gift", Icon: Gift },
-  { value: "Calendar", label: "Calendar", Icon: Calendar },
-  { value: "Tag", label: "Tag", Icon: Tag },
-  { value: "TrendingUp", label: "Trending", Icon: TrendingUp },
-  { value: "Star", label: "Star", Icon: Star },
-  { value: "Megaphone", label: "Megaphone", Icon: Megaphone },
-  { value: "PartyPopper", label: "Party", Icon: PartyPopper },
-  { value: "Heart", label: "Heart", Icon: Heart },
-  { value: "ShoppingBag", label: "Shopping", Icon: ShoppingBag },
-  { value: "Bell", label: "Bell", Icon: Bell },
-  { value: "Sun", label: "Sun", Icon: Sun },
-  { value: "Moon", label: "Moon", Icon: Moon },
-  { value: "Camera", label: "Camera", Icon: Camera },
+  { value: "Sparkles", label: "Sparkles" },
+  { value: "Gift", label: "Gift" },
+  { value: "Calendar", label: "Calendar" },
+  { value: "Tag", label: "Tag" },
+  { value: "TrendingUp", label: "Trending" },
+  { value: "Star", label: "Star" },
+  { value: "Megaphone", label: "Megaphone" },
+  { value: "PartyPopper", label: "Party" },
+  { value: "Heart", label: "Heart" },
+  { value: "ShoppingBag", label: "Shopping" },
+  { value: "Bell", label: "Bell" },
+  { value: "Sun", label: "Sun" },
+  { value: "Moon", label: "Moon" },
+  { value: "Camera", label: "Camera" },
 ];
 
 // Available colors for categories
@@ -51,177 +61,28 @@ const availableColors = [
   { value: "#F97316", label: "Amber" },
 ];
 
-// Extended schema for file upload
-const greetingTemplateFormSchema = insertGreetingTemplateSchema.extend({
-  imageFile: z.instanceof(File).optional(),
-  thumbnailFile: z.instanceof(File).optional(),
-  posterType: z.string().optional(),
-  orientation: z.string().optional(),
-  resolution: z.string().optional(),
-  region: z.string().optional(),
-  eventDate: z.string().optional(),
-  expiryDate: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  categoryId: z.string().optional(),
-});
-
-type GreetingTemplateFormData = z.infer<typeof greetingTemplateFormSchema>;
-
-// Poster Types
-const posterTypeOptions = [
-  { value: "festival", label: "Festival Posts" },
-  { value: "greeting", label: "Greetings" },
-  { value: "marketing", label: "Marketing Banners" },
-  { value: "product_promo", label: "Product Promotion" },
-  { value: "service_promo", label: "Service Promotion" },
-  { value: "offer_discount", label: "Offer / Discount" },
-  { value: "coupon_promo", label: "Coupon Promotion" },
-  { value: "announcement", label: "Announcements" },
-];
-
-// Orientation options
-const orientationOptions = [
-  { value: "square", label: "Square (Instagram)", icon: Square },
-  { value: "portrait", label: "Portrait (WhatsApp/Story)", icon: RectangleVertical },
-  { value: "landscape", label: "Landscape (Facebook/Twitter)", icon: RectangleHorizontal },
-];
-
-// Resolution options
-const resolutionOptions = [
-  { value: "hd", label: "HD (720p)" },
-  { value: "full_hd", label: "Full HD (1080p)" },
-];
-
-// Region options
-const regionOptions = [
-  { value: "india", label: "India" },
-  { value: "global", label: "Global" },
-  { value: "custom", label: "Custom" },
-];
-
-// Filter options
-const occasionOptions = [
-  { value: "diwali", label: "Diwali" },
-  { value: "christmas", label: "Christmas" },
-  { value: "eid", label: "Eid" },
-  { value: "holi", label: "Holi" },
-  { value: "new_year", label: "New Year" },
-  { value: "independence_day", label: "Independence Day" },
-  { value: "republic_day", label: "Republic Day" },
-  { value: "raksha_bandhan", label: "Raksha Bandhan" },
-  { value: "navratri", label: "Navratri" },
-  { value: "pongal", label: "Pongal" },
-  { value: "birthday", label: "Birthday" },
-  { value: "anniversary", label: "Anniversary" },
-  { value: "grand_opening", label: "Grand Opening" },
-  { value: "festival", label: "Festival (Generic)" },
-  { value: "ganesh_chaturthi", label: "Ganesh Chaturthi" },
-  { value: "durga_puja", label: "Durga Puja" },
-  { value: "onam", label: "Onam" },
-  { value: "makar_sankranti", label: "Makar Sankranti" },
-  { value: "valentines_day", label: "Valentine's Day" },
-  { value: "mothers_day", label: "Mother's Day" },
-  { value: "fathers_day", label: "Father's Day" },
-];
-
-const offerTypeOptions = [
-  { value: "flat_discount", label: "Flat Discount" },
-  { value: "bogo", label: "Buy One Get One" },
-  { value: "flash_sale", label: "Flash Sale" },
-  { value: "new_product_launch", label: "New Product Launch" },
-  { value: "membership_offer", label: "Membership Offer" },
-  { value: "referral_campaign", label: "Referral Campaign" },
-  { value: "seasonal_clearance", label: "Seasonal Clearance" },
-  { value: "free_trial", label: "Free Trial" },
-  { value: "combo_offer", label: "Combo Offer" },
-  { value: "cashback", label: "Cashback Offer" },
-];
-
-const industryOptions = [
-  { value: "fitness", label: "Fitness & Gym" },
-  { value: "yoga", label: "Yoga & Wellness" },
-  { value: "salon", label: "Salon & Spa" },
-  { value: "clinic", label: "Clinic & Lab" },
-  { value: "library", label: "Library & Coaching" },
-  { value: "restaurant", label: "Restaurant & Cafe" },
-  { value: "retail", label: "Retail Shop" },
-  { value: "electronics", label: "Electronics" },
-  { value: "real_estate", label: "Real Estate" },
-  { value: "pet_care", label: "Pet Care" },
-  { value: "automotive", label: "Automotive" },
-  { value: "grocery", label: "Grocery" },
-  { value: "education", label: "Education" },
-  { value: "healthcare", label: "Healthcare" },
-  { value: "fashion", label: "Fashion & Apparel" },
-  { value: "jewelry", label: "Jewelry" },
-  { value: "travel", label: "Travel & Tourism" },
-  { value: "hospitality", label: "Hotels & Hospitality" },
-];
-
-interface ProductFormProps {
+// Template Form Component
+interface TemplateFormProps {
   template?: GreetingTemplate;
+  templateCategories: any[];
+  businessCategories: Category[];
   onSubmit: (data: any) => void;
   isPending: boolean;
   onClose: () => void;
 }
 
-function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormProps) {
-  const form = useForm<GreetingTemplateFormData>({
-    resolver: zodResolver(greetingTemplateFormSchema),
-    defaultValues: template ? {
-      title: template.title,
-      description: template.description || "",
-      imageUrl: template.imageUrl,
-      thumbnailUrl: template.thumbnailUrl || "",
-      occasions: template.occasions,
-      offerTypes: template.offerTypes,
-      industries: template.industries,
-      hasEditableText: template.hasEditableText,
-      supportsLogo: template.supportsLogo,
-      supportsProducts: template.supportsProducts,
-      supportsServices: template.supportsServices,
-      supportsOffers: template.supportsOffers,
-      includesPlatformBranding: template.includesPlatformBranding,
-      isTrending: template.isTrending,
-      status: template.status,
-      tags: (template as any).tags || [],
-      categoryId: (template as any).categoryId || "",
-    } : {
-      title: "",
-      description: "",
-      imageUrl: "",
-      thumbnailUrl: "",
-      occasions: [],
-      offerTypes: [],
-      industries: [],
-      hasEditableText: true,
-      supportsLogo: true,
-      supportsProducts: false,
-      supportsServices: false,
-      supportsOffers: false,
-      includesPlatformBranding: true,
-      isTrending: false,
-      status: "draft",
-      posterType: "festival",
-      orientation: "square",
-      resolution: "full_hd",
-      region: "india",
-      tags: [],
-      categoryId: "",
-    },
-  });
-
-  const [selectedOccasions, setSelectedOccasions] = useState<string[]>(template?.occasions || []);
-  const [selectedOfferTypes, setSelectedOfferTypes] = useState<string[]>(template?.offerTypes || []);
-  const [selectedIndustries, setSelectedIndustries] = useState<string[]>(template?.industries || []);
+function TemplateForm({ template, templateCategories, businessCategories, onSubmit, isPending, onClose }: TemplateFormProps) {
+  const { toast } = useToast();
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(template?.imageUrl || null);
-  const [customOccasion, setCustomOccasion] = useState("");
-  const [customOfferType, setCustomOfferType] = useState("");
-  const [customIndustry, setCustomIndustry] = useState("");
-
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(template?.imageUrl || null);
+  const [selectedBusinessCategories, setSelectedBusinessCategories] = useState<string[]>(
+    template?.industries || []
+  );
+  const [selectedTemplateCategory, setSelectedTemplateCategory] = useState<string>(
+    (template as any)?.categoryId || ""
+  );
 
   const handleImageChange = async (file: File | null) => {
     setSelectedImageFile(file);
@@ -247,12 +108,12 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
         if (response.ok) {
           const result = await response.json();
           setUploadedImageUrl(result.url);
-          console.log("Image uploaded to Supabase:", result.url);
         } else {
-          console.error("Failed to upload image to Supabase");
+          toast({ title: "Failed to upload image", variant: "destructive" });
         }
       } catch (error) {
         console.error("Error uploading image:", error);
+        toast({ title: "Error uploading image", variant: "destructive" });
       } finally {
         setIsUploading(false);
       }
@@ -262,407 +123,240 @@ function TemplateForm({ template, onSubmit, isPending, onClose }: ProductFormPro
     }
   };
 
-  const handleSubmit = form.handleSubmit(async (data) => {
-    // Use the uploaded Supabase URL if available, otherwise fallback
-    let imageUrl = uploadedImageUrl || data.imageUrl || "https://placehold.co/800x600/blue/white?text=Template+Image";
-    
-    const thumbnailUrl = imageUrl;
+  const toggleBusinessCategory = (categoryId: string) => {
+    setSelectedBusinessCategories(prev => 
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!uploadedImageUrl && !template?.imageUrl) {
+      toast({ title: "Please upload a template image", variant: "destructive" });
+      return;
+    }
+    
+    if (!selectedTemplateCategory) {
+      toast({ title: "Please select a template category", variant: "destructive" });
+      return;
+    }
+    
+    if (selectedBusinessCategories.length === 0) {
+      toast({ title: "Please select at least one business category", variant: "destructive" });
+      return;
+    }
+
+    const selectedCategory = templateCategories.find(c => c.id === selectedTemplateCategory);
+    
     const submitData = {
-      ...data,
-      imageUrl,
-      thumbnailUrl,
-      occasions: selectedOccasions,
-      offerTypes: selectedOfferTypes,
-      industries: selectedIndustries,
+      title: selectedCategory?.name || "Template",
+      description: "",
+      imageUrl: uploadedImageUrl || template?.imageUrl,
+      thumbnailUrl: uploadedImageUrl || template?.imageUrl,
+      categoryId: selectedTemplateCategory,
+      industries: selectedBusinessCategories,
+      occasions: [],
+      offerTypes: [],
+      hasEditableText: true,
+      supportsLogo: true,
+      supportsProducts: false,
+      supportsServices: false,
+      supportsOffers: false,
+      includesPlatformBranding: true,
+      isTrending: false,
+      status: "published", // Default to published
     };
 
     onSubmit(submitData);
-  });
-
-  const addCustomOccasion = () => {
-    if (customOccasion.trim() && !selectedOccasions.includes(customOccasion.trim().toLowerCase())) {
-      setSelectedOccasions([...selectedOccasions, customOccasion.trim().toLowerCase()]);
-      setCustomOccasion("");
-    }
-  };
-
-  const addCustomOfferType = () => {
-    if (customOfferType.trim() && !selectedOfferTypes.includes(customOfferType.trim().toLowerCase())) {
-      setSelectedOfferTypes([...selectedOfferTypes, customOfferType.trim().toLowerCase()]);
-      setCustomOfferType("");
-    }
-  };
-
-  const addCustomIndustry = () => {
-    if (customIndustry.trim() && !selectedIndustries.includes(customIndustry.trim().toLowerCase())) {
-      setSelectedIndustries([...selectedIndustries, customIndustry.trim().toLowerCase()]);
-      setCustomIndustry("");
-    }
-  };
-
-  const toggleArraySelection = (
-    array: string[],
-    setArray: (arr: string[]) => void,
-    value: string
-  ) => {
-    if (array.includes(value)) {
-      setArray(array.filter((v) => v !== value));
-    } else {
-      setArray([...array, value]);
-    }
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Template Name */}
-        <FormField
-          control={form.control}
-          name="title"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Template Name *</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Diwali Festival Offer" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Poster Type - Multi Select */}
-        <div className="space-y-2">
-          <FormLabel>Poster Type (Select multiple)</FormLabel>
-          <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/30">
-            {posterTypeOptions.map((option) => (
-              <Badge
-                key={option.value}
-                variant={selectedOfferTypes.includes(option.value) ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary/20 transition-colors py-1.5 px-3"
-                onClick={() => toggleArraySelection(selectedOfferTypes, setSelectedOfferTypes, option.value)}
-              >
-                {option.label}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        {/* Search Tags */}
-        <FormField
-          control={form.control}
-          name="tags"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Search Tags (comma separated)</FormLabel>
-              <FormControl>
-                <Input 
-                  placeholder="e.g., sale, discount, festival, offer, diwali"
-                  {...field}
-                  value={Array.isArray(field.value) ? field.value.join(', ') : field.value || ""}
-                  onChange={(e) => field.onChange(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Template Image Upload */}
-        <div className="space-y-3">
-          <FormLabel>Template Image * (Uploaded to Supabase S3)</FormLabel>
-          
-          {imagePreview && (
-            <div className="relative w-full aspect-video bg-muted rounded-lg overflow-hidden border-2 border-border max-w-md">
-              <img
-                src={imagePreview}
-                alt="Template preview"
-                className="w-full h-full object-cover"
-              />
-              {isUploading && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <div className="text-white text-center">
-                    <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-sm">Uploading to Supabase...</p>
-                  </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Template Image Upload */}
+      <div className="space-y-3">
+        <Label className="text-base font-semibold">Template Image *</Label>
+        
+        {imagePreview && (
+          <div className="relative w-full aspect-[4/3] bg-muted rounded-xl overflow-hidden border-2 border-border">
+            <img
+              src={imagePreview}
+              alt="Template preview"
+              className="w-full h-full object-cover"
+            />
+            {isUploading && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <div className="text-white text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                  <p className="text-sm">Uploading...</p>
                 </div>
-              )}
-              {uploadedImageUrl && !isUploading && (
-                <div className="absolute top-2 left-2 px-2 py-1 bg-green-600 text-white text-xs rounded-md">
-                  ✓ Uploaded to Supabase
-                </div>
-              )}
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="absolute top-2 right-2"
-                onClick={() => {
-                  setSelectedImageFile(null);
-                  setImagePreview(null);
-                  setUploadedImageUrl(null);
-                }}
-              >
-                Remove
-              </Button>
-            </div>
-          )}
-          
-          <Input
-            type="file"
-            accept="image/png,image/jpeg,image/jpg,image/webp"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              handleImageChange(file || null);
-            }}
-            className="cursor-pointer"
-            disabled={isUploading}
-          />
-          
-          {selectedImageFile && (
-            <p className="text-xs text-green-600 font-medium">
-              ✓ Selected: {selectedImageFile.name} ({(selectedImageFile.size / 1024).toFixed(1)} KB)
-              {uploadedImageUrl && <span className="ml-2 text-blue-600">• Stored in Supabase S3</span>}
-            </p>
-          )}
-        </div>
-
-        {/* Occasions / Festivals - Multi Select */}
-        <div className="space-y-2">
-          <FormLabel>Occasions / Festivals (Select multiple)</FormLabel>
-          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border rounded-lg bg-muted/30">
-            {occasionOptions.map((option) => (
-              <Badge
-                key={option.value}
-                variant={selectedOccasions.includes(option.value) ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary/20 transition-colors py-1.5 px-3"
-                onClick={() => toggleArraySelection(selectedOccasions, setSelectedOccasions, option.value)}
-              >
-                {option.label}
-              </Badge>
-            ))}
-            {selectedOccasions.filter(o => !occasionOptions.find(opt => opt.value === o)).map((custom) => (
-              <Badge
-                key={custom}
-                variant="default"
-                className="cursor-pointer py-1.5 px-3"
-                onClick={() => setSelectedOccasions(selectedOccasions.filter(o => o !== custom))}
-              >
-                {custom} ✕
-              </Badge>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add custom occasion..."
-              value={customOccasion}
-              onChange={(e) => setCustomOccasion(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomOccasion())}
-              className="flex-1"
-            />
-            <Button type="button" variant="outline" onClick={addCustomOccasion} size="sm">
-              <Plus className="w-4 h-4" />
+              </div>
+            )}
+            {uploadedImageUrl && !isUploading && (
+              <div className="absolute top-2 left-2 px-2 py-1 bg-green-600 text-white text-xs rounded-md">
+                ✓ Uploaded
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="absolute top-2 right-2"
+              onClick={() => {
+                setSelectedImageFile(null);
+                setImagePreview(null);
+                setUploadedImageUrl(null);
+              }}
+            >
+              Remove
             </Button>
           </div>
-        </div>
-
-        {/* Offer Types - Multi Select */}
-        <div className="space-y-2">
-          <FormLabel>Offer Types (Select multiple)</FormLabel>
-          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border rounded-lg bg-muted/30">
-            {offerTypeOptions.map((option) => (
-              <Badge
-                key={option.value}
-                variant={selectedOfferTypes.includes(option.value) ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary/20 transition-colors py-1.5 px-3"
-                onClick={() => toggleArraySelection(selectedOfferTypes, setSelectedOfferTypes, option.value)}
-              >
-                {option.label}
-              </Badge>
-            ))}
-            {selectedOfferTypes.filter(o => !offerTypeOptions.find(opt => opt.value === o)).map((custom) => (
-              <Badge
-                key={custom}
-                variant="default"
-                className="cursor-pointer py-1.5 px-3"
-                onClick={() => setSelectedOfferTypes(selectedOfferTypes.filter(o => o !== custom))}
-              >
-                {custom} ✕
-              </Badge>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add custom offer type..."
-              value={customOfferType}
-              onChange={(e) => setCustomOfferType(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomOfferType())}
-              className="flex-1"
-            />
-            <Button type="button" variant="outline" onClick={addCustomOfferType} size="sm">
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Industries / Categories - Multi Select */}
-        <div className="space-y-2">
-          <FormLabel>Industries / Categories (Select multiple)</FormLabel>
-          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border rounded-lg bg-muted/30">
-            {industryOptions.map((option) => (
-              <Badge
-                key={option.value}
-                variant={selectedIndustries.includes(option.value) ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary/20 transition-colors py-1.5 px-3"
-                onClick={() => toggleArraySelection(selectedIndustries, setSelectedIndustries, option.value)}
-              >
-                {option.label}
-              </Badge>
-            ))}
-            {selectedIndustries.filter(i => !industryOptions.find(opt => opt.value === i)).map((custom) => (
-              <Badge
-                key={custom}
-                variant="default"
-                className="cursor-pointer py-1.5 px-3"
-                onClick={() => setSelectedIndustries(selectedIndustries.filter(i => i !== custom))}
-              >
-                {custom} ✕
-              </Badge>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add custom industry..."
-              value={customIndustry}
-              onChange={(e) => setCustomIndustry(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomIndustry())}
-              className="flex-1"
-            />
-            <Button type="button" variant="outline" onClick={addCustomIndustry} size="sm">
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Status */}
-        <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Status</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
+        )}
+        
+        <Input
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            handleImageChange(file || null);
+          }}
+          className="cursor-pointer h-12"
+          disabled={isUploading}
         />
+      </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Saving..." : template ? "Update Template" : "Create Template"}
-          </Button>
+      {/* Template Category */}
+      <div className="space-y-3">
+        <Label className="text-base font-semibold">Template Category *</Label>
+        <Select value={selectedTemplateCategory} onValueChange={setSelectedTemplateCategory}>
+          <SelectTrigger className="h-12">
+            <SelectValue placeholder="Select template category" />
+          </SelectTrigger>
+          <SelectContent>
+            {templateCategories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {templateCategories.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No template categories found. Create one in the Category Management section below.
+          </p>
+        )}
+      </div>
+
+      {/* Business Categories - Multi Select */}
+      <div className="space-y-3">
+        <Label className="text-base font-semibold">Business Categories * (Multi-select)</Label>
+        <div className="flex flex-wrap gap-2 p-4 border rounded-xl bg-muted/30 max-h-60 overflow-y-auto">
+          {businessCategories.map((category) => (
+            <Badge
+              key={category.id}
+              variant={selectedBusinessCategories.includes(category.id) ? "default" : "outline"}
+              className="cursor-pointer hover:bg-primary/20 transition-colors py-2 px-4 text-sm"
+              onClick={() => toggleBusinessCategory(category.id)}
+            >
+              {category.icon && <span className="mr-1">{category.icon}</span>}
+              {category.name}
+            </Badge>
+          ))}
         </div>
-      </form>
-    </Form>
+        {selectedBusinessCategories.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {selectedBusinessCategories.length} selected
+          </p>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="outline" onClick={onClose} className="h-12 px-6">
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isPending || isUploading} className="h-12 px-6">
+          {isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : template ? "Update Template" : "Publish Template"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
 export default function AdminGreetingTemplates() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [editingTemplate, setEditingTemplate] = useState<GreetingTemplate | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("all");
-  
-  // Filter states
-  const [selectedPosterTypes, setSelectedPosterTypes] = useState<string[]>([]);
-  const [selectedOrientations, setSelectedOrientations] = useState<string[]>([]);
-  const [selectedOccasions, setSelectedOccasions] = useState<string[]>([]);
-  const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [selectedBusinessCategoryFilter, setSelectedBusinessCategoryFilter] = useState<string>("");
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
 
+  // Fetch templates
   const { data: templates = [], isLoading } = useQuery<GreetingTemplate[]>({
     queryKey: ["/api/greeting-templates"],
   });
 
-  // Apply filters
+  // Fetch template categories (poster categories)
+  const { data: templateCategories = [] } = useQuery<any[]>({
+    queryKey: ["/api/poster-categories"],
+    queryFn: async () => {
+      const res = await fetch(getApiUrl("/api/poster-categories"));
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Fetch business categories from master data
+  const { data: businessCategories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
+  // Filter templates
   const filteredTemplates = templates.filter((template) => {
     // Search filter
-    if (searchQuery && !template.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        !template.description?.toLowerCase().includes(searchQuery.toLowerCase())) {
+    if (searchQuery && !template.title.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
     
     // Status tab filter
     if (activeTab === "published" && template.status !== "published") return false;
-    if (activeTab === "draft" && template.status !== "draft") return false;
-    if (activeTab === "archived" && template.status !== "archived") return false;
+    if (activeTab === "inactive" && template.status !== "archived") return false;
     if (activeTab === "trending" && !template.isTrending) return false;
     
-    // Poster type filter
-    if (selectedPosterTypes.length > 0 && !selectedPosterTypes.some(pt => template.offerTypes.includes(pt))) {
-      return false;
-    }
-    
-    // Occasion filter
-    if (selectedOccasions.length > 0 && !selectedOccasions.some(o => template.occasions.includes(o))) {
-      return false;
-    }
-    
-    // Industry filter
-    if (selectedIndustries.length > 0 && !selectedIndustries.some(i => template.industries.includes(i))) {
-      return false;
-    }
-    
-    // Status filter
-    if (selectedStatus && template.status !== selectedStatus) {
+    // Business category filter
+    if (selectedBusinessCategoryFilter && !template.industries.includes(selectedBusinessCategoryFilter)) {
       return false;
     }
     
     return true;
   });
 
-  const toggleArraySelection = (
-    array: string[],
-    setArray: (arr: string[]) => void,
-    value: string
-  ) => {
-    if (array.includes(value)) {
-      setArray(array.filter((v) => v !== value));
-    } else {
-      setArray([...array, value]);
+  // Scroll category filter
+  const scrollCategories = (direction: 'left' | 'right') => {
+    if (categoryScrollRef.current) {
+      const scrollAmount = 200;
+      categoryScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
     }
   };
 
-  const clearAllFilters = () => {
-    setSelectedPosterTypes([]);
-    setSelectedOrientations([]);
-    setSelectedOccasions([]);
-    setSelectedIndustries([]);
-    setSelectedStatus("");
-    setSearchQuery("");
-  };
-
+  // Mutations
   const createMutation = useMutation({
-    mutationFn: (data: InsertGreetingTemplate) => apiRequest("POST", "/api/greeting-templates", data),
+    mutationFn: (data: any) => apiRequest("POST", "/api/greeting-templates", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/greeting-templates"] });
       setIsAddDialogOpen(false);
-      toast({ title: "Template created successfully" });
+      toast({ title: "Template published successfully" });
     },
     onError: () => {
       toast({ title: "Failed to create template", variant: "destructive" });
@@ -670,7 +364,7 @@ export default function AdminGreetingTemplates() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<InsertGreetingTemplate> }) =>
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
       apiRequest("PATCH", `/api/greeting-templates/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/greeting-templates"] });
@@ -693,37 +387,7 @@ export default function AdminGreetingTemplates() {
     },
   });
 
-  const cloneMutation = useMutation({
-    mutationFn: async (template: GreetingTemplate) => {
-      const cloneData = {
-        title: `${template.title} (Copy)`,
-        description: template.description,
-        imageUrl: template.imageUrl,
-        thumbnailUrl: template.thumbnailUrl,
-        occasions: template.occasions,
-        offerTypes: template.offerTypes,
-        industries: template.industries,
-        hasEditableText: template.hasEditableText,
-        supportsLogo: template.supportsLogo,
-        supportsProducts: template.supportsProducts,
-        supportsServices: template.supportsServices,
-        supportsOffers: template.supportsOffers,
-        includesPlatformBranding: template.includesPlatformBranding,
-        isTrending: false,
-        status: "draft",
-      };
-      return apiRequest("POST", "/api/greeting-templates", cloneData);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/greeting-templates"] });
-      toast({ title: "Template cloned successfully" });
-    },
-    onError: () => {
-      toast({ title: "Failed to clone template", variant: "destructive" });
-    },
-  });
-
-  const togglePublishMutation = useMutation({
+  const toggleStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       apiRequest("PATCH", `/api/greeting-templates/${id}`, { status }),
     onSuccess: () => {
@@ -735,377 +399,316 @@ export default function AdminGreetingTemplates() {
     },
   });
 
+  const deleteAllMutation = useMutation({
+    mutationFn: async () => {
+      // Delete all templates one by one
+      const deletePromises = templates.map(t => apiRequest("DELETE", `/api/greeting-templates/${t.id}`));
+      await Promise.all(deletePromises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/greeting-templates"] });
+      toast({ title: "All templates deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete all templates", variant: "destructive" });
+    },
+  });
+
   // Stats
   const stats = {
     total: templates.length,
     published: templates.filter(t => t.status === "published").length,
-    draft: templates.filter(t => t.status === "draft").length,
+    inactive: templates.filter(t => t.status === "archived").length,
     trending: templates.filter(t => t.isTrending).length,
-    totalDownloads: templates.reduce((sum, t) => sum + t.downloadCount, 0),
-    totalShares: templates.reduce((sum, t) => sum + t.shareCount, 0),
   };
 
-  const hasActiveFilters = selectedPosterTypes.length > 0 || selectedOrientations.length > 0 || 
-                           selectedOccasions.length > 0 || selectedIndustries.length > 0 || 
-                           selectedStatus !== "";
-
   return (
-    <div className="min-h-screen bg-background overflow-y-auto pb-20 md:pb-6">
+    <div className="min-h-screen bg-background overflow-y-auto pb-24 md:pb-6">
       <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl md:text-3xl font-bold">Poster & Banner Management</h1>
-            <p className="text-muted-foreground text-sm">Create and manage marketing templates for vendors</p>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setLocation('/admin/dashboard')} className="md:hidden">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="space-y-1">
+              <h1 className="text-xl md:text-2xl font-bold">Greeting Templates</h1>
+              <p className="text-muted-foreground text-sm">Create and manage marketing templates</p>
+            </div>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto h-10">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Template
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Template</DialogTitle>
-            </DialogHeader>
-            <TemplateForm
-              onSubmit={(data) => createMutation.mutate(data)}
-              isPending={createMutation.isPending}
-              onClose={() => setIsAddDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            {templates.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" className="h-10">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete All
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete All Templates?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all {templates.length} templates. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => deleteAllMutation.mutate()}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      Delete All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1 sm:flex-none h-10">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Template
+            </Button>
+          </div>
+        </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 rounded-xl min-h-[var(--card-min-h)]">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 rounded-xl">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <LayoutGrid className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Total</p>
-                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{stats.total}</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
+                  <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{stats.total}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 rounded-xl min-h-[var(--card-min-h)]">
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 rounded-xl">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Eye className="w-5 h-5 text-green-600 dark:text-green-400" />
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Published</p>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400">{stats.published}</p>
+                  <p className="text-xs text-muted-foreground">Published</p>
+                  <p className="text-xl font-bold text-green-600 dark:text-green-400">{stats.published}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 border-yellow-200 dark:border-yellow-800 rounded-xl min-h-[var(--card-min-h)]">
+          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 border-yellow-200 dark:border-yellow-800 rounded-xl">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <EyeOff className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Drafts</p>
-                  <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400">{stats.draft}</p>
+                  <p className="text-xs text-muted-foreground">Inactive</p>
+                  <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{stats.inactive}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800 rounded-xl min-h-[var(--card-min-h)]">
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800 rounded-xl">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Trending</p>
-                  <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{stats.trending}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800 rounded-xl min-h-[var(--card-min-h)]">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Download className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                <div>
-                  <p className="text-[10px] text-muted-foreground">Downloads</p>
-                  <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{stats.totalDownloads}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-950 dark:to-pink-900 border-pink-200 dark:border-pink-800 rounded-xl min-h-[var(--card-min-h)]">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Share2 className="w-5 h-5 text-pink-600 dark:text-pink-400" />
-                <div>
-                  <p className="text-[10px] text-muted-foreground">Shares</p>
-                  <p className="text-lg font-bold text-pink-600 dark:text-pink-400">{stats.totalShares}</p>
+                  <p className="text-xs text-muted-foreground">Trending</p>
+                  <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{stats.trending}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search & Filters */}
-        <div className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search templates by title or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-[var(--input-h)] text-sm"
-            />
-          </div>
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search templates..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 h-12 text-base"
+          />
+        </div>
 
-          {/* Filters Row */}
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {/* Poster Type Filter */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-shrink-0 h-9 text-sm">
-                <Tag className="w-4 h-4 mr-2" />
-                Poster Type
-                {selectedPosterTypes.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 rounded-full px-2">
-                    {selectedPosterTypes.length}
-                  </Badge>
-                )}
-                <ChevronDown className="w-4 h-4 ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 max-h-[400px] overflow-y-auto">
-              <DropdownMenuLabel>Poster Types</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {posterTypeOptions.map((option) => (
-                <DropdownMenuCheckboxItem
-                  key={option.value}
-                  checked={selectedPosterTypes.includes(option.value)}
-                  onCheckedChange={() => toggleArraySelection(selectedPosterTypes, setSelectedPosterTypes, option.value)}
-                >
-                  {option.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-            {/* Occasion Filter */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-shrink-0 h-9 text-sm">
-                <Calendar className="w-4 h-4 mr-2" />
-                Occasions
-                {selectedOccasions.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 rounded-full px-2">
-                    {selectedOccasions.length}
-                  </Badge>
-                )}
-                <ChevronDown className="w-4 h-4 ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 max-h-[400px] overflow-y-auto">
-              <DropdownMenuLabel>Occasions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {occasionOptions.map((option) => (
-                <DropdownMenuCheckboxItem
-                  key={option.value}
-                  checked={selectedOccasions.includes(option.value)}
-                  onCheckedChange={() => toggleArraySelection(selectedOccasions, setSelectedOccasions, option.value)}
-                >
-                  {option.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-            {/* Industry Filter */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-shrink-0 h-9 text-sm">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Industry
-                {selectedIndustries.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 rounded-full px-2">
-                    {selectedIndustries.length}
-                  </Badge>
-                )}
-                <ChevronDown className="w-4 h-4 ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 max-h-[400px] overflow-y-auto">
-              <DropdownMenuLabel>Industries</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {industryOptions.map((option) => (
-                <DropdownMenuCheckboxItem
-                  key={option.value}
-                  checked={selectedIndustries.includes(option.value)}
-                  onCheckedChange={() => toggleArraySelection(selectedIndustries, setSelectedIndustries, option.value)}
-                >
-                  {option.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-            {/* Status Filter */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-shrink-0 h-9 text-sm">
-                <Filter className="w-4 h-4 mr-2" />
-                Status
-                {selectedStatus && (
-                  <Badge variant="secondary" className="ml-2 rounded-full px-2">
-                    1
-                  </Badge>
-                )}
-                <ChevronDown className="w-4 h-4 ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-48">
-              <DropdownMenuLabel>Status</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={selectedStatus === "published"}
-                onCheckedChange={() => setSelectedStatus(selectedStatus === "published" ? "" : "published")}
+        {/* Business Category Filter - Horizontal Scrolling */}
+        <div className="relative">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="shrink-0 h-10 w-10 rounded-lg border-2"
+              onClick={() => scrollCategories('left')}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            
+            <div 
+              ref={categoryScrollRef}
+              className="flex gap-2 overflow-x-auto scrollbar-hide py-1 flex-1"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              <button
+                onClick={() => setSelectedBusinessCategoryFilter("")}
+                className={`shrink-0 px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                  selectedBusinessCategoryFilter === ""
+                    ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                    : "border-gray-200 hover:border-blue-300 dark:border-gray-700"
+                }`}
               >
-                Published
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={selectedStatus === "draft"}
-                onCheckedChange={() => setSelectedStatus(selectedStatus === "draft" ? "" : "draft")}
-              >
-                Draft
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={selectedStatus === "archived"}
-                onCheckedChange={() => setSelectedStatus(selectedStatus === "archived" ? "" : "archived")}
-              >
-                Archived
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-            {/* Clear Filters */}
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="flex-shrink-0 h-9 text-sm">
-                Clear All
-              </Button>
-            )}
+                All Categories
+              </button>
+              {businessCategories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedBusinessCategoryFilter(category.id)}
+                  className={`shrink-0 px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all whitespace-nowrap ${
+                    selectedBusinessCategoryFilter === category.id
+                      ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                      : "border-gray-200 hover:border-blue-300 dark:border-gray-700"
+                  }`}
+                >
+                  {category.icon && <span className="mr-1">{category.icon}</span>}
+                  {category.name}
+                </button>
+              ))}
+            </div>
+            
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="shrink-0 h-10 w-10 rounded-lg border-2"
+              onClick={() => scrollCategories('right')}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-lg grid-cols-4 h-[var(--input-h)]">
+          <TabsList className="grid w-full max-w-md grid-cols-4 h-12">
             <TabsTrigger value="all" className="text-sm">All</TabsTrigger>
-            <TabsTrigger value="published" className="text-sm">Published</TabsTrigger>
-            <TabsTrigger value="draft" className="text-sm">Drafts</TabsTrigger>
+            <TabsTrigger value="published" className="text-sm">Active</TabsTrigger>
+            <TabsTrigger value="inactive" className="text-sm">Inactive</TabsTrigger>
             <TabsTrigger value="trending" className="text-sm">Trending</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-6">
             {isLoading ? (
-              <div className="text-center py-12 text-muted-foreground">Loading templates...</div>
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
             ) : filteredTemplates.length === 0 ? (
               <Card className="rounded-xl">
                 <CardContent className="py-12 text-center text-muted-foreground">
                   <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No templates found</p>
-                  {hasActiveFilters && (
-                    <Button variant="link" onClick={clearAllFilters} className="mt-2">
-                      Clear filters
-                    </Button>
-                  )}
+                  <p className="text-lg font-medium">No templates found</p>
+                  <p className="text-sm mt-1">Create your first template to get started</p>
+                  <Button onClick={() => setIsAddDialogOpen(true)} className="mt-4">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Template
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {filteredTemplates.map((template) => (
                   <Card key={template.id} className="group overflow-hidden hover:shadow-lg transition-shadow rounded-xl">
-                  <div className="relative aspect-square bg-muted overflow-hidden">
-                  <img
-                    src={template.thumbnailUrl || template.imageUrl}
-                    alt={template.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                    {/* Status Badge */}
-                    <div className="absolute top-2 left-2">
-                      <Badge variant={template.status === "published" ? "default" : "secondary"}>
-                        {template.status}
-                      </Badge>
-                </div>
-                    {/* Trending Badge */}
-                    {template.isTrending && (
-                      <Badge className="absolute top-2 right-2 bg-purple-500">
-                        <TrendingUp className="w-3 h-3 mr-1" />
-                        Trending
-                      </Badge>
-                    )}
-                    {/* Overlay Actions */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+                      <img
+                        src={template.thumbnailUrl || template.imageUrl}
+                        alt={template.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      {/* Status Badge */}
+                      <div className="absolute top-2 left-2">
+                        <Badge 
+                          variant={template.status === "published" ? "default" : "secondary"}
+                          className={template.status === "published" ? "bg-green-500" : "bg-gray-500"}
+                        >
+                          {template.status === "published" ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      {/* Trending Badge */}
+                      {template.isTrending && (
+                        <Badge className="absolute top-2 right-2 bg-purple-500">
+                          <TrendingUp className="w-3 h-3 mr-1" />
+                          Trending
+                        </Badge>
+                      )}
+                      {/* Overlay Actions */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <Button
-                        size="sm"
-                        variant="secondary"
+                          size="sm"
+                          variant="secondary"
                           onClick={() => setEditingTemplate(template)}
                         >
                           <Edit2 className="w-4 h-4" />
                         </Button>
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => cloneMutation.mutate(template)}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => togglePublishMutation.mutate({
-                          id: template.id,
-                          status: template.status === "published" ? "draft" : "published"
-                        })}
-                      >
-                        {template.status === "published" ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => {
-                          if (confirm("Are you sure you want to delete this template?")) {
-                            deleteMutation.mutate(template.id);
-                          }
-                        }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                  <CardContent className="p-3 space-y-2">
-                    <h3 className="font-semibold text-sm line-clamp-1">{template.title}</h3>
-                <div className="flex flex-wrap gap-1">
-                  {template.occasions.slice(0, 2).map((occasion) => (
-                    <Badge key={occasion} variant="outline" className="text-xs">
-                      {occasion}
-                    </Badge>
-                  ))}
-                  {template.occasions.length > 2 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{template.occasions.length - 2}
-                    </Badge>
-                  )}
-                </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                      <span className="flex items-center gap-1">
-                        <Download className="w-3 h-3" />
-                        {template.downloadCount}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Share2 className="w-3 h-3" />
-                        {template.shareCount}
-                      </span>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => toggleStatusMutation.mutate({
+                            id: template.id,
+                            status: template.status === "published" ? "archived" : "published"
+                          })}
+                          title={template.status === "published" ? "Deactivate" : "Activate"}
+                        >
+                          {template.status === "published" ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="destructive">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Template?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete this template. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => deleteMutation.mutate(template.id)}
+                                className="bg-destructive hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
+                    <CardContent className="p-3 space-y-2">
+                      <h3 className="font-semibold text-sm line-clamp-1">{template.title}</h3>
+                      <div className="flex flex-wrap gap-1">
+                        {template.industries.slice(0, 2).map((industry) => {
+                          const category = businessCategories.find(c => c.id === industry);
+                          return (
+                            <Badge key={industry} variant="outline" className="text-xs">
+                              {category?.name || industry}
+                            </Badge>
+                          );
+                        })}
+                        {template.industries.length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{template.industries.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                        <span className="flex items-center gap-1">
+                          <Download className="w-3 h-3" />
+                          {template.downloadCount}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Share2 className="w-3 h-3" />
+                          {template.shareCount}
+                        </span>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -1114,22 +717,42 @@ export default function AdminGreetingTemplates() {
           </TabsContent>
         </Tabs>
 
-        {/* Edit Dialog */}
-        <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Template</DialogTitle>
-          </DialogHeader>
-          {editingTemplate && (
+        {/* Add Template Dialog */}
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Template</DialogTitle>
+              <DialogDescription>Upload a template image and assign categories</DialogDescription>
+            </DialogHeader>
             <TemplateForm
-              template={editingTemplate}
-              onSubmit={(data) => updateMutation.mutate({ id: editingTemplate.id, data })}
-              isPending={updateMutation.isPending}
-              onClose={() => setEditingTemplate(null)}
+              templateCategories={templateCategories}
+              businessCategories={businessCategories}
+              onSubmit={(data) => createMutation.mutate(data)}
+              isPending={createMutation.isPending}
+              onClose={() => setIsAddDialogOpen(false)}
             />
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Template Dialog */}
+        <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Template</DialogTitle>
+              <DialogDescription>Update template details</DialogDescription>
+            </DialogHeader>
+            {editingTemplate && (
+              <TemplateForm
+                template={editingTemplate}
+                templateCategories={templateCategories}
+                businessCategories={businessCategories}
+                onSubmit={(data) => updateMutation.mutate({ id: editingTemplate.id, data })}
+                isPending={updateMutation.isPending}
+                onClose={() => setEditingTemplate(null)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Category Management Section */}
         <CategoryManagement />
@@ -1190,185 +813,161 @@ function CategoryManagement() {
     },
   });
 
-  const handleCreateCategory = () => {
-    if (!newCategory.name.trim()) {
-      toast({ title: "Category name is required", variant: "destructive" });
-      return;
-    }
-    createCategoryMutation.mutate(newCategory);
-  };
-
-  const handleUpdateCategory = () => {
-    if (!editingCategory?.name?.trim()) {
-      toast({ title: "Category name is required", variant: "destructive" });
-      return;
-    }
-    updateCategoryMutation.mutate({ id: editingCategory.id, data: editingCategory });
-  };
-
-  const getIconComponent = (iconName: string) => {
-    const iconItem = availableIcons.find(i => i.value === iconName);
-    return iconItem?.Icon || Sparkles;
-  };
-
   return (
     <div className="mt-8 border-t pt-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="space-y-1">
-          <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
-            <FolderOpen className="w-6 h-6 text-blue-500" />
-            Category Management
+          <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-blue-500" />
+            Categories
           </h2>
-          <p className="text-muted-foreground text-sm">Create and manage poster categories for vendors</p>
+          <p className="text-muted-foreground text-sm">Custom categories for organizing templates</p>
         </div>
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Category
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Category</DialogTitle>
-              <DialogDescription>Add a new category for marketing templates</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div>
-                <Label>Category Name *</Label>
-                <Input
-                  placeholder="e.g., Diwali Specials"
-                  value={newCategory.name}
-                  onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Description</Label>
-                <Textarea
-                  placeholder="Brief description..."
-                  value={newCategory.description}
-                  onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
-                  className="mt-1"
-                  rows={2}
-                />
-              </div>
-              <div>
-                <Label>Icon</Label>
-                <div className="grid grid-cols-7 gap-2 mt-1">
-                  {availableIcons.map((icon) => (
-                    <button
-                      key={icon.value}
-                      type="button"
-                      onClick={() => setNewCategory({ ...newCategory, icon: icon.value })}
-                      className={`p-2 rounded-lg border-2 flex items-center justify-center transition-all ${
-                        newCategory.icon === icon.value
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                          : "border-border hover:border-blue-300"
-                      }`}
-                    >
-                      <icon.Icon className="w-5 h-5" style={{ color: newCategory.color }} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <Label>Color</Label>
-                <div className="grid grid-cols-8 gap-2 mt-1">
-                  {availableColors.map((color) => (
-                    <button
-                      key={color.value}
-                      type="button"
-                      onClick={() => setNewCategory({ ...newCategory, color: color.value })}
-                      className={`w-8 h-8 rounded-full border-2 transition-all ${
-                        newCategory.color === color.value
-                          ? "border-gray-900 dark:border-white scale-110"
-                          : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: color.value }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-2 pt-4">
-                <Button variant="outline" onClick={() => setIsAddOpen(false)} className="flex-1">
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleCreateCategory} 
-                  disabled={createCategoryMutation.isPending}
-                  className="flex-1"
-                >
-                  {createCategoryMutation.isPending ? "Creating..." : "Create Category"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setIsAddOpen(true)} className="w-full sm:w-auto h-10">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Category
+        </Button>
       </div>
 
       {/* Categories Grid */}
       {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading categories...</div>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
       ) : categories.length === 0 ? (
-        <Card>
+        <Card className="rounded-xl">
           <CardContent className="py-12 text-center text-muted-foreground">
             <FolderOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No categories created yet</p>
+            <p className="text-lg font-medium">No categories created yet</p>
             <p className="text-sm">Create your first category to organize templates</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {categories.map((category: any) => (
+            <Card key={category.id} className="group overflow-hidden hover:shadow-lg transition-all rounded-xl">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                    style={{ backgroundColor: `${category.color}20` }}
+                  >
+                    <Sparkles className="w-6 h-6" style={{ color: category.color }} />
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => setEditingCategory({ ...category })}
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-600">
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Category?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete this category. Templates using this category will need to be reassigned.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => deleteCategoryMutation.mutate(category.id)}
+                            className="bg-destructive hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+                <h3 className="font-semibold text-sm line-clamp-1">{category.name}</h3>
+                {category.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{category.description}</p>
+                )}
               </CardContent>
             </Card>
-      ) : (
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {categories.map((category: any) => {
-            const IconComponent = getIconComponent(category.icon);
-            return (
-              <Card key={category.id} className="group overflow-hidden hover:shadow-lg transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: `${category.color}20` }}
-                    >
-                      <IconComponent className="w-6 h-6" style={{ color: category.color }} />
-                    </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => setEditingCategory({ ...category })}
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-red-500 hover:text-red-600"
-                        onClick={() => {
-                          if (confirm("Are you sure you want to delete this category?")) {
-                            deleteCategoryMutation.mutate(category.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                  <h3 className="font-semibold text-sm line-clamp-1">{category.name}</h3>
-                  {category.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{category.description}</p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+          ))}
         </div>
       )}
 
+      {/* Add Category Dialog */}
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Category</DialogTitle>
+            <DialogDescription>Add a custom category for templates</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <Label>Category Name *</Label>
+              <Input
+                placeholder="e.g., Diwali Specials"
+                value={newCategory.name}
+                onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                className="mt-1 h-12"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input
+                placeholder="Brief description..."
+                value={newCategory.description}
+                onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                className="mt-1 h-12"
+              />
+            </div>
+            <div>
+              <Label>Color</Label>
+              <div className="grid grid-cols-8 gap-2 mt-2">
+                {availableColors.map((color) => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => setNewCategory({ ...newCategory, color: color.value })}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      newCategory.color === color.value
+                        ? "border-gray-900 dark:border-white scale-110"
+                        : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: color.value }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button variant="outline" onClick={() => setIsAddOpen(false)} className="flex-1 h-12">
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (!newCategory.name.trim()) {
+                    toast({ title: "Category name is required", variant: "destructive" });
+                    return;
+                  }
+                  createCategoryMutation.mutate(newCategory);
+                }}
+                disabled={createCategoryMutation.isPending}
+                className="flex-1 h-12"
+              >
+                {createCategoryMutation.isPending ? "Creating..." : "Create Category"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Category Dialog */}
       <Dialog open={!!editingCategory} onOpenChange={(open) => !open && setEditingCategory(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Category</DialogTitle>
             <DialogDescription>Update category details</DialogDescription>
@@ -1381,41 +980,21 @@ function CategoryManagement() {
                   placeholder="e.g., Diwali Specials"
                   value={editingCategory.name || ""}
                   onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                  className="mt-1"
+                  className="mt-1 h-12"
                 />
               </div>
               <div>
                 <Label>Description</Label>
-                <Textarea
+                <Input
                   placeholder="Brief description..."
                   value={editingCategory.description || ""}
                   onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
-                  className="mt-1"
-                  rows={2}
+                  className="mt-1 h-12"
                 />
               </div>
               <div>
-                <Label>Icon</Label>
-                <div className="grid grid-cols-7 gap-2 mt-1">
-                  {availableIcons.map((icon) => (
-                    <button
-                      key={icon.value}
-                      type="button"
-                      onClick={() => setEditingCategory({ ...editingCategory, icon: icon.value })}
-                      className={`p-2 rounded-lg border-2 flex items-center justify-center transition-all ${
-                        editingCategory.icon === icon.value
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                          : "border-border hover:border-blue-300"
-                      }`}
-                    >
-                      <icon.Icon className="w-5 h-5" style={{ color: editingCategory.color }} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
                 <Label>Color</Label>
-                <div className="grid grid-cols-8 gap-2 mt-1">
+                <div className="grid grid-cols-8 gap-2 mt-2">
                   {availableColors.map((color) => (
                     <button
                       key={color.value}
@@ -1432,19 +1011,25 @@ function CategoryManagement() {
                 </div>
               </div>
               <div className="flex gap-2 pt-4">
-                <Button variant="outline" onClick={() => setEditingCategory(null)} className="flex-1">
+                <Button variant="outline" onClick={() => setEditingCategory(null)} className="flex-1 h-12">
                   Cancel
                 </Button>
                 <Button 
-                  onClick={handleUpdateCategory} 
+                  onClick={() => {
+                    if (!editingCategory?.name?.trim()) {
+                      toast({ title: "Category name is required", variant: "destructive" });
+                      return;
+                    }
+                    updateCategoryMutation.mutate({ id: editingCategory.id, data: editingCategory });
+                  }}
                   disabled={updateCategoryMutation.isPending}
-                  className="flex-1"
+                  className="flex-1 h-12"
                 >
                   {updateCategoryMutation.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
-        </div>
-      )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

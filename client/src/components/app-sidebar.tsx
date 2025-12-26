@@ -63,6 +63,7 @@ const vendorMenuItems = [
   { title: "Expenses", url: "/vendor/expenses", icon: Receipt },
   { title: "Leads", url: "/vendor/leads", icon: TrendingUp },
   { title: "Quotations", url: "/vendor/quotations", icon: FileText },
+  { title: "Coupons", url: "/vendor/coupons", icon: Tag },
   { title: "Hisab Kitab", url: "/vendor/ledger", icon: BookOpen },
   { title: "Services Catalogue", url: "/vendor/services-catalogue", icon: Package },
   { title: "Products Catalogue", url: "/vendor/products-catalogue", icon: Boxes },
@@ -92,6 +93,8 @@ const adminMenuItems = [
   { title: "Promo Banners", url: "/admin/promo-banners", icon: Image },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
+
+const VYORA_LOGO = "https://abizuwqnqkbicrhorcig.storage.supabase.co/storage/v1/object/public/vyora-bucket/partners-vyora/p/IMAGE/logo-vyora.png";
 
 export function AppSidebar({ userRole = "vendor", vendorId: propVendorId, modulePermissions = [] }: AppSidebarProps) {
   const [location, setLocation] = useLocation();
@@ -160,7 +163,7 @@ export function AppSidebar({ userRole = "vendor", vendorId: propVendorId, module
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-2">
-          <div className="text-2xl">🚀</div>
+          <img src={VYORA_LOGO} alt="Vyora" className="w-10 h-10 rounded-lg object-contain" />
           <div>
             <h2 className="text-lg font-bold text-sidebar-foreground" style={{ fontFamily: 'Poppins, sans-serif' }}>
               Vyora

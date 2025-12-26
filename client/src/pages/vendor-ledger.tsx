@@ -38,11 +38,15 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 type LedgerTransaction = {
   id: string;
   vendorId: string;
   customerId: string | null;
+  supplierId: string | null;
   type: "in" | "out";
   amount: number;
   transactionDate: string;
@@ -55,6 +59,8 @@ type LedgerTransaction = {
   referenceType: string | null;
   referenceId: string | null;
   attachments: string[];
+  excludeFromBalance: boolean | null;
+  isPOSSale: boolean | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -71,7 +77,10 @@ type Customer = {
   name: string;
   phone: string;
   email: string | null;
+  address?: string;
   city?: string;
+  state?: string;
+  pincode?: string;
   status?: string;
   lastVisitDate?: string | null;
   balance?: number;
@@ -83,7 +92,10 @@ type Supplier = {
   businessName?: string;
   phone: string;
   email: string | null;
+  addressLine1?: string;
   city?: string;
+  state?: string;
+  pincode?: string;
   status?: string;
   balance?: number;
 };
@@ -105,6 +117,21 @@ export default function VendorLedger() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Fetch summary
   const { data: summary, isLoading: summaryLoading } = useQuery<LedgerSummary>({
@@ -153,19 +180,73 @@ export default function VendorLedger() {
   });
 
   // Calculate balance per customer
-  const customerBalances: Record<string, CustomerBalance> = {};
+  // Accounting Logic (Khatabook style):
+  // - "You Gave" (type=out) = Credit given to customer = Customer owes you MORE
+  // - "You Got" (type=in) = Payment received from customer = Customer owes you LESS
+  // - Balance = totalOut - totalIn (what customer owes you)
+  // - Positive balance = "You will GET" (customer owes you)
+  // - Negative balance = "You will GIVE" (you owe customer, e.g., advance taken)
+  // Note: POS paid amounts (excludeFromBalance=true) are excluded from balance calculation
+  const customerBalances: Record<string, CustomerBalance & { balanceIn: number; balanceOut: number }> = {};
+  const supplierBalances: Record<string, { supplierId: string; totalIn: number; totalOut: number; balance: number; balanceIn: number; balanceOut: number }> = {};
+  
   transactions.forEach(t => {
+    // Customer transactions
     if (t.customerId) {
       if (!customerBalances[t.customerId]) {
-        customerBalances[t.customerId] = { customerId: t.customerId, totalIn: 0, totalOut: 0, balance: 0 };
+        customerBalances[t.customerId] = { customerId: t.customerId, totalIn: 0, totalOut: 0, balance: 0, balanceIn: 0, balanceOut: 0 };
       }
+      // Track all amounts for display (includes POS paid amounts)
       if (t.type === 'in') {
         customerBalances[t.customerId].totalIn += t.amount;
       } else {
         customerBalances[t.customerId].totalOut += t.amount;
       }
+      // Only include in balance if not excluded (POS paid amounts are excluded)
+      if (!t.excludeFromBalance) {
+        if (t.type === 'in') {
+          customerBalances[t.customerId].balanceIn += t.amount;
+        } else {
+          customerBalances[t.customerId].balanceOut += t.amount;
+        }
+      }
+      // Balance = "You Gave" - "You Got" = totalOut - totalIn
+      // Positive = Customer owes you = "You will GET"
+      // Negative = You owe customer = "You will GIVE"
       customerBalances[t.customerId].balance = 
-        customerBalances[t.customerId].totalIn - customerBalances[t.customerId].totalOut;
+        customerBalances[t.customerId].balanceOut - customerBalances[t.customerId].balanceIn;
+    }
+    
+    // Supplier transactions
+    // For suppliers, the logic is also:
+    // - "You Gave" (type=out) = Payment to supplier = You paid them (reduces what you owe)
+    // - "You Got" (type=in) = Goods/credit received = You owe them MORE
+    // - Balance = totalIn - totalOut (what you owe supplier)
+    // - Positive balance = "You will GIVE" (you owe supplier)
+    // - Negative balance = "You will GET" (supplier owes you, e.g., advance paid)
+    if (t.supplierId) {
+      if (!supplierBalances[t.supplierId]) {
+        supplierBalances[t.supplierId] = { supplierId: t.supplierId, totalIn: 0, totalOut: 0, balance: 0, balanceIn: 0, balanceOut: 0 };
+      }
+      // Track all amounts for display
+      if (t.type === 'in') {
+        supplierBalances[t.supplierId].totalIn += t.amount;
+      } else {
+        supplierBalances[t.supplierId].totalOut += t.amount;
+      }
+      // Only include in balance if not excluded
+      if (!t.excludeFromBalance) {
+        if (t.type === 'in') {
+          supplierBalances[t.supplierId].balanceIn += t.amount;
+        } else {
+          supplierBalances[t.supplierId].balanceOut += t.amount;
+        }
+      }
+      // For suppliers: Balance = totalIn - totalOut
+      // Positive = You owe supplier = "You will GIVE"
+      // Negative = Supplier owes you = "You will GET"
+      supplierBalances[t.supplierId].balance = 
+        supplierBalances[t.supplierId].balanceIn - supplierBalances[t.supplierId].balanceOut;
     }
   });
 
@@ -177,12 +258,21 @@ export default function VendorLedger() {
     totalOut: customerBalances[c.id]?.totalOut || 0,
   }));
 
+  // Enrich suppliers with balance
+  const enrichedSuppliers = suppliers.map(s => ({
+    ...s,
+    balance: supplierBalances[s.id]?.balance || 0,
+    totalIn: supplierBalances[s.id]?.totalIn || 0,
+    totalOut: supplierBalances[s.id]?.totalOut || 0,
+  }));
+
   // Filter and sort customers
   const filteredCustomers = enrichedCustomers
     .filter(c => 
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.phone?.includes(searchQuery) ||
-      c.email?.toLowerCase().includes(searchQuery.toLowerCase())
+      c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.city?.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
@@ -191,20 +281,39 @@ export default function VendorLedger() {
     });
 
   // Filter and sort suppliers
-  const filteredSuppliers = suppliers
+  const filteredSuppliers = enrichedSuppliers
     .filter(s => 
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.businessName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.phone?.includes(searchQuery)
+      s.phone?.includes(searchQuery) ||
+      s.city?.toLowerCase().includes(searchQuery.toLowerCase())
     )
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "balance") return Math.abs(b.balance) - Math.abs(a.balance);
+      return a.name.localeCompare(b.name); // Default to name for suppliers
+    });
 
-  // Calculate totals
-  const totalToReceive = enrichedCustomers.reduce((sum, c) => sum + (c.balance > 0 ? c.balance : 0), 0);
-  const totalToPay = enrichedCustomers.reduce((sum, c) => sum + (c.balance < 0 ? Math.abs(c.balance) : 0), 0);
+  // Calculate totals from customers
+  // For customers: positive balance = "You will GET", negative = "You will GIVE"
+  const customerToReceive = enrichedCustomers.reduce((sum, c) => sum + (c.balance > 0 ? c.balance : 0), 0);
+  const customerToPay = enrichedCustomers.reduce((sum, c) => sum + (c.balance < 0 ? Math.abs(c.balance) : 0), 0);
+  
+  // Calculate totals from suppliers
+  // For suppliers: positive balance = "You will GIVE", negative = "You will GET"
+  const supplierToPay = enrichedSuppliers.reduce((sum, s) => sum + (s.balance > 0 ? s.balance : 0), 0);
+  const supplierToReceive = enrichedSuppliers.reduce((sum, s) => sum + (s.balance < 0 ? Math.abs(s.balance) : 0), 0);
+  
+  // Combined totals
+  const totalToReceive = customerToReceive + supplierToReceive;
+  const totalToPay = customerToPay + supplierToPay;
 
   const handleCustomerClick = (customerId: string) => {
     setLocation(`/vendors/${vendorId}/ledger/customer/${customerId}`);
+  };
+
+  const handleSupplierClick = (supplierId: string) => {
+    setLocation(`/vendors/${vendorId}/ledger/supplier/${supplierId}`);
   };
 
   const handlePhoneCall = (phone: string | null | undefined, e: React.MouseEvent) => {
@@ -238,7 +347,7 @@ export default function VendorLedger() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-background border-b">
+      <div className="sticky top-0 z-30 bg-background border-b">
         {/* Top Header */}
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -452,6 +561,11 @@ export default function VendorLedger() {
                             <Phone className="h-3 w-3" />
                             <span>{customer.phone || "No phone"}</span>
                           </div>
+                          {(customer.address || customer.city) && (
+                            <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                              {[customer.address, customer.city].filter(Boolean).join(", ")}
+                            </p>
+                          )}
                         </div>
 
                         {/* Balance */}
@@ -571,6 +685,7 @@ export default function VendorLedger() {
                   <Card 
                     key={supplier.id} 
                     className="overflow-hidden hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
+                    onClick={() => handleSupplierClick(supplier.id)}
                   >
                     <CardContent className="p-0">
                       <div className="flex items-center p-4">
@@ -596,6 +711,29 @@ export default function VendorLedger() {
                             <Phone className="h-3 w-3" />
                             <span>{supplier.phone || "No phone"}</span>
                           </div>
+                          {(supplier.addressLine1 || supplier.city) && (
+                            <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                              {[supplier.addressLine1, supplier.city].filter(Boolean).join(", ")}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Balance - For suppliers: positive = You will GIVE, negative = You will GET */}
+                        <div className="flex flex-col items-end ml-2">
+                          <span className={`text-base font-bold ${
+                            supplier.balance > 0 ? 'text-green-600' : supplier.balance < 0 ? 'text-red-600' : 'text-muted-foreground'
+                          }`}>
+                            ₹{Math.abs(supplier.balance).toLocaleString('en-IN')}
+                          </span>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                            supplier.balance > 0 
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                              : supplier.balance < 0 
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                                : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {supplier.balance > 0 ? 'You will GIVE' : supplier.balance < 0 ? 'You will GET' : 'Settled'}
+                          </span>
                         </div>
 
                         {/* Chevron */}
@@ -612,10 +750,24 @@ export default function VendorLedger() {
                           Call
                         </button>
                         <button
+                          className="flex-1 py-2.5 text-xs font-medium text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center justify-center gap-1.5 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const message = supplier.balance < 0
+                              ? `Hi ${supplier.name}, regarding the pending payment of ₹${Math.abs(supplier.balance).toLocaleString()}. We will process it soon. Thank you!`
+                              : `Hi ${supplier.name}, thank you for your partnership!`;
+                            const whatsappUrl = `https://wa.me/${supplier.phone?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+                            window.open(whatsappUrl, '_blank');
+                          }}
+                        >
+                          <SiWhatsapp className="h-3.5 w-3.5" />
+                          Message
+                        </button>
+                        <button
                           className="flex-1 py-2.5 text-xs font-medium text-primary hover:bg-primary/5 flex items-center justify-center gap-1.5 transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Navigate to supplier detail page when implemented
+                            handleSupplierClick(supplier.id);
                           }}
                         >
                           <Plus className="h-3.5 w-3.5" />

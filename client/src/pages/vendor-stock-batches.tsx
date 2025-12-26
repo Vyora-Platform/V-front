@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -11,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, Package, Calendar, Plus } from "lucide-react";
+import { AlertCircle, Package, Calendar, Plus, Lock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { VendorProduct } from "@shared/schema";
 import { format, differenceInDays, isPast } from "date-fns";
@@ -19,6 +20,8 @@ import { z } from "zod";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 
 const batchSchema = z.object({
   vendorProductId: z.string().min(1, "Product is required"),
@@ -48,6 +51,9 @@ export default function VendorStockBatches() {
   const { vendorId } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [batchDialog, setBatchDialog] = useState(false);
 
   const form = useForm<z.infer<typeof batchSchema>>({
@@ -97,6 +103,13 @@ export default function VendorStockBatches() {
   });
 
   const handleCreateBatch = (values: z.infer<typeof batchSchema>) => {
+    // Check Pro subscription before allowing batch creation
+    const actionCheck = canPerformAction('create');
+    if (!actionCheck.allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     const costPriceValue = values.costPrice && values.costPrice !== "" 
       ? (typeof values.costPrice === "string" ? parseFloat(values.costPrice) : values.costPrice)
       : null;
@@ -156,9 +169,19 @@ export default function VendorStockBatches() {
         </div>
         <Dialog open={batchDialog} onOpenChange={setBatchDialog}>
           <DialogTrigger asChild>
-            <Button data-testid="button-create-batch">
+            <Button 
+              data-testid="button-create-batch"
+              onClick={(e) => {
+                const actionCheck = canPerformAction('create');
+                if (!actionCheck.allowed) {
+                  e.preventDefault();
+                  setShowUpgradeModal(true);
+                }
+              }}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Create Batch
+              {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
             </Button>
           </DialogTrigger>
           <DialogContent data-testid="dialog-create-batch">
@@ -288,6 +311,7 @@ export default function VendorStockBatches() {
                     data-testid="button-submit-batch"
                   >
                     {createBatchMutation.isPending ? "Creating..." : "Create Batch"}
+                    {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
                   </Button>
                 </div>
               </form>
@@ -392,6 +416,17 @@ export default function VendorStockBatches() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action="create"
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          setLocation('/vendor/account');
+        }}
+      />
     </div>
   );
 }

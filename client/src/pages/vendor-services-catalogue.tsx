@@ -19,7 +19,10 @@ import ServiceListingForm from "@/components/ServiceListingForm";
 import type { VendorCatalogue, MasterService, Category, Subcategory } from "@shared/schema";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { Lock } from "lucide-react";
 
 export default function VendorServicesCatalogue() {
   const [, setLocation] = useLocation();
@@ -78,6 +81,11 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  
+  // Pro subscription check
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<'create' | 'update' | 'delete'>('create');
 
   const { data: catalogue = [] } = useQuery<VendorCatalogue[]>({
     queryKey: [`/api/vendors/${vendorId}/catalogue`],
@@ -180,21 +188,53 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
   };
 
   const handleEdit = (service: VendorCatalogue) => {
+    // PRO SUBSCRIPTION CHECK - Block edit for non-Pro users
+    const actionCheck = canPerformAction('update');
+    if (!actionCheck.allowed) {
+      console.log('[PRO_GUARD] Service edit blocked - User is not Pro');
+      setBlockedAction('update');
+      setShowUpgradeModal(true);
+      return;
+    }
     setEditingService(service);
     setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
+    // PRO SUBSCRIPTION CHECK - Block delete for non-Pro users
+    const actionCheck = canPerformAction('delete');
+    if (!actionCheck.allowed) {
+      console.log('[PRO_GUARD] Service delete blocked - User is not Pro');
+      setBlockedAction('delete');
+      setShowUpgradeModal(true);
+      return;
+    }
     if (confirm("Are you sure you want to remove this service from your catalogue?")) {
       deleteMutation.mutate(id);
     }
   };
 
   const handleDuplicate = (id: string) => {
+    // PRO SUBSCRIPTION CHECK - Block duplicate for non-Pro users
+    const actionCheck = canPerformAction('create');
+    if (!actionCheck.allowed) {
+      console.log('[PRO_GUARD] Service duplicate blocked - User is not Pro');
+      setBlockedAction('create');
+      setShowUpgradeModal(true);
+      return;
+    }
     duplicateMutation.mutate(id);
   };
 
   const handleCreateNew = () => {
+    // PRO SUBSCRIPTION CHECK - Block create for non-Pro users
+    const actionCheck = canPerformAction('create');
+    if (!actionCheck.allowed) {
+      console.log('[PRO_GUARD] Service create blocked - User is not Pro');
+      setBlockedAction('create');
+      setShowUpgradeModal(true);
+      return;
+    }
     setEditingService(null);
     setIsDialogOpen(true);
   };
@@ -305,6 +345,7 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
           <Button onClick={handleCreateNew} className="h-[var(--input-h)] px-4 shrink-0 text-sm">
             <Plus className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">Add Service</span>
+            {!isPro && <Lock className="h-3.5 w-3.5 ml-1.5 opacity-60" />}
           </Button>
         </div>
       </div>
@@ -362,15 +403,15 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
         </div>
       )}
 
-      {/* Create/Edit Dialog - Full Screen on Mobile */}
+      {/* Create/Edit Dialog - Full Screen on Mobile, Scrollable on Desktop */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[100vh] md:max-h-[95vh] h-full md:h-auto overflow-hidden p-0 md:p-6 gap-0">
-          <DialogHeader className="hidden md:block px-0 pb-4">
+        <DialogContent className="max-w-5xl max-h-[100vh] md:max-h-[95vh] h-full md:h-[95vh] flex flex-col p-0 md:p-6 gap-0 overflow-hidden">
+          <DialogHeader className="hidden md:block px-0 pb-4 shrink-0">
             <DialogTitle className="text-2xl">
               {editingService ? "Edit Service" : "Create New Service"}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto md:overflow-visible">
+          <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin">
             <ServiceListingForm
               initialData={editingService || {}}
               onSubmit={handleFormSubmit}
@@ -385,8 +426,55 @@ function MyCatalogueTab({ vendorId }: { vendorId: string }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Pro Subscription Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action={blockedAction}
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          window.location.href = '/vendor/account';
+        }}
+      />
     </div>
   );
+}
+
+// Helper function to get duration display
+function getDurationDisplay(service: any): string | null {
+  if (service.durationType === "fixed" && service.durationValue) {
+    return `${service.durationValue} ${service.durationUnit || "min"}`;
+  }
+  if (service.durationType === "variable" && service.durationMin && service.durationMax) {
+    return `${service.durationMin}-${service.durationMax} ${service.durationUnit || "min"}`;
+  }
+  if (service.durationType === "session" && service.sessionCount) {
+    return `${service.sessionCount} sessions`;
+  }
+  if (service.durationType === "project" && service.durationMin && service.durationMax) {
+    return `${service.durationMin}-${service.durationMax} days`;
+  }
+  if (service.durationType === "long" && service.durationValue) {
+    return `${service.durationValue} ${service.durationUnit || "days"}`;
+  }
+  return null;
+}
+
+// Helper function to get pricing type display
+function getPricingTypeLabel(pricingType: string | undefined): string {
+  const types: Record<string, string> = {
+    "per-service": "One-time",
+    "price-range": "Price Range",
+    "hourly": "Per Hour",
+    "daily": "Per Day",
+    "weekly": "Per Week",
+    "monthly": "Per Month",
+    "per-session": "Per Session",
+    "per-person": "Per Person",
+    "package": "Package",
+  };
+  return types[pricingType || "per-service"] || "";
 }
 
 // Service Card Component
@@ -407,6 +495,11 @@ function ServiceCard({
 }) {
   const hasImage = service.images && service.images.length > 0;
   const displayImage = hasImage ? service.images[0] : null;
+  const serviceData = service as any;
+  const duration = getDurationDisplay(serviceData);
+  const pricingTypeLabel = getPricingTypeLabel(serviceData.pricingType);
+  const timeSlots = serviceData.availableTimeSlots || [];
+  const availableDays = serviceData.availableDays || [];
 
   return (
     <Card 
@@ -443,6 +536,16 @@ function ServiceCard({
           </Badge>
         </div>
 
+        {/* Duration Badge on Image */}
+        {duration && (
+          <div className="absolute top-3 left-3">
+            <Badge className="bg-black/60 backdrop-blur-sm text-white border-0 gap-1">
+              <Clock className="h-3 w-3" />
+              {duration}
+            </Badge>
+          </div>
+        )}
+
         {/* Overlay on Hover */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors">
           <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -464,68 +567,84 @@ function ServiceCard({
             </Button>
           </div>
         </div>
-              </div>
+      </div>
 
-              <CardContent className="p-4 space-y-3">
+      <CardContent className="p-4 space-y-2.5">
         {/* Category */}
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs font-normal">
-            {service.category}
-          </Badge>
-        </div>
+        <Badge variant="outline" className="text-xs font-normal">
+          {service.category}
+        </Badge>
 
         {/* Title */}
-        <h3 className="font-semibold text-base line-clamp-2 group-hover:text-primary transition-colors">
-                    {service.name}
-                  </h3>
+        <h3 className="font-semibold text-base line-clamp-1 group-hover:text-primary transition-colors">
+          {service.name}
+        </h3>
 
-                {/* Rating */}
-        <div className="flex items-center gap-2 text-sm">
-          <div className="flex items-center gap-1 text-amber-500">
-            <Star className="h-3.5 w-3.5 fill-current" />
-            <span className="font-medium">4.8</span>
-                  </div>
-          <span className="text-muted-foreground text-xs">(2.5K)</span>
-                </div>
+        {/* Price with Pricing Type - One Line */}
+        <div className="flex items-center gap-1.5 text-sm">
+          {service.offerPrice && service.offerPrice < service.price ? (
+            <>
+              <span className="font-bold text-primary">₹{service.offerPrice}</span>
+              <span className="text-muted-foreground line-through text-xs">₹{service.price}</span>
+            </>
+          ) : (
+            <span className="font-bold">₹{service.price}</span>
+          )}
+          {pricingTypeLabel && <span className="text-muted-foreground">/{pricingTypeLabel}</span>}
+          {duration && <span className="text-muted-foreground">• {duration}</span>}
+        </div>
 
-                {/* Description */}
-                <p className="text-sm text-muted-foreground line-clamp-2">
+        {/* Key Info - One Line Each */}
+        <div className="space-y-1 text-xs text-muted-foreground">
+          {availableDays.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Package className="h-3 w-3 shrink-0" />
+              <span>{availableDays.length} days/week • {timeSlots.length || 0} time slots</span>
+            </div>
+          )}
+          {serviceData.deliveryModes && serviceData.deliveryModes.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span>
+                {serviceData.deliveryModes.includes("business-location") && "At Business"}
+                {serviceData.deliveryModes.includes("business-location") && serviceData.deliveryModes.includes("home-service") && " • "}
+                {serviceData.deliveryModes.includes("home-service") && "Home Service"}
+              </span>
+            </div>
+          )}
+          {serviceData.gstIncluded && (
+            <div className="flex items-center gap-1.5">
+              <span>Incl. {serviceData.taxPercentage}% GST</span>
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
+        <p className="text-xs text-muted-foreground line-clamp-2">
           {service.shortDescription || service.description || "No description available"}
-                </p>
-
-                {/* Price */}
-                <div className="flex items-baseline gap-2">
-                  {service.offerPrice && service.offerPrice < service.price ? (
-                    <>
-                      <span className="text-xl font-bold text-primary">₹{service.offerPrice}</span>
-                      <span className="text-sm text-muted-foreground line-through">₹{service.price}</span>
-                    </>
-                  ) : (
-                    <span className="text-xl font-bold">₹{service.price}</span>
-                  )}
-                </div>
+        </p>
 
         {/* Actions */}
         <div className="flex gap-2 pt-2">
-                    <Button
+          <Button
             variant={service.isActive ? "outline" : "default"}
-                      size="sm"
+            size="sm"
             className="flex-1 h-9 text-xs"
             onClick={(e) => { e.stopPropagation(); onToggle(); }}
           >
             {service.isActive ? "Deactivate" : "Activate"}
-                    </Button>
-                    <Button
-                      variant="outline"
+          </Button>
+          <Button
+            variant="outline"
             size="icon"
             className="h-9 w-9"
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                    >
+          >
             <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -547,6 +666,11 @@ function ServiceListItem({
 }) {
   const hasImage = service.images && service.images.length > 0;
   const displayImage = hasImage ? service.images[0] : null;
+  const serviceData = service as any;
+  const duration = getDurationDisplay(serviceData);
+  const pricingTypeLabel = getPricingTypeLabel(serviceData.pricingType);
+  const timeSlots = serviceData.availableTimeSlots || [];
+  const availableDays = serviceData.availableDays || [];
 
   return (
     <Card 
@@ -570,22 +694,31 @@ function ServiceListItem({
                 <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
               )}
             </div>
-        )}
-      </div>
+          )}
+          {/* Duration Badge */}
+          {duration && (
+            <div className="absolute bottom-1 left-1 right-1">
+              <Badge className="bg-black/70 backdrop-blur-sm text-white border-0 gap-1 text-[10px] w-full justify-center">
+                <Clock className="h-2.5 w-2.5" />
+                {duration}
+              </Badge>
+            </div>
+          )}
+        </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 space-y-2">
+        <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-start justify-between gap-2">
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <Badge variant="outline" className="text-xs font-normal">
+                <Badge variant="outline" className="text-xs font-normal shrink-0">
                   {service.category}
                 </Badge>
                 <Badge 
-                  className={service.isActive 
-                    ? "bg-emerald-500 text-white text-xs" 
-                    : "bg-slate-500 text-white text-xs"
-                  }
+                  className={`shrink-0 text-xs border-0 ${service.isActive 
+                    ? "bg-emerald-500 text-white" 
+                    : "bg-slate-500 text-white"
+                  }`}
                 >
                   {service.isActive ? "Active" : "Inactive"}
                 </Badge>
@@ -594,44 +727,61 @@ function ServiceListItem({
                 {service.name}
               </h3>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               {service.offerPrice && service.offerPrice < service.price ? (
-                <div>
-                  <span className="text-lg font-bold text-primary">₹{service.offerPrice}</span>
-                  <span className="text-sm text-muted-foreground line-through ml-2">₹{service.price}</span>
-                </div>
+                <span className="text-lg font-bold text-primary">₹{service.offerPrice}</span>
               ) : (
                 <span className="text-lg font-bold">₹{service.price}</span>
               )}
+              {pricingTypeLabel && <span className="text-xs text-muted-foreground">/{pricingTypeLabel}</span>}
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground line-clamp-2">
+          {/* Key Info - One Line */}
+          <div className="text-xs text-muted-foreground">
+            <span>
+              {duration && `${duration}`}
+              {duration && availableDays.length > 0 && " • "}
+              {availableDays.length > 0 && `${availableDays.length} days/week`}
+              {(duration || availableDays.length > 0) && timeSlots.length > 0 && " • "}
+              {timeSlots.length > 0 && `${timeSlots.length} slots`}
+            </span>
+          </div>
+
+          {/* Delivery Mode & Description - One Line Each */}
+          {serviceData.deliveryModes && serviceData.deliveryModes.includes("home-service") && (
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span>Home Service Available</span>
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground line-clamp-1">
             {service.shortDescription || service.description || "No description available"}
           </p>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
-              <span>4.8 (2.5K)</span>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
-                <Edit className="h-4 w-4" />
+          <div className="flex items-center justify-between pt-0.5">
+            {serviceData.gstIncluded && (
+              <span className="text-[10px] text-muted-foreground">Incl. {serviceData.taxPercentage}% GST</span>
+            )}
+            {!serviceData.gstIncluded && <span></span>}
+            <div className="flex gap-1">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+                <Edit className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onDuplicate(); }}>
-                <Copy className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onDuplicate(); }}>
+                <Copy className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
-                {service.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+                {service.isActive ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
-                <Trash2 className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
         </div>
-    </div>
+      </div>
     </Card>
   );
 }

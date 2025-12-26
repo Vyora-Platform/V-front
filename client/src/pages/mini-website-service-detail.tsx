@@ -10,7 +10,8 @@ import {
   ShoppingCart, Home, Plus, Minus, Tag, 
   User, LogOut, ArrowLeft, Clock, Package, Image, BookOpen,
   ChevronLeft, ChevronRight, MapPin, Calendar, Star, Check, X, Info, Shield,
-  BadgeCheck, Sparkles, RefreshCw, CheckCircle2, XCircle, ChevronDown, ChevronUp, AlertCircle
+  BadgeCheck, Sparkles, RefreshCw, CheckCircle2, XCircle, ChevronDown, ChevronUp, AlertCircle,
+  Gift, Award, ListChecks, Truck, DollarSign, Layers, LayoutList
 } from "lucide-react";
 import {
   Sheet,
@@ -224,6 +225,59 @@ export default function MiniWebsiteServiceDetail() {
   const description = serviceData?.detailedDescription || serviceData?.shortDescription || service?.description || "";
   const isLongDescription = description.length > 250;
 
+  // Additional service details
+  const benefits = serviceData?.benefits || [];
+  const features = serviceData?.features || [];
+  const highlights = serviceData?.highlights || [];
+  const tags = serviceData?.tags || [];
+  const tagline = serviceData?.tagline || "";
+  const promotionalCaption = serviceData?.promotionalCaption || "";
+  const packageName = serviceData?.packageName || "";
+  const packageType = serviceData?.packageType || "";
+  const packageDuration = serviceData?.packageDuration || "";
+  const packageSessions = serviceData?.packageSessions || 0;
+  const freeTrialAvailable = serviceData?.freeTrialAvailable || false;
+  const homeCollectionAvailable = serviceData?.homeCollectionAvailable || false;
+  const homeCollectionCharges = serviceData?.homeCollectionCharges || 0;
+
+  // Additional form fields for consistency
+  const deliveryModes = serviceData?.deliveryModes || [];
+  const homeServiceChargeType = serviceData?.homeServiceChargeType || "free";
+  const homeServiceChargesList = serviceData?.homeServiceCharges || [];
+  const pricingType = serviceData?.pricingType || "per-service";
+  const priceMin = serviceData?.priceMin;
+  const priceMax = serviceData?.priceMax;
+  const packagePricing = serviceData?.packagePricing || [];
+  const inventoryType = serviceData?.inventoryType || "unlimited";
+  const inventoryItems = serviceData?.inventoryItems || [];
+  const durationType = serviceData?.durationType;
+  const durationValue = serviceData?.durationValue;
+  const durationUnit = serviceData?.durationUnit;
+  const durationMin = serviceData?.durationMin;
+  const durationMax = serviceData?.durationMax;
+  const sessionCount = serviceData?.sessionCount;
+  const customUnit = serviceData?.customUnit;
+  const sampleType = serviceData?.sampleType;
+  const tat = serviceData?.tat;
+  const customTimeSlots = serviceData?.customTimeSlots || [];
+  const timeSlotDurationValue = serviceData?.timeSlotDuration;
+
+  // Get pricing type display
+  const getPricingTypeDisplay = () => {
+    const types: Record<string, string> = {
+      "per-service": "Per Service",
+      "price-range": "Price Range",
+      "hourly": "Per Hour",
+      "daily": "Per Day",
+      "weekly": "Per Week",
+      "monthly": "Per Month",
+      "per-session": "Per Session",
+      "per-person": "Per Person",
+      "package": "Package",
+    };
+    return types[pricingType] || "";
+  };
+
   // Add to cart handler
   const handleAddToCart = () => {
     if (!service) return;
@@ -342,7 +396,14 @@ export default function MiniWebsiteServiceDetail() {
         <div className="flex items-center justify-between px-4 py-2.5 max-w-6xl mx-auto">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setLocation(`/${subdomain}/services`)}
+              onClick={() => {
+                // Standard e-commerce back navigation
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  setLocation(`/${subdomain}/services`);
+                }
+              }}
               className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors -ml-1.5"
             >
               <ArrowLeft className="h-5 w-5 text-gray-600" />
@@ -688,6 +749,362 @@ export default function MiniWebsiteServiceDetail() {
                           </div>
                         </div>
                       )}
+
+                      {customTimeSlots.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs text-gray-500 mb-2">Custom Time Slots</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {customTimeSlots.map((slot: string, index: number) => (
+                              <Badge key={index} variant="secondary" className="text-xs font-normal py-1">
+                                {slot}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Pricing Details */}
+              {(pricingType !== "per-service" || serviceData?.gstIncluded || (serviceData?.taxPercentage && serviceData.taxPercentage > 0)) && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <DollarSign className="h-3.5 w-3.5" style={{ color: primaryColor }} />
+                        </div>
+                        Pricing Details
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {pricingType && pricingType !== "per-service" && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Pricing Model</p>
+                            <p className="text-xs font-semibold text-gray-900 capitalize">{getPricingTypeDisplay()}</p>
+                          </div>
+                        )}
+                        {pricingType === "price-range" && (priceMin || priceMax) && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Price Range</p>
+                            <p className="text-xs font-semibold text-gray-900">
+                              ₹{priceMin || "N/A"} - ₹{priceMax || "N/A"}
+                            </p>
+                          </div>
+                        )}
+                        {packagePricing && packagePricing.length > 0 && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl col-span-2">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Package Options</p>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {packagePricing.map((pkg: any, index: number) => (
+                                <Badge key={index} variant="secondary" className="py-1 px-2 text-xs">
+                                  {pkg.name} ({pkg.sessions} sessions) - ₹{pkg.price}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {(serviceData?.taxPercentage > 0 || serviceData?.gstIncluded) && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">GST</p>
+                            <p className="text-xs font-semibold text-gray-900">
+                              {serviceData?.taxPercentage || 0}% {serviceData?.gstIncluded ? "(Included)" : "(Additional)"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Delivery Modes */}
+              {deliveryModes && deliveryModes.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Truck className="h-3.5 w-3.5" style={{ color: primaryColor }} />
+                        </div>
+                        Delivery Modes
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {deliveryModes.includes("business-location") && (
+                          <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
+                            <MapPin className="h-3 w-3 mr-1" /> At Business Location
+                          </Badge>
+                        )}
+                        {deliveryModes.includes("home-service") && (
+                          <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
+                            <Home className="h-3 w-3 mr-1" /> Home Service
+                          </Badge>
+                        )}
+                      </div>
+                      {deliveryModes.includes("home-service") && homeServiceChargeType === "paid" && homeServiceChargesList && homeServiceChargesList.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs font-medium text-gray-700">Home Service Charges:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {homeServiceChargesList.map((charge: any, index: number) => (
+                              <Badge key={index} variant="outline" className="py-1 px-2 text-xs">
+                                {charge.label}: ₹{charge.amount} ({charge.taxSlab}% GST)
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Inventory Details */}
+              {inventoryType && inventoryType !== "unlimited" && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Layers className="h-3.5 w-3.5" style={{ color: primaryColor }} />
+                        </div>
+                        Inventory Details
+                      </h3>
+                      <div className="p-2.5 bg-gray-50 rounded-xl">
+                        <p className="text-[10px] text-gray-500 mb-0.5">Inventory Model</p>
+                        <p className="text-xs font-semibold text-gray-900 capitalize">{inventoryType}</p>
+                      </div>
+                      {inventoryType === "limited" && inventoryItems && inventoryItems.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs font-medium text-gray-700">Available Items:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {inventoryItems.map((item: any, index: number) => (
+                              <Badge 
+                                key={index} 
+                                variant={item.available ? "default" : "destructive"} 
+                                className="py-1 px-2 text-xs"
+                              >
+                                {item.name} ({item.identifier}) {item.available ? "" : "(Unavailable)"}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Additional Details - Custom Unit, Sample Type, TAT */}
+              {(customUnit || sampleType || tat) && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <LayoutList className="h-3.5 w-3.5" style={{ color: primaryColor }} />
+                        </div>
+                        Additional Details
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {customUnit && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Service Unit</p>
+                            <p className="text-xs font-semibold text-gray-900">{customUnit}</p>
+                          </div>
+                        )}
+                        {sampleType && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Sample Type</p>
+                            <p className="text-xs font-semibold text-gray-900">{sampleType}</p>
+                          </div>
+                        )}
+                        {tat && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Turnaround Time (TAT)</p>
+                            <p className="text-xs font-semibold text-gray-900">{tat}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Tagline & Promotional Caption */}
+              {(tagline || promotionalCaption) && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden" style={{ background: `linear-gradient(135deg, ${primaryColor}08, ${primaryColor}15)` }}>
+                    <CardContent className="p-4">
+                      {tagline && (
+                        <p className="text-base font-bold text-gray-900 mb-1">
+                          ✨ {tagline}
+                        </p>
+                      )}
+                      {promotionalCaption && (
+                        <p className="text-sm text-gray-600 italic">
+                          {promotionalCaption}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Package Information */}
+              {(packageName || packageType || packageDuration || packageSessions > 0) && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Gift className="h-3.5 w-3.5" style={{ color: primaryColor }} />
+                        </div>
+                        Package Details
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {packageName && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Package Name</p>
+                            <p className="text-xs font-semibold text-gray-900">{packageName}</p>
+                          </div>
+                        )}
+                        {packageType && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Package Type</p>
+                            <p className="text-xs font-semibold text-gray-900 capitalize">{packageType}</p>
+                          </div>
+                        )}
+                        {packageDuration && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Duration</p>
+                            <p className="text-xs font-semibold text-gray-900">{packageDuration}</p>
+                          </div>
+                        )}
+                        {packageSessions > 0 && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl">
+                            <p className="text-[10px] text-gray-500 mb-0.5">Sessions</p>
+                            <p className="text-xs font-semibold text-gray-900">{packageSessions} sessions</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Service Highlights */}
+              {highlights.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Award className="h-3.5 w-3.5" style={{ color: primaryColor }} />
+                        </div>
+                        Service Highlights
+                      </h3>
+                      <ul className="space-y-1.5">
+                        {highlights.map((item: string, index: number) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: `${primaryColor}15` }}>
+                              <Star className="h-2.5 w-2.5" style={{ color: primaryColor }} />
+                            </div>
+                            <span className="text-xs text-gray-700">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Benefits */}
+              {benefits.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        </div>
+                        Benefits
+                      </h3>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {benefits.map((item: string, index: number) => (
+                          <div key={index} className="flex items-start gap-2 p-2 bg-emerald-50 rounded-lg">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span className="text-xs text-gray-700">{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Features */}
+              {features.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <ListChecks className="h-3.5 w-3.5" style={{ color: primaryColor }} />
+                        </div>
+                        Features
+                      </h3>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {features.map((item: string, index: number) => (
+                          <div key={index} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg">
+                            <Check className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                            <span className="text-xs text-gray-700">{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Home Collection / Delivery Available */}
+              {homeCollectionAvailable && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden bg-blue-50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                          <Truck className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-blue-900">Home Collection Available</h4>
+                          <p className="text-xs text-blue-700">
+                            {homeCollectionCharges > 0 
+                              ? `Additional charges: ₹${homeCollectionCharges}`
+                              : "Free home collection available"
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Free Trial Available */}
+              {freeTrialAvailable && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden" style={{ background: `linear-gradient(135deg, #dcfce7, #d1fae5)` }}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-green-200 flex items-center justify-center shrink-0">
+                          <Gift className="h-5 w-5 text-green-700" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-green-900">Free Trial Available</h4>
+                          <p className="text-xs text-green-700">Try before you commit - Free trial offered!</p>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -857,6 +1274,33 @@ export default function MiniWebsiteServiceDetail() {
                             <h4 className="font-medium text-xs text-gray-800 mb-0.5">{policy.title}</h4>
                             <p className="text-[11px] text-gray-500">{policy.content}</p>
                           </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Tags / Related Topics */}
+              {tags.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Tag className="h-3.5 w-3.5" style={{ color: primaryColor }} />
+                        </div>
+                        Related Topics
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {tags.map((tag: string, index: number) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium"
+                          >
+                            <Tag className="w-2.5 h-2.5" />
+                            {tag}
+                          </span>
                         ))}
                       </div>
                     </CardContent>

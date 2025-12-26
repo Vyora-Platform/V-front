@@ -171,20 +171,23 @@ export default function MiniWebsitePublic() {
     staleTime: 0,
   });
   
-  // Store vendorId and subdomain in localStorage when data is available
+  // Store mini-website context in localStorage when data is available
+  // SECURITY: Do NOT overwrite the main 'vendorId' key - that's for vendor authentication
+  // Use separate keys for customer-facing mini-website context
   useEffect(() => {
     if (data && subdomain) {
-      // Store subdomain
-      localStorage.setItem('subdomain', subdomain);
+      // Store subdomain for customer context
+      localStorage.setItem('miniWebsite_subdomain', subdomain);
       
-      // Store vendorId if available
+      // Store mini-website vendor ID for customer operations (orders, cart, etc.)
+      // IMPORTANT: This is different from the logged-in vendor's 'vendorId'
       if (data.vendorId) {
-        localStorage.setItem('vendorId', data.vendorId);
+        localStorage.setItem('miniWebsite_vendorId', data.vendorId);
       }
       
       // Store mini website ID if available
       if (data.id) {
-        localStorage.setItem('miniWebsiteId', data.id);
+        localStorage.setItem('miniWebsite_id', data.id);
       }
     }
   }, [data, subdomain]);
@@ -625,28 +628,35 @@ export default function MiniWebsitePublic() {
               )}
             </div>
             
-            {/* 4 CTA Buttons - 2x2 Grid */}
+            {/* 4 CTA Buttons - 2x2 Grid - Always show all 4 CTAs */}
             <div className="px-4 py-4">
               <div className="grid grid-cols-2 gap-3">
-                {phone && (
-                  <button 
-                    onClick={() => window.open(`tel:${phone}`)}
-                    className="flex items-center justify-center gap-2 h-12 bg-green-500 rounded-xl text-white active:opacity-90 transition-opacity"
-                  >
-                    <Phone className="h-5 w-5" />
-                    <span className="text-sm font-medium">Call Now</span>
-                  </button>
-                )}
+                <button 
+                  onClick={() => phone ? window.open(`tel:${phone}`) : toast({ title: "Phone not available", description: "Contact phone number is not set" })}
+                  className="flex items-center justify-center gap-2 h-12 bg-green-500 rounded-xl text-white active:opacity-90 transition-opacity"
+                >
+                  <Phone className="h-5 w-5" />
+                  <span className="text-sm font-medium">Call Now</span>
+                </button>
                 
-                {googleMapsUrl && (
-                  <button 
-                    onClick={() => window.open(googleMapsUrl, '_blank')}
-                    className="flex items-center justify-center gap-2 h-12 bg-blue-500 rounded-xl text-white active:opacity-90 transition-opacity"
-                  >
-                    <Navigation className="h-5 w-5" />
-                    <span className="text-sm font-medium">Directions</span>
-                  </button>
-                )}
+                <button 
+                  onClick={() => {
+                    // Use Google Maps URL if available, otherwise generate from address
+                    if (googleMapsUrl) {
+                      window.open(googleMapsUrl, '_blank');
+                    } else if (address) {
+                      const fullAddress = `${address}${city ? `, ${city}` : ''}${state ? `, ${state}` : ''}${pincode ? ` ${pincode}` : ''}`;
+                      const encodedAddress = encodeURIComponent(fullAddress);
+                      window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+                    } else {
+                      toast({ title: "Address not available", description: "Business address is not set" });
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 h-12 bg-blue-500 rounded-xl text-white active:opacity-90 transition-opacity"
+                >
+                  <Navigation className="h-5 w-5" />
+                  <span className="text-sm font-medium">Directions</span>
+                </button>
                 
                 <button 
                   onClick={() => {
@@ -1103,14 +1113,14 @@ export default function MiniWebsitePublic() {
             {/* Section Separator */}
             <div className="h-2 w-full" style={{ backgroundColor: primaryColor + '15' }}></div>
             
-            {/* Team */}
-            {(team.length > 0 || owners.length > 0) && (
+            {/* Team - Only show if vendor created team members */}
+            {team.length > 0 && (
               <div className="bg-white px-4 py-4">
                 <h3 className="font-semibold text-lg text-gray-900 mb-4 text-center">
                   Our Team
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...owners, ...team].slice(0, 6).map((member: any, idx: number) => (
+                  {team.slice(0, 6).map((member: any, idx: number) => (
                     <div key={idx} className="bg-gradient-to-br from-white to-gray-50 border border-gray-100 rounded-xl p-4 text-center shadow-sm">
                       <div className="w-16 h-16 mx-auto mb-3 rounded-full overflow-hidden bg-gray-200 ring-2 ring-gray-100">
                         {member.photo ? (
@@ -1130,7 +1140,7 @@ export default function MiniWebsitePublic() {
             )}
             
             {/* Section Separator */}
-            {(team.length > 0 || owners.length > 0) && (
+            {team.length > 0 && (
               <div className="h-2 w-full" style={{ backgroundColor: primaryColor + '15' }}></div>
             )}
             
@@ -1641,35 +1651,42 @@ export default function MiniWebsitePublic() {
     );
   }
 
-  // ==================== DESKTOP VIEW (UNCHANGED) ====================
+  // ==================== DESKTOP VIEW (MNC LEVEL FULL-SCREEN DESIGN) ====================
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: branding.fontFamily || "Inter, sans-serif" }}>
-      {/* ==================== HEADER NAVIGATION ==================== */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16 md:h-20">
-            {/* Logo */}
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollToSection(heroRef)}>
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: branding.fontFamily || "'DM Sans', 'Inter', sans-serif" }}>
+      {/* ==================== HEADER NAVIGATION - FULL WIDTH ==================== */}
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+        <div className="w-full px-6 lg:px-12 xl:px-20">
+          <div className="flex items-center justify-between h-20">
+            {/* Logo Section */}
+            <div className="flex items-center gap-4 cursor-pointer" onClick={() => scrollToSection(heroRef)}>
               {logo ? (
-                <img src={logo} alt={businessName} className="h-10 w-10 md:h-12 md:w-12 rounded-lg object-cover" />
+                <img src={logo} alt={businessName} className="h-14 w-14 rounded-xl object-cover shadow-md" />
               ) : (
-                <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg flex items-center justify-center text-white font-bold text-xl" style={{ backgroundColor: primaryColor }}>
+                <div className="h-14 w-14 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow-md" style={{ backgroundColor: primaryColor }}>
                   {businessName.charAt(0)}
                 </div>
               )}
               <div className="hidden sm:block">
-                <h1 className="font-bold text-lg md:text-xl" style={{ color: primaryColor }}>{businessName}</h1>
-                {tagline && <p className="text-xs text-muted-foreground line-clamp-1">{tagline}</p>}
+                <div className="flex items-center gap-3">
+                  <h1 className="font-bold text-xl lg:text-2xl text-gray-900">{businessName}</h1>
+                  {/* VYORA Verified Badge */}
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full" style={{ backgroundColor: primaryColor + '15' }}>
+                    <CheckCircle2 className="h-4 w-4" style={{ color: primaryColor }} />
+                    <span className="text-xs font-semibold" style={{ color: primaryColor }}>Verified</span>
+                  </div>
+                </div>
+                {tagline && <p className="text-sm text-gray-500 mt-0.5 max-w-md line-clamp-1">{tagline}</p>}
               </div>
             </div>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-6">
+            {/* Desktop Navigation - Centered */}
+            <nav className="hidden lg:flex items-center gap-1 bg-gray-50 rounded-full px-2 py-1.5">
               {navItems.map((item, idx) => (
                 <button
                   key={idx}
                   onClick={() => scrollToSection(item.ref)}
-                  className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                  className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all"
                 >
                   {item.label}
                 </button>
@@ -1677,62 +1694,119 @@ export default function MiniWebsitePublic() {
             </nav>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-2 md:gap-4">
+            <div className="flex items-center gap-3">
+              {/* Business Status Indicator */}
+              <div className={`hidden lg:flex items-center gap-2 px-4 py-2 rounded-full ${getBusinessStatus.isOpen ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${getBusinessStatus.isOpen ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span className="text-sm font-semibold">{getBusinessStatus.isOpen ? 'Open Now' : 'Closed'}</span>
+              </div>
+
+              {/* Share Button */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-10 w-10 p-0 rounded-xl border-gray-200 hover:bg-gray-50">
+                    <Share2 className="h-5 w-5 text-gray-600" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52 rounded-xl">
+                  <DropdownMenuLabel className="text-center">Share Website</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => shareWebsite('whatsapp')} className="cursor-pointer">
+                    <MessageCircle className="h-4 w-4 mr-3 text-green-600" /> WhatsApp
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => shareWebsite('facebook')} className="cursor-pointer">
+                    <Facebook className="h-4 w-4 mr-3 text-blue-600" /> Facebook
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => shareWebsite('twitter')} className="cursor-pointer">
+                    <Twitter className="h-4 w-4 mr-3 text-sky-500" /> Twitter
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => shareWebsite('linkedin')} className="cursor-pointer">
+                    <Linkedin className="h-4 w-4 mr-3 text-blue-700" /> LinkedIn
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => shareWebsite('email')} className="cursor-pointer">
+                    <Mail className="h-4 w-4 mr-3 text-gray-600" /> Email
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => shareWebsite('copy')} className="cursor-pointer">
+                    <Copy className="h-4 w-4 mr-3" /> Copy Link
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               {/* Cart Button */}
               {ecommerce.enabled && (
                 <Sheet open={cartOpen} onOpenChange={setCartOpen}>
                   <SheetTrigger asChild>
-                    <Button variant="outline" size="sm" className="relative">
+                    <Button variant="outline" size="sm" className="relative h-10 px-4 rounded-xl border-gray-200 hover:bg-gray-50 gap-2">
                       <ShoppingCart className="h-5 w-5" />
+                      <span className="hidden lg:inline text-sm font-medium">Cart</span>
                       {cartItemCount > 0 && (
-                        <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs" style={{ backgroundColor: primaryColor }}>
+                        <Badge className="h-5 min-w-5 flex items-center justify-center px-1.5 text-xs font-semibold" style={{ backgroundColor: primaryColor }}>
                           {cartItemCount}
                         </Badge>
                       )}
                     </Button>
                   </SheetTrigger>
-                  <SheetContent className="w-full sm:max-w-md">
-                    <SheetHeader>
-                      <SheetTitle>Your Cart ({cartItemCount})</SheetTitle>
+                  <SheetContent className="w-full sm:max-w-lg">
+                    <SheetHeader className="border-b pb-4">
+                      <SheetTitle className="text-xl">Shopping Cart ({cartItemCount} items)</SheetTitle>
                     </SheetHeader>
-                    <div className="mt-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                    <div className="mt-6 space-y-3 max-h-[55vh] overflow-y-auto pr-2">
                       {cart.length === 0 ? (
-                        <div className="text-center py-8">
-                          <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                          <p className="text-muted-foreground">Your cart is empty</p>
+                        <div className="text-center py-12">
+                          <ShoppingCart className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                          <p className="text-gray-500 font-medium">Your cart is empty</p>
+                          <p className="text-sm text-gray-400 mt-1">Add items to get started</p>
                         </div>
                       ) : (
                         cart.map((item) => (
-                          <Card key={`${item.type}-${item.id}`}>
+                          <Card key={`${item.type}-${item.id}`} className="border-gray-100">
                             <CardContent className="p-4 flex items-center gap-4">
-                              {item.image && <img src={item.image} alt={item.name} className="w-16 h-16 rounded object-cover" />}
-                              <div className="flex-1">
-                                <p className="font-medium">{item.name}</p>
-                                <p className="text-sm text-muted-foreground">₹{item.price}</p>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateCartQuantity(item.id, item.type, -1)}>
+                              {item.image ? (
+                                <img src={item.image} alt={item.name} className="w-20 h-20 rounded-xl object-cover" />
+                              ) : (
+                                <div className="w-20 h-20 rounded-xl bg-gray-100 flex items-center justify-center">
+                                  <Package className="h-8 w-8 text-gray-400" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-gray-900 truncate">{item.name}</p>
+                                <p className="text-sm text-gray-500 mt-0.5">₹{item.price} each</p>
+                                <div className="flex items-center gap-2 mt-3">
+                                  <Button size="icon" variant="outline" className="h-8 w-8 rounded-lg" onClick={() => updateCartQuantity(item.id, item.type, -1)}>
                                     <Minus className="h-3 w-3" />
                                   </Button>
-                                  <span className="w-8 text-center">{item.quantity}</span>
-                                  <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateCartQuantity(item.id, item.type, 1)}>
+                                  <span className="w-8 text-center font-semibold">{item.quantity}</span>
+                                  <Button size="icon" variant="outline" className="h-8 w-8 rounded-lg" onClick={() => updateCartQuantity(item.id, item.type, 1)}>
                                     <Plus className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </div>
-                              <p className="font-semibold">₹{item.price * item.quantity}</p>
+                              <p className="font-bold text-lg" style={{ color: primaryColor }}>₹{item.price * item.quantity}</p>
                             </CardContent>
                           </Card>
                         ))
                       )}
                     </div>
                     {cart.length > 0 && (
-                      <div className="mt-6 space-y-4 border-t pt-4">
-                        <div className="flex justify-between text-lg font-bold">
-                          <span>Total</span>
-                          <span style={{ color: primaryColor }}>₹{cartTotal}</span>
+                      <div className="mt-6 space-y-4 border-t pt-6">
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-semibold text-gray-700">Total Amount</span>
+                          <span className="text-2xl font-bold" style={{ color: primaryColor }}>₹{cartTotal}</span>
                         </div>
-                        <Button className="w-full" style={{ backgroundColor: primaryColor }} onClick={() => setLocation(`/${subdomain}/checkout`)}>
+                        <Button className="w-full h-12 text-base font-semibold rounded-xl" style={{ backgroundColor: primaryColor }} onClick={() => setLocation(`/${subdomain}/checkout`)}>
                           Proceed to Checkout
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="w-full h-12 text-base font-semibold rounded-xl border-2" 
+                          onClick={() => {
+                            setCartOpen(false);
+                            setQuotationModalOpen(true);
+                          }}
+                        >
+                          <FileText className="h-5 w-5 mr-2" />
+                          Request Quotation
                         </Button>
                       </div>
                     )}
@@ -1740,51 +1814,104 @@ export default function MiniWebsitePublic() {
                 </Sheet>
               )}
 
-              {/* CTA Buttons */}
-              {phone && (
-                <Button size="sm" className="hidden md:flex gap-2" style={{ backgroundColor: primaryColor }} onClick={() => window.open(`tel:${phone}`)}>
-                  <Phone className="h-4 w-4" />
-                  Call Now
+              {/* User Profile Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="hidden lg:flex items-center gap-2 h-10 px-4 rounded-xl border-gray-200 hover:bg-gray-50">
+                    {customerData ? (
+                      <>
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-semibold" style={{ backgroundColor: primaryColor }}>
+                          {customerData.name?.charAt(0) || 'U'}
+                        </div>
+                        <span className="text-sm font-medium">{customerData.name?.split(' ')[0] || 'User'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <User className="h-5 w-5" />
+                        <span className="text-sm font-medium">Login</span>
+                      </>
+                    )}
                 </Button>
-              )}
-              {whatsapp && (
-                <Button size="sm" variant="outline" className="hidden md:flex gap-2 border-green-500 text-green-600 hover:bg-green-50" onClick={() => window.open(`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`)}>
-                  <MessageCircle className="h-4 w-4" />
-                  WhatsApp
-                </Button>
-              )}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 rounded-xl">
+                  {customerData ? (
+                    <>
+                      <DropdownMenuLabel className="py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold" style={{ backgroundColor: primaryColor }}>
+                            {customerData.name?.charAt(0) || 'U'}
+                          </div>
+                          <div>
+                            <p className="font-semibold">{customerData.name || 'User'}</p>
+                            <p className="text-xs text-gray-500">{customerData.email || customerData.phone}</p>
+                          </div>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setLocation(`/${subdomain}/my-orders`)} className="cursor-pointer py-2.5">
+                        <Package className="h-4 w-4 mr-3" /> My Orders
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setLocation(`/${subdomain}/my-quotations`)} className="cursor-pointer py-2.5">
+                        <FileText className="h-4 w-4 mr-3" /> My Quotations
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        className="text-red-600 cursor-pointer py-2.5"
+                        onClick={() => {
+                          localStorage.removeItem("customerToken");
+                          localStorage.removeItem("customerData");
+                          setCustomerToken(null);
+                          setCustomerData(null);
+                          toast({ title: "Logged out", description: "You have been logged out successfully" });
+                        }}
+                      >
+                        <LogOut className="h-4 w-4 mr-3" /> Logout
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={() => setLocation(`/${subdomain}/login`)} className="cursor-pointer py-2.5">
+                        <User className="h-4 w-4 mr-3" /> Login
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setLocation(`/${subdomain}/signup`)} className="cursor-pointer py-2.5">
+                        <UserCircle className="h-4 w-4 mr-3" /> Sign Up
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              {/* Mobile Menu */}
+              {/* Tablet Menu */}
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="lg:hidden">
-                    <Menu className="h-6 w-6" />
+                  <Button variant="outline" size="icon" className="lg:hidden h-10 w-10 rounded-xl border-gray-200">
+                    <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-72">
-                  <SheetHeader>
-                    <SheetTitle>{businessName}</SheetTitle>
+                <SheetContent side="right" className="w-80">
+                  <SheetHeader className="border-b pb-4">
+                    <SheetTitle className="text-lg">{businessName}</SheetTitle>
                   </SheetHeader>
-                  <div className="mt-8 space-y-4">
+                  <div className="mt-6 space-y-2">
                     {navItems.map((item, idx) => (
                       <button
                         key={idx}
                         onClick={() => scrollToSection(item.ref)}
-                        className="block w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 font-medium"
+                        className="block w-full text-left px-4 py-3.5 rounded-xl hover:bg-gray-50 font-medium text-gray-700 transition-colors"
                       >
                         {item.label}
                       </button>
                     ))}
-                    <Separator />
+                    <Separator className="my-4" />
                     {phone && (
-                      <Button className="w-full gap-2" style={{ backgroundColor: primaryColor }} onClick={() => window.open(`tel:${phone}`)}>
-                        <Phone className="h-4 w-4" />
+                      <Button className="w-full h-12 gap-2 rounded-xl text-base font-semibold" style={{ backgroundColor: primaryColor }} onClick={() => window.open(`tel:${phone}`)}>
+                        <Phone className="h-5 w-5" />
                         Call Now
                       </Button>
                     )}
                     {whatsapp && (
-                      <Button variant="outline" className="w-full gap-2 border-green-500 text-green-600" onClick={() => window.open(`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`)}>
-                        <MessageCircle className="h-4 w-4" />
+                      <Button variant="outline" className="w-full h-12 gap-2 rounded-xl text-base font-semibold border-green-500 text-green-600 hover:bg-green-50" onClick={() => window.open(`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`)}>
+                        <MessageCircle className="h-5 w-5" />
                         WhatsApp
                       </Button>
                     )}
@@ -1796,8 +1923,8 @@ export default function MiniWebsitePublic() {
         </div>
       </header>
 
-      {/* ==================== HERO SECTION ==================== */}
-      <section ref={heroRef} className="relative min-h-[60vh] md:min-h-[80vh] flex items-center">
+      {/* ==================== HERO SECTION - FULL WIDTH IMMERSIVE ==================== */}
+      <section ref={heroRef} className="relative min-h-[85vh] flex items-center">
         {/* Background */}
         {heroMedia.length > 0 ? (
           <div className="absolute inset-0">
@@ -1807,29 +1934,29 @@ export default function MiniWebsitePublic() {
                 className={`absolute inset-0 transition-opacity duration-1000 ${idx === currentSlide ? 'opacity-100' : 'opacity-0'}`}
               >
                 <img src={media} alt="" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/30" />
               </div>
             ))}
             {/* Carousel Controls */}
             {heroMedia.length > 1 && (
               <>
                 <button
-                  className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full backdrop-blur-sm transition-colors"
+                  className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/30 rounded-full backdrop-blur-md transition-all"
                   onClick={() => setCurrentSlide((prev) => (prev - 1 + heroMedia.length) % heroMedia.length)}
                 >
-                  <ChevronLeft className="h-6 w-6 text-white" />
+                  <ChevronLeft className="h-8 w-8 text-white" />
                 </button>
                 <button
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full backdrop-blur-sm transition-colors"
+                  className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/30 rounded-full backdrop-blur-md transition-all"
                   onClick={() => setCurrentSlide((prev) => (prev + 1) % heroMedia.length)}
                 >
-                  <ChevronRight className="h-6 w-6 text-white" />
+                  <ChevronRight className="h-8 w-8 text-white" />
                 </button>
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3">
                   {heroMedia.map((_, idx) => (
                     <button
                       key={idx}
-                      className={`w-2 h-2 rounded-full transition-all ${idx === currentSlide ? 'w-8 bg-white' : 'bg-white/50'}`}
+                      className={`h-2 rounded-full transition-all ${idx === currentSlide ? 'w-12 bg-white' : 'w-2 bg-white/50'}`}
                       onClick={() => setCurrentSlide(idx)}
                     />
                   ))}
@@ -1838,342 +1965,541 @@ export default function MiniWebsitePublic() {
             )}
           </div>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
+          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 50%, ${primaryColor} 100%)` }} />
         )}
 
-        {/* Hero Content */}
-        <div className="relative z-10 container mx-auto px-4 py-20">
-          <div className="max-w-2xl">
+        {/* Hero Content - Full Width */}
+        <div className="relative z-10 w-full px-6 lg:px-12 xl:px-20 py-20">
+          <div className="max-w-4xl">
             {category && (
-              <Badge className="mb-4 text-sm" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>
+              <Badge className="mb-6 text-sm px-4 py-2 font-semibold" style={{ backgroundColor: `rgba(255,255,255,0.15)`, color: 'white', backdropFilter: 'blur(8px)' }}>
                 {category}
               </Badge>
             )}
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 leading-tight">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight tracking-tight">
               {businessName}
             </h1>
             {tagline && (
-              <p className="text-xl md:text-2xl text-white/90 mb-8">{tagline}</p>
+              <p className="text-xl md:text-2xl lg:text-3xl text-white/90 mb-8 max-w-2xl leading-relaxed">{tagline}</p>
             )}
+            
+            {/* Reviews & Rating + Location Badges */}
+            <div className="flex flex-wrap items-center gap-3 mb-8">
+              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md px-4 py-2.5 rounded-full border border-white/20">
+                <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                <span className="font-bold text-white text-lg">{trustNumbers.starRating > 0 ? trustNumbers.starRating.toFixed(1) : avgRating.toFixed(1)}</span>
+                <span className="text-white/80">({trustNumbers.happyCustomers > 0 ? trustNumbers.happyCustomers : totalReviews}+ Reviews)</span>
+              </div>
+              {address && (
+                <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md px-4 py-2.5 rounded-full border border-white/20">
+                  <MapPin className="h-5 w-5 text-red-400" />
+                  <span className="text-white/90">{city || address.split(',')[0]}</span>
+                </div>
+              )}
+              {getTodayHours && (
+                <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md px-4 py-2.5 rounded-full border border-white/20">
+                  <Clock className="h-5 w-5 text-green-400" />
+                  <span className="text-white/90">{formatTo12Hour(getTodayHours.opensAt)} - {formatTo12Hour(getTodayHours.closesAt)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* 4 CTA Buttons - Professional Grid - Always show all 4 CTAs */}
             <div className="flex flex-wrap gap-4">
-              {ctaButtons.length > 0 ? (
-                ctaButtons.map((cta, idx) => (
-                  <Button
-                    key={idx}
-                    size="lg"
-                    variant={cta.style === 'outline' ? 'outline' : 'default'}
-                    className={cta.style === 'outline' ? 'border-white text-white hover:bg-white/10' : ''}
-                    style={cta.style !== 'outline' ? { backgroundColor: primaryColor } : {}}
-                    onClick={() => {
-                      if (cta.action === 'call') window.open(`tel:${phone}`);
-                      else if (cta.action === 'whatsapp') window.open(`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`);
-                      else if (cta.action === 'enquiry') scrollToSection(contactRef);
-                    }}
-                  >
-                    {cta.label}
-                  </Button>
-                ))
-              ) : (
-                <>
-                  {phone && (
-                    <Button size="lg" style={{ backgroundColor: primaryColor }} onClick={() => window.open(`tel:${phone}`)}>
-                      <Phone className="h-5 w-5 mr-2" />
-                      Call Us Now
-                    </Button>
-                  )}
-                  <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10" onClick={() => scrollToSection(contactRef)}>
-                    Get In Touch
-                  </Button>
-                </>
+              <Button
+                size="lg"
+                className="gap-3 h-14 px-8 text-base font-semibold rounded-xl bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/30 transition-all hover:scale-105"
+                onClick={() => phone ? window.open(`tel:${phone}`) : toast({ title: "Phone not available", description: "Contact phone number is not set" })}
+              >
+                <Phone className="h-5 w-5" />
+                Call Now
+              </Button>
+              <Button 
+                size="lg" 
+                className="gap-3 h-14 px-8 text-base font-semibold rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-105"
+                onClick={() => {
+                  // Use Google Maps URL if available, otherwise generate from address
+                  if (googleMapsUrl) {
+                    window.open(googleMapsUrl, '_blank');
+                  } else if (address) {
+                    const fullAddress = `${address}${city ? `, ${city}` : ''}${state ? `, ${state}` : ''}${pincode ? ` ${pincode}` : ''}`;
+                    const encodedAddress = encodeURIComponent(fullAddress);
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+                  } else {
+                    toast({ title: "Address not available", description: "Business address is not set" });
+                  }
+                }}
+              >
+                <Navigation className="h-5 w-5" />
+                Get Directions
+              </Button>
+              <Button 
+                size="lg" 
+                className="gap-3 h-14 px-8 text-base font-semibold rounded-xl bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/30 transition-all hover:scale-105"
+                onClick={() => scrollToSection(contactRef)}
+              >
+                <Mail className="h-5 w-5" />
+                Send Enquiry
+              </Button>
+              <Button 
+                size="lg" 
+                className="gap-3 h-14 px-8 text-base font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30 transition-all hover:scale-105"
+                onClick={() => {
+                  if (cart.length > 0) {
+                    setQuotationModalOpen(true);
+                  } else {
+                    toast({ 
+                      title: "Add Items First", 
+                      description: "Please add products or services to your cart before requesting a quote" 
+                    });
+                  }
+                }}
+              >
+                <FileText className="h-5 w-5" />
+                Request Quote
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Bar Overlay - Bottom of Hero */}
+        <div className="absolute bottom-0 left-0 right-0 pb-0 hidden">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="max-w-3xl relative">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search products, services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-14 pl-14 pr-14 text-base bg-white/95 backdrop-blur-md border-0 rounded-2xl shadow-2xl focus:outline-none focus:ring-4 transition-all"
+                style={{ '--tw-ring-color': primaryColor + '40' } as any}
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-5 top-1/2 -translate-y-1/2 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
               )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ==================== TRUST NUMBERS ==================== */}
-      <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {yearsInBusiness > 0 && (
-              <div className="text-center p-6 bg-white rounded-2xl shadow-sm">
-                <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
-                  <Award className="h-7 w-7" style={{ color: primaryColor }} />
-                </div>
-                <p className="text-3xl font-bold" style={{ color: primaryColor }}>{yearsInBusiness}+</p>
-                <p className="text-sm text-muted-foreground">Years Experience</p>
+      {/* ==================== WHY CHOOSE US (TRUST NUMBERS) - FULL WIDTH ==================== */}
+      {(trustNumbers.yearsInBusiness > 0 || trustNumbers.happyCustomers > 0 || trustNumbers.starRating > 0 || trustNumbers.repeatCustomers > 0 || yearsInBusiness > 0 || totalReviews > 0) && (
+        <section className="py-16 bg-white">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4" style={{ backgroundColor: primaryColor + '15' }}>
+                <Award className="h-5 w-5" style={{ color: primaryColor }} />
+                <span className="text-sm font-semibold" style={{ color: primaryColor }}>Our Achievements</span>
               </div>
-            )}
-            {totalReviews > 0 && (
-              <div className="text-center p-6 bg-white rounded-2xl shadow-sm">
-                <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
-                  <Star className="h-7 w-7" style={{ color: primaryColor }} />
-                </div>
-                <p className="text-3xl font-bold" style={{ color: primaryColor }}>{avgRating.toFixed(1)}</p>
-                <p className="text-sm text-muted-foreground">{totalReviews} Reviews</p>
-              </div>
-            )}
-            {services.length > 0 && (
-              <div className="text-center p-6 bg-white rounded-2xl shadow-sm">
-                <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
-                  <Briefcase className="h-7 w-7" style={{ color: primaryColor }} />
-                </div>
-                <p className="text-3xl font-bold" style={{ color: primaryColor }}>{services.length}+</p>
-                <p className="text-sm text-muted-foreground">Services</p>
-              </div>
-            )}
-            {products.length > 0 && (
-              <div className="text-center p-6 bg-white rounded-2xl shadow-sm">
-                <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
-                  <Package className="h-7 w-7" style={{ color: primaryColor }} />
-                </div>
-                <p className="text-3xl font-bold" style={{ color: primaryColor }}>{products.length}+</p>
-                <p className="text-sm text-muted-foreground">Products</p>
-              </div>
-            )}
-            {!yearsInBusiness && totalReviews === 0 && (
-              <>
-                <div className="text-center p-6 bg-white rounded-2xl shadow-sm">
-                  <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
-                    <Users className="h-7 w-7" style={{ color: primaryColor }} />
+              <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Why Choose Us</h2>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              {(trustNumbers.yearsInBusiness > 0 || yearsInBusiness > 0) && (
+                <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-3xl p-8 text-center shadow-sm hover:shadow-lg transition-shadow">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: primaryColor + '15' }}>
+                    <Building className="h-8 w-8" style={{ color: primaryColor }} />
                   </div>
-                  <p className="text-3xl font-bold" style={{ color: primaryColor }}>500+</p>
-                  <p className="text-sm text-muted-foreground">Happy Clients</p>
+                  <p className="font-bold text-4xl lg:text-5xl mb-2" style={{ color: primaryColor }}>{trustNumbers.yearsInBusiness > 0 ? trustNumbers.yearsInBusiness : yearsInBusiness}+</p>
+                  <p className="text-sm text-gray-600 font-medium">Years in Business</p>
                 </div>
-                <div className="text-center p-6 bg-white rounded-2xl shadow-sm">
-                  <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
-                    <CheckCircle2 className="h-7 w-7" style={{ color: primaryColor }} />
+              )}
+              {(trustNumbers.happyCustomers > 0 || totalReviews > 0) && (
+                <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-3xl p-8 text-center shadow-sm hover:shadow-lg transition-shadow">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: primaryColor + '15' }}>
+                    <Users className="h-8 w-8" style={{ color: primaryColor }} />
                   </div>
-                  <p className="text-3xl font-bold" style={{ color: primaryColor }}>100%</p>
-                  <p className="text-sm text-muted-foreground">Quality Assured</p>
+                  <p className="font-bold text-4xl lg:text-5xl mb-2" style={{ color: primaryColor }}>{trustNumbers.happyCustomers > 0 ? trustNumbers.happyCustomers : totalReviews}+</p>
+                  <p className="text-sm text-gray-600 font-medium">Happy Customers</p>
                 </div>
-              </>
+              )}
+              {(trustNumbers.starRating > 0 || avgRating > 0) && (
+                <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-3xl p-8 text-center shadow-sm hover:shadow-lg transition-shadow">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: primaryColor + '15' }}>
+                    <Star className="h-8 w-8" style={{ color: primaryColor }} />
+                  </div>
+                  <p className="font-bold text-4xl lg:text-5xl mb-2" style={{ color: primaryColor }}>{trustNumbers.starRating > 0 ? trustNumbers.starRating : avgRating.toFixed(1)}</p>
+                  <p className="text-sm text-gray-600 font-medium">Star Rating</p>
+                </div>
+              )}
+              {trustNumbers.repeatCustomers > 0 && (
+                <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-3xl p-8 text-center shadow-sm hover:shadow-lg transition-shadow">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: primaryColor + '15' }}>
+                    <Heart className="h-8 w-8" style={{ color: primaryColor }} />
+                  </div>
+                  <p className="font-bold text-4xl lg:text-5xl mb-2" style={{ color: primaryColor }}>{trustNumbers.repeatCustomers}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Repeat Customers</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ==================== OFFERS & COUPONS - FULL WIDTH ==================== */}
+      {coupons.length > 0 && (
+        <section className="py-12 bg-gradient-to-b from-amber-50 to-white">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-amber-100">
+                  <Tag className="h-6 w-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-2xl text-gray-900">Special Offers</h3>
+                  <p className="text-sm text-gray-500">Exclusive deals just for you</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {coupons.filter((c: any) => c.isActive !== false && c.status === 'active').slice(0, 4).map((coupon: any, idx: number) => (
+                <div 
+                  key={idx}
+                  className="bg-white border-2 border-dashed border-amber-300 rounded-2xl p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <Badge className="bg-amber-500 text-white text-sm font-bold px-3 py-1.5 rounded-lg">
+                      {coupon.discountType === 'percentage' ? `${coupon.discountValue}% OFF` : `₹${coupon.discountValue} OFF`}
+                    </Badge>
+                  </div>
+                  <h4 className="font-bold text-lg text-gray-900 mb-2">{coupon.title}</h4>
+                  {coupon.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-4">{coupon.description}</p>
+                  )}
+                  <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                    <code className="font-mono text-base font-bold" style={{ color: primaryColor }}>{coupon.code}</code>
+                    <button 
+                      className="p-2 hover:bg-white rounded-lg transition-colors"
+                      onClick={() => {
+                        navigator.clipboard.writeText(coupon.code);
+                        toast({ title: "Copied!", description: `Code ${coupon.code} copied to clipboard` });
+                      }}
+                    >
+                      <Copy className="h-5 w-5 text-gray-500" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ==================== SEARCH & FILTER BAR ==================== */}
+      <section className="py-8 bg-white border-b border-gray-100">
+        <div className="w-full px-6 lg:px-12 xl:px-20">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+            {/* Search Bar */}
+            <div className="w-full lg:w-96 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search products, services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-12 pl-12 pr-12 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:bg-white transition-all"
+                style={{ '--tw-ring-color': primaryColor } as any}
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-200 rounded-full transition-colors"
+                >
+                  <X className="h-4 w-4 text-gray-500" />
+                </button>
+              )}
+            </div>
+            
+            {/* Subcategory Filter */}
+            {subcategories.length > 1 && (products.length > 0 || services.length > 0) && (
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+                {subcategories.map((subcat) => (
+                  <button
+                    key={subcat}
+                    onClick={() => setSelectedCategory(subcat)}
+                    className={`flex-shrink-0 h-11 px-6 rounded-xl text-sm font-semibold transition-all border-2 ${
+                      selectedCategory === subcat 
+                        ? 'text-white border-transparent shadow-lg' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                    style={selectedCategory === subcat ? { backgroundColor: primaryColor, boxShadow: `0 4px 14px ${primaryColor}40` } : {}}
+                  >
+                    {subcat === 'all' ? 'All Categories' : subcat}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </div>
       </section>
 
-      {/* ==================== OFFERS & COUPONS ==================== */}
-      {coupons.length > 0 && (
-        <section className="py-16 bg-gradient-to-r from-amber-50 to-orange-50">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: accentColor, color: 'white' }}>
-                <Tag className="h-3 w-3 mr-1" />
-                Special Offers
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold">Exclusive Deals For You</h2>
-              <p className="text-muted-foreground mt-2">Don't miss out on these amazing offers</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {coupons.filter((c: any) => c.isActive).slice(0, 6).map((coupon: any, idx: number) => (
-                <Card key={idx} className="overflow-hidden border-2 border-dashed border-amber-300 bg-white hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <Badge variant="secondary" className="mb-2 bg-amber-100 text-amber-800">
-                          {coupon.discountType === 'percentage' ? `${coupon.discountValue}% OFF` : `₹${coupon.discountValue} OFF`}
-                        </Badge>
-                        <h3 className="font-bold text-lg">{coupon.title}</h3>
-                      </div>
-                      {coupon.image && (
-                        <img src={coupon.image} alt="" className="w-16 h-16 rounded object-cover" />
-                      )}
-                    </div>
-                    {coupon.description && (
-                      <p className="text-sm text-muted-foreground mb-4">{coupon.description}</p>
-                    )}
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <code className="font-mono font-bold text-lg" style={{ color: primaryColor }}>{coupon.code}</code>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          navigator.clipboard.writeText(coupon.code);
-                          toast({ title: "Copied!", description: `Code ${coupon.code} copied to clipboard` });
-                        }}
-                      >
-                        <Copy className="h-4 w-4 mr-1" />
-                        Copy
-                      </Button>
-                    </div>
-                    {(coupon.validUntil || coupon.termsAndConditions) && (
-                      <div className="mt-4 text-xs text-muted-foreground">
-                        {coupon.validUntil && <p>Valid till: {new Date(coupon.validUntil).toLocaleDateString()}</p>}
-                        {coupon.termsAndConditions && <p className="mt-1">*{coupon.termsAndConditions}</p>}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ==================== PRODUCTS SECTION ==================== */}
+      {/* ==================== PRODUCTS SECTION - FULL WIDTH ==================== */}
       {products.length > 0 && (
-        <section ref={productsRef} className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
-                <Package className="h-3 w-3 mr-1" />
-                Our Products
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold">Explore Our Products</h2>
-              <p className="text-muted-foreground mt-2">Quality products at the best prices</p>
+        <section ref={productsRef} className="py-16 bg-gray-50">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: primaryColor + '15' }}>
+                  <Package className="h-7 w-7" style={{ color: primaryColor }} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-2xl lg:text-3xl text-gray-900">Our Products</h3>
+                  <p className="text-sm text-gray-500 mt-1">Quality products at best prices</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setLocation(`/${subdomain}/products`)}
+                className="hidden lg:flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all hover:shadow-lg"
+                style={{ backgroundColor: primaryColor + '15', color: primaryColor }}
+              >
+                View All Products <ArrowRight className="h-5 w-5" />
+              </button>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {products.slice(0, 8).map((product: any) => (
-                <Card 
-                  key={product.id} 
-                  className="group overflow-hidden hover:shadow-xl transition-all cursor-pointer"
-                  onClick={() => setLocation(`/${subdomain}/products/${product.id}`)}
-                >
-                  <div className="relative aspect-square bg-gray-100">
-                    {product.images?.[0] ? (
-                      <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-4xl">{product.icon || "📦"}</span>
-                      </div>
-                    )}
-                    {product.stock === 0 && (
-                      <Badge variant="destructive" className="absolute top-2 left-2">Out of Stock</Badge>
-                    )}
-                  </div>
-                  <CardContent className="p-4">
-                    <Badge variant="outline" className="text-xs mb-2">{product.category}</Badge>
-                    <h3 className="font-semibold line-clamp-2 mb-2">{product.name}</h3>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-lg font-bold" style={{ color: primaryColor }}>₹{product.price}</span>
-                      {product.mrp && product.mrp > product.price && (
-                        <span className="text-sm text-muted-foreground line-through">₹{product.mrp}</span>
-                      )}
-                    </div>
-                    {ecommerce.enabled && product.stock > 0 && (
+            
+            {/* Filtered Products */}
+            {(() => {
+              const filteredProducts = products.filter((p: any) => {
+                const matchesSubcategory = selectedCategory === 'all' || p.subcategory === selectedCategory;
+                const matchesSearch = !searchQuery || 
+                  p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  p.subcategory?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  p.tags?.some((t: string) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+                return matchesSubcategory && matchesSearch;
+              });
+
+              if (filteredProducts.length === 0) {
+                return (
+                  <div className="text-center py-16 bg-white rounded-3xl border border-gray-100">
+                    <Package className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                    <p className="text-lg text-gray-500 font-medium">No products found</p>
+                    <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
+                    {(searchQuery || selectedCategory !== 'all') && (
                       <Button 
-                        size="sm" 
-                        className="w-full mt-3"
-                        style={{ backgroundColor: primaryColor }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart({
-                            type: 'product',
-                            id: product.id,
-                            name: product.name,
-                            price: product.price,
-                            quantity: 1,
-                            image: product.images?.[0],
-                            vendorProductId: product.id,
-                          });
-                        }}
+                        variant="outline" 
+                        className="mt-6 rounded-xl"
+                        onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}
                       >
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        Add to Cart
+                        Clear All Filters
                       </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            {products.length > 8 && (
-              <div className="text-center mt-8">
-                <Button variant="outline" size="lg" onClick={() => setLocation(`/${subdomain}/products`)}>
-                  View All Products
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* ==================== SERVICES SECTION ==================== */}
-      {services.length > 0 && (
-        <section ref={servicesRef} className="py-16 bg-gray-50">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
-                <Briefcase className="h-3 w-3 mr-1" />
-                Our Services
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold">What We Offer</h2>
-              <p className="text-muted-foreground mt-2">Professional services tailored to your needs</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {services.slice(0, 6).map((service: any) => (
-                <Card 
-                  key={service.id} 
-                  className="group overflow-hidden hover:shadow-xl transition-all cursor-pointer"
-                  onClick={() => {
-                    setSelectedService(service);
-                    setServiceDetailOpen(true);
-                  }}
-                >
-                  <div className="relative h-48 bg-gray-100">
-                    {service.images?.[0] ? (
-                      <img src={service.images[0]} alt={service.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}20, ${secondaryColor}20)` }}>
-                        <span className="text-5xl">{service.icon || "✨"}</span>
-                      </div>
                     )}
                   </div>
-                  <CardContent className="p-5">
-                    <Badge variant="outline" className="text-xs mb-2">{service.category}</Badge>
-                    <h3 className="font-semibold text-lg mb-2">{service.name}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{service.description}</p>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-xl font-bold" style={{ color: primaryColor }}>₹{service.sellingPrice || service.basePrice}</span>
-                        {service.duration && <span className="text-sm text-muted-foreground ml-1">/ {service.duration}</span>}
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                  {filteredProducts.slice(0, 10).map((product: any) => (
+                    <div 
+                      key={product.id} 
+                      className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all cursor-pointer group"
+                      onClick={() => setLocation(`/${subdomain}/products/${product.id}`)}
+                    >
+                      <div className="aspect-square bg-gray-50 relative overflow-hidden">
+                        {product.images?.[0] ? (
+                          <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-4xl bg-gray-50">{product.icon || "📦"}</div>
+                        )}
+                        {product.stock === 0 && (
+                          <Badge variant="destructive" className="absolute top-3 left-3 text-xs px-2 py-1">Out of Stock</Badge>
+                        )}
+                        {product.mrp && product.mrp > (product.sellingPrice || product.price) && (
+                          <Badge className="absolute top-3 right-3 text-xs px-2 py-1 bg-green-500">
+                            {Math.round((1 - (product.sellingPrice || product.price) / product.mrp) * 100)}% OFF
+                          </Badge>
+                        )}
                       </div>
-                      <Button size="sm" variant="outline" style={{ borderColor: primaryColor, color: primaryColor }}>
-                        View Details
-                      </Button>
+                      <div className="p-4">
+                        <p className="text-xs text-gray-500 mb-1">{product.subcategory || product.category}</p>
+                        <h4 className="font-semibold text-gray-900 line-clamp-2 leading-snug mb-2">{product.name}</h4>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-bold text-xl" style={{ color: primaryColor }}>₹{product.sellingPrice || product.price}</span>
+                          {product.mrp && product.mrp > (product.sellingPrice || product.price) && (
+                            <span className="text-sm text-gray-400 line-through">₹{product.mrp}</span>
+                          )}
+                        </div>
+                        {ecommerce.enabled && product.stock > 0 && (
+                          <Button 
+                            size="sm" 
+                            className="w-full mt-4 h-11 font-semibold rounded-xl"
+                            style={{ backgroundColor: primaryColor }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart({
+                                type: 'product',
+                                id: product.id,
+                                name: product.name,
+                                price: product.sellingPrice || product.price,
+                                quantity: 1,
+                                image: product.images?.[0],
+                                vendorProductId: product.id,
+                              });
+                            }}
+                          >
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Add to Cart
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  ))}
+                </div>
+              );
+            })()}
+            
+            {/* Mobile View All Button */}
+            <div className="lg:hidden text-center mt-8">
+              <Button 
+                onClick={() => setLocation(`/${subdomain}/products`)}
+                className="h-12 px-8 rounded-xl font-semibold"
+                style={{ backgroundColor: primaryColor }}
+              >
+                View All Products <ArrowRight className="h-5 w-5 ml-2" />
+              </Button>
             </div>
-            {services.length > 6 && (
-              <div className="text-center mt-8">
-                <Button variant="outline" size="lg" onClick={() => setLocation(`/${subdomain}/services`)}>
-                  View All Services
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
-            )}
           </div>
         </section>
       )}
 
-      {/* ==================== GALLERY SECTION ==================== */}
-      {allGalleryImages.length > 0 && (
-        <section ref={galleryRef} className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
-                <ImageIcon className="h-3 w-3 mr-1" />
-                Gallery
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold">Our Work & Space</h2>
-              <p className="text-muted-foreground mt-2">A glimpse of what we do</p>
+      {/* ==================== SERVICES SECTION - FULL WIDTH ==================== */}
+      {services.length > 0 && (
+        <section ref={servicesRef} className="py-16 bg-white">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: primaryColor + '15' }}>
+                  <Briefcase className="h-7 w-7" style={{ color: primaryColor }} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-2xl lg:text-3xl text-gray-900">Our Services</h3>
+                  <p className="text-sm text-gray-500 mt-1">Professional services tailored for you</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setLocation(`/${subdomain}/services`)}
+                className="hidden lg:flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all hover:shadow-lg"
+                style={{ backgroundColor: primaryColor + '15', color: primaryColor }}
+              >
+                View All Services <ArrowRight className="h-5 w-5" />
+              </button>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {allGalleryImages.slice(0, 8).map((image, idx) => (
+            
+            {/* Filtered Services */}
+            {(() => {
+              const filteredServices = services.filter((s: any) => {
+                const matchesSubcategory = selectedCategory === 'all' || s.subcategory === selectedCategory;
+                const matchesSearch = !searchQuery || 
+                  s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  s.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  s.subcategory?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  s.tags?.some((t: string) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+                return matchesSubcategory && matchesSearch;
+              });
+
+              if (filteredServices.length === 0) {
+                return (
+                  <div className="text-center py-16 bg-gray-50 rounded-3xl border border-gray-100">
+                    <Clock className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                    <p className="text-lg text-gray-500 font-medium">No services found</p>
+                    <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
+                    {(searchQuery || selectedCategory !== 'all') && (
+                      <Button 
+                        variant="outline" 
+                        className="mt-6 rounded-xl"
+                        onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}
+                      >
+                        Clear All Filters
+                      </Button>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                  {filteredServices.slice(0, 10).map((service: any) => (
+                    <div 
+                      key={service.id} 
+                      className="bg-gray-50 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer group"
+                      onClick={() => {
+                        setSelectedService(service);
+                        setServiceDetailOpen(true);
+                      }}
+                    >
+                      <div className="aspect-square bg-gray-100 relative overflow-hidden">
+                        {service.images?.[0] ? (
+                          <img src={service.images[0]} alt={service.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-4xl bg-gray-100">
+                            {service.icon || "✨"}
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <p className="text-xs text-gray-500 mb-1">{service.subcategory || service.category}</p>
+                        <h4 className="font-semibold text-gray-900 line-clamp-2 leading-snug mb-2">{service.name}</h4>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-bold text-xl" style={{ color: primaryColor }}>₹{service.sellingPrice || service.basePrice}</span>
+                          {service.duration && <span className="text-sm text-gray-400">/ {service.duration}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            
+            {/* Mobile View All Button */}
+            <div className="lg:hidden text-center mt-8">
+              <Button 
+                onClick={() => setLocation(`/${subdomain}/services`)}
+                className="h-12 px-8 rounded-xl font-semibold"
+                style={{ backgroundColor: primaryColor }}
+              >
+                View All Services <ArrowRight className="h-5 w-5 ml-2" />
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ==================== GALLERY SECTION - FULL WIDTH ==================== */}
+      {allGalleryImages.length > 0 && (
+        <section ref={galleryRef} className="py-16 bg-gray-50">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4" style={{ backgroundColor: primaryColor + '15' }}>
+                <Image className="h-5 w-5" style={{ color: primaryColor }} />
+                <span className="text-sm font-semibold" style={{ color: primaryColor }}>Gallery</span>
+              </div>
+              <h3 className="font-bold text-2xl lg:text-3xl text-gray-900">Explore Our Work</h3>
+              <p className="text-gray-500 mt-2">Take a visual tour of our business</p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {allGalleryImages.slice(0, 10).map((image, idx) => (
                 <div 
                   key={idx}
-                  className="relative aspect-square rounded-xl overflow-hidden cursor-pointer group"
+                  className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer group shadow-sm hover:shadow-xl transition-all"
                   onClick={() => {
                     setFullscreenImage(image);
                     setFullscreenImageIndex(idx);
                   }}
                 >
                   <img src={image} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                    <Zap className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-white text-xs font-semibold bg-black/40 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                      {idx + 1} / {allGalleryImages.length}
+                    </span>
+                    <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                      <ZoomIn className="h-4 w-4 text-white" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -2229,176 +2555,241 @@ export default function MiniWebsitePublic() {
         </DialogContent>
       </Dialog>
 
-      {/* ==================== ABOUT US SECTION ==================== */}
-      <section ref={aboutRef} className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-10">
-            <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
-              <Info className="h-3 w-3 mr-1" />
-              About Us
-            </Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">Know More About {businessName}</h2>
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-12 items-start">
-            {/* About Content */}
-            <div>
-              {about ? (
-                <p className="text-lg text-muted-foreground leading-relaxed whitespace-pre-line">{about}</p>
-              ) : (
-                <p className="text-lg text-muted-foreground leading-relaxed">
-                  Welcome to {businessName}! We are dedicated to providing the best {category || 'services'} in {city || 'your area'}. 
-                  Our team of professionals is committed to delivering exceptional quality and customer satisfaction.
-                </p>
-              )}
-              
-              {yearFounded && (
-                <div className="mt-6 p-4 bg-white rounded-xl inline-block">
-                  <p className="text-sm text-muted-foreground">Established</p>
-                  <p className="text-2xl font-bold" style={{ color: primaryColor }}>{yearFounded}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Team / Owners */}
-            {(team.length > 0 || owners.length > 0) && (
+      {/* ==================== ABOUT US SECTION - FULL WIDTH ==================== */}
+      <section ref={aboutRef} className="py-16 bg-white">
+        <div className="w-full px-6 lg:px-12 xl:px-20">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              {/* Left - Content */}
               <div>
-                <h3 className="text-xl font-bold mb-6">Our Team</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {[...owners, ...team].slice(0, 4).map((member: any, idx) => (
-                    <Card key={idx} className="text-center p-4">
-                      <div className="w-20 h-20 mx-auto mb-3 rounded-full overflow-hidden bg-gray-200">
-                        {member.photo ? (
-                          <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-400">
-                            {member.name?.charAt(0)}
-                          </div>
-                        )}
-                      </div>
-                      <h4 className="font-semibold">{member.name}</h4>
-                      <p className="text-sm text-muted-foreground">{member.designation || member.role}</p>
-                      {member.bio && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{member.bio}</p>}
-                    </Card>
-                  ))}
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6" style={{ backgroundColor: primaryColor + '15' }}>
+                  <Info className="h-5 w-5" style={{ color: primaryColor }} />
+                  <span className="text-sm font-semibold" style={{ color: primaryColor }}>About Us</span>
+                </div>
+                <h3 className="font-bold text-3xl lg:text-4xl text-gray-900 mb-6 leading-tight">
+                  Welcome to {businessName}
+                </h3>
+                {about ? (
+                  <p className="text-base lg:text-lg text-gray-600 leading-8 whitespace-pre-line">{about}</p>
+                ) : (
+                  <p className="text-base lg:text-lg text-gray-600 leading-8">
+                    We are dedicated to providing the best {category || 'services'} in {city || 'your area'}. Our commitment to quality and customer satisfaction sets us apart from the rest.
+                  </p>
+                )}
+                
+                {/* Quick Stats */}
+                <div className="flex flex-wrap gap-6 mt-8">
+                  {(trustNumbers.yearsInBusiness > 0 || yearsInBusiness > 0) && (
+                    <div>
+                      <p className="font-bold text-3xl" style={{ color: primaryColor }}>{trustNumbers.yearsInBusiness > 0 ? trustNumbers.yearsInBusiness : yearsInBusiness}+</p>
+                      <p className="text-sm text-gray-500">Years Experience</p>
+                    </div>
+                  )}
+                  {(trustNumbers.happyCustomers > 0 || totalReviews > 0) && (
+                    <div>
+                      <p className="font-bold text-3xl" style={{ color: primaryColor }}>{trustNumbers.happyCustomers > 0 ? trustNumbers.happyCustomers : totalReviews}+</p>
+                      <p className="text-sm text-gray-500">Happy Customers</p>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+              
+              {/* Right - Image or Decorative */}
+              <div className="relative">
+                {coverImages.length > 0 || heroMedia.length > 0 ? (
+                  <div className="relative rounded-3xl overflow-hidden shadow-2xl">
+                    <img 
+                      src={coverImages[0] || heroMedia[0]} 
+                      alt={businessName} 
+                      className="w-full aspect-[4/3] object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                  </div>
+                ) : (
+                  <div className="relative bg-gradient-to-br from-gray-100 to-gray-50 rounded-3xl p-12 text-center">
+                    <div className="w-24 h-24 mx-auto rounded-2xl flex items-center justify-center text-white text-4xl font-bold shadow-xl" style={{ backgroundColor: primaryColor }}>
+                      {businessName.charAt(0)}
+                    </div>
+                    <p className="mt-6 text-xl font-bold text-gray-900">{businessName}</p>
+                    {category && <p className="text-gray-500 mt-1">{category}</p>}
+                  </div>
+                )}
+                
+                {/* Floating Badge */}
+                <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-xl p-4 border border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-6 w-6" style={{ color: primaryColor }} />
+                    <span className="font-semibold text-gray-900">Vyora Verified</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ==================== BUSINESS HOURS ==================== */}
-      {workingHours.length > 0 && (
-        <section className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
-                <Clock className="h-3 w-3 mr-1" />
-                Business Hours
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold">When We're Open</h2>
-            </div>
-            <div className="max-w-2xl mx-auto">
-              <Card>
-                <CardContent className="p-6">
-                  {workingHours.map((day: any, idx: number) => (
-                    <div 
-                      key={idx} 
-                      className={`flex items-center justify-between py-3 ${idx !== workingHours.length - 1 ? 'border-b' : ''}`}
-                    >
-                      <span className="font-medium">{day.day}</span>
-                      {day.isOpen ? (
-                        <div className="text-right">
-                          {day.slots?.map((slot: any, slotIdx: number) => (
-                            <div key={slotIdx} className="flex items-center gap-2">
-                              <span className="text-sm" style={{ color: primaryColor }}>{formatTo12Hour(slot.open)} - {formatTo12Hour(slot.close)}</span>
-                              {slotIdx < (day.slots?.length || 0) - 1 && (
-                                <span className="text-xs text-muted-foreground">(Break)</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <Badge variant="secondary">Closed</Badge>
-                      )}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ==================== TESTIMONIALS ==================== */}
-      {(testimonials.length > 0 || reviews.length > 0) && (
+      {/* ==================== TEAM SECTION - FULL WIDTH - Only show if vendor created team members ==================== */}
+      {team.length > 0 && (
         <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-4">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
             <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
-                <Star className="h-3 w-3 mr-1" />
-                Testimonials
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold">What Our Customers Say</h2>
-              <p className="text-muted-foreground mt-2">Real feedback from real customers</p>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4" style={{ backgroundColor: primaryColor + '15' }}>
+                <Users className="h-5 w-5" style={{ color: primaryColor }} />
+                <span className="text-sm font-semibold" style={{ color: primaryColor }}>Our Team</span>
+              </div>
+              <h3 className="font-bold text-2xl lg:text-3xl text-gray-900">Meet The Experts</h3>
+              <p className="text-gray-500 mt-2">Dedicated professionals at your service</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...testimonials, ...reviews].slice(0, 6).map((review: any, idx) => (
-                <Card key={idx} className="p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200">
-                      {review.customerPhoto ? (
-                        <img src={review.customerPhoto} alt={review.customerName} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center font-bold text-gray-400">
-                          {review.customerName?.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-semibold">{review.customerName}</p>
-                      {review.customerLocation && (
-                        <p className="text-sm text-muted-foreground">{review.customerLocation}</p>
-                      )}
-                    </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 max-w-7xl mx-auto">
+              {team.slice(0, 8).map((member: any, idx: number) => (
+                <div key={idx} className="bg-white rounded-2xl p-6 text-center shadow-sm hover:shadow-lg transition-shadow">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden bg-gray-100 ring-4 ring-gray-50">
+                    {member.photo ? (
+                      <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-2xl font-bold" style={{ backgroundColor: primaryColor + '20', color: primaryColor }}>
+                        {member.name?.charAt(0)}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex gap-1 mb-3">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star 
-                        key={star} 
-                        className={`h-4 w-4 ${star <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} 
-                      />
-                    ))}
-                  </div>
-                  <p className="text-muted-foreground">{review.reviewText || review.comment}</p>
-                </Card>
+                  <h4 className="font-semibold text-gray-900">{member.name}</h4>
+                  <p className="text-sm text-gray-500 mt-1">{member.designation || member.role}</p>
+                </div>
               ))}
             </div>
           </div>
         </section>
       )}
 
-      {/* ==================== FAQs SECTION ==================== */}
-      {faqs.length > 0 && (
-        <section ref={faqRef} className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
-                <HelpCircle className="h-3 w-3 mr-1" />
-                FAQs
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold">Frequently Asked Questions</h2>
-              <p className="text-muted-foreground mt-2">Find answers to common questions</p>
+      {/* ==================== BUSINESS HOURS - FULL WIDTH ==================== */}
+      {workingHours.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center mb-10">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4" style={{ backgroundColor: primaryColor + '15' }}>
+                  <Clock className="h-5 w-5" style={{ color: primaryColor }} />
+                  <span className="text-sm font-semibold" style={{ color: primaryColor }}>Hours</span>
+                </div>
+                <h3 className="font-bold text-2xl lg:text-3xl text-gray-900">Business Hours</h3>
+                <p className="text-gray-500 mt-2">Plan your visit with our schedule</p>
+              </div>
+              
+              <div className="bg-gray-50 rounded-3xl overflow-hidden shadow-sm">
+                {/* Table Header */}
+                <div className="grid grid-cols-[140px_1fr_1fr] lg:grid-cols-[200px_1fr_1fr] px-6 py-4 text-sm font-semibold border-b border-gray-200" style={{ backgroundColor: primaryColor + '10' }}>
+                  <span className="text-gray-600">Day</span>
+                  <span className="text-center" style={{ color: primaryColor }}>Business Hours</span>
+                  <span className="text-center" style={{ color: primaryColor }}>Break Time</span>
+                </div>
+                {/* Table Body */}
+                {workingHours.map((day: any, idx: number) => {
+                  const isToday = new Date().toLocaleDateString('en-US', { weekday: 'long' }) === day.day;
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`grid grid-cols-[140px_1fr_1fr] lg:grid-cols-[200px_1fr_1fr] px-6 py-4 ${idx !== workingHours.length - 1 ? 'border-b border-gray-100' : ''} ${isToday ? 'bg-white' : ''}`}
+                    >
+                      <span className={`font-medium text-gray-700 ${isToday ? 'flex items-center gap-2' : ''}`}>
+                        {day.day}
+                        {isToday && <span className="text-xs px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: primaryColor }}>Today</span>}
+                      </span>
+                      {day.isOpen ? (
+                        <>
+                          <div className="text-center font-medium" style={{ color: primaryColor }}>
+                            {day.slots?.[0] ? (
+                              <span className="whitespace-nowrap">{formatTo12Hour(day.slots[0].open)} - {formatTo12Hour(day.slots[0].close)}</span>
+                            ) : '-'}
+                          </div>
+                          <div className="text-center text-red-500 font-medium">
+                            {day.slots?.length > 1 ? (
+                              <span className="whitespace-nowrap">{formatTo12Hour(day.slots[0].close)} - {formatTo12Hour(day.slots[1].open)}</span>
+                            ) : '-'}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-center text-gray-400">Closed</span>
+                          <span className="text-center text-gray-400">-</span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="max-w-3xl mx-auto">
-              <Accordion type="single" collapsible className="space-y-4">
+          </div>
+        </section>
+      )}
+
+      {/* ==================== TESTIMONIALS - FULL WIDTH ==================== */}
+      {(testimonials.length > 0 || reviews.length > 0) && (
+        <section className="py-16 bg-gray-50">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4" style={{ backgroundColor: primaryColor + '15' }}>
+                <Star className="h-5 w-5" style={{ color: primaryColor }} />
+                <span className="text-sm font-semibold" style={{ color: primaryColor }}>Reviews</span>
+              </div>
+              <h3 className="font-bold text-2xl lg:text-3xl text-gray-900">What Our Customers Say</h3>
+              <p className="text-gray-500 mt-2">Real experiences from real customers</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+              {[...testimonials, ...reviews].slice(0, 8).map((review: any, idx) => (
+                <div key={idx} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-shadow">
+                  <div className="flex gap-1 mb-4">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star 
+                        key={star} 
+                        className={`h-5 w-5 ${star <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} 
+                      />
+                    ))}
+                  </div>
+                  <p className="text-gray-700 leading-relaxed mb-6">"{review.reviewText || review.comment}"</p>
+                  <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+                      {review.customerPhoto ? (
+                        <img src={review.customerPhoto} alt={review.customerName} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center font-semibold text-lg" style={{ backgroundColor: primaryColor + '20', color: primaryColor }}>
+                          {review.customerName?.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900">{review.customerName}</p>
+                      {review.customerLocation && (
+                        <p className="text-sm text-gray-500">{review.customerLocation}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ==================== FAQs SECTION - FULL WIDTH ==================== */}
+      {faqs.length > 0 && (
+        <section ref={faqRef} className="py-16 bg-white">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center mb-10">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4" style={{ backgroundColor: primaryColor + '15' }}>
+                  <HelpCircle className="h-5 w-5" style={{ color: primaryColor }} />
+                  <span className="text-sm font-semibold" style={{ color: primaryColor }}>FAQs</span>
+                </div>
+                <h3 className="font-bold text-2xl lg:text-3xl text-gray-900">Frequently Asked Questions</h3>
+                <p className="text-gray-500 mt-2">Find answers to common questions</p>
+              </div>
+              <Accordion type="single" collapsible className="space-y-3">
                 {faqs.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)).map((faq: any, idx: number) => (
-                  <AccordionItem key={idx} value={`faq-${idx}`} className="bg-white rounded-xl px-6 border">
-                    <AccordionTrigger className="text-left font-medium hover:no-underline">
+                  <AccordionItem key={idx} value={`faq-${idx}`} className="bg-gray-50 border-0 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
+                    <AccordionTrigger className="text-left font-semibold text-base text-gray-900 hover:no-underline py-5">
                       {faq.question}
                     </AccordionTrigger>
-                    <AccordionContent className="text-muted-foreground">
+                    <AccordionContent className="text-gray-600 leading-relaxed pb-5 pr-8">
                       {faq.answer}
                     </AccordionContent>
                   </AccordionItem>
@@ -2409,161 +2800,243 @@ export default function MiniWebsitePublic() {
         </section>
       )}
 
-      {/* ==================== CONTACT US SECTION ==================== */}
-      <section ref={contactRef} className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-10">
-            <Badge className="mb-3" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>
-              <Mail className="h-3 w-3 mr-1" />
-              Contact Us
-            </Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">Get In Touch</h2>
-            <p className="text-muted-foreground mt-2">We'd love to hear from you</p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-12 max-w-5xl mx-auto">
-            {/* Contact Info */}
-            <div className="space-y-6">
-              {address && (
-                <Card className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-full" style={{ backgroundColor: `${primaryColor}15` }}>
-                      <MapPin className="h-6 w-6" style={{ color: primaryColor }} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">Address</h3>
-                      <p className="text-muted-foreground">
-                        {address}{city && `, ${city}`}{state && `, ${state}`}{pincode && ` - ${pincode}`}
-                      </p>
-                      {googleMapsUrl && (
-                        <Button variant="link" className="p-0 h-auto mt-2" style={{ color: primaryColor }} onClick={() => window.open(googleMapsUrl)}>
-                          View on Maps <ExternalLink className="h-3 w-3 ml-1" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </Card>
+      {/* ==================== SOCIAL LINKS - FULL WIDTH ==================== */}
+      {(socialMedia.facebook || socialMedia.instagram || socialMedia.youtube || socialMedia.twitter || socialMedia.linkedin || socialLinks.facebook || socialLinks.instagram) && (
+        <section className="py-12 bg-gray-50">
+          <div className="w-full px-6 lg:px-12 xl:px-20">
+            <div className="text-center mb-8">
+              <h3 className="font-bold text-xl text-gray-900">Connect With Us</h3>
+            </div>
+            <div className="flex flex-wrap justify-center gap-4">
+              {(socialMedia.facebook || socialLinks.facebook) && (
+                <a href={socialMedia.facebook || socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+                  <Facebook className="h-6 w-6 text-blue-600" />
+                  <span className="font-medium text-gray-700">Facebook</span>
+                </a>
               )}
-              
-              {phone && (
-                <Card className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-full" style={{ backgroundColor: `${primaryColor}15` }}>
-                      <Phone className="h-6 w-6" style={{ color: primaryColor }} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">Phone</h3>
-                      <a href={`tel:${phone}`} className="text-muted-foreground hover:underline">{phone}</a>
-                    </div>
-                  </div>
-                </Card>
+              {(socialMedia.instagram || socialLinks.instagram) && (
+                <a href={socialMedia.instagram || socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+                  <Instagram className="h-6 w-6 text-pink-500" />
+                  <span className="font-medium text-gray-700">Instagram</span>
+                </a>
               )}
-              
-              {email && (
-                <Card className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-full" style={{ backgroundColor: `${primaryColor}15` }}>
-                      <Mail className="h-6 w-6" style={{ color: primaryColor }} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">Email</h3>
-                      <a href={`mailto:${email}`} className="text-muted-foreground hover:underline">{email}</a>
-                    </div>
-                  </div>
-                </Card>
+              {(socialMedia.youtube || socialLinks.youtube) && (
+                <a href={socialMedia.youtube || socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+                  <Youtube className="h-6 w-6 text-red-600" />
+                  <span className="font-medium text-gray-700">YouTube</span>
+                </a>
+              )}
+              {(socialMedia.twitter || socialLinks.twitter) && (
+                <a href={socialMedia.twitter || socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+                  <Twitter className="h-6 w-6 text-sky-500" />
+                  <span className="font-medium text-gray-700">Twitter</span>
+                </a>
+              )}
+              {(socialMedia.linkedin || socialLinks.linkedin) && (
+                <a href={socialMedia.linkedin || socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+                  <Linkedin className="h-6 w-6 text-blue-700" />
+                  <span className="font-medium text-gray-700">LinkedIn</span>
+                </a>
               )}
             </div>
+          </div>
+        </section>
+      )}
 
-            {/* Lead Form */}
-            <Card className="p-6">
-              <h3 className="font-semibold text-lg mb-6">Send Enquiry</h3>
-              <form onSubmit={(e) => { e.preventDefault(); leadMutation.mutate(leadForm); }} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Name *</Label>
-                  <Input
-                    id="name"
-                    value={leadForm.name}
-                    onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
-                    placeholder="Your name"
-                    required
-                  />
+      {/* ==================== CONTACT US SECTION - FULL WIDTH ==================== */}
+      <section ref={contactRef} className="py-16 bg-white">
+        <div className="w-full px-6 lg:px-12 xl:px-20">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4" style={{ backgroundColor: primaryColor + '15' }}>
+                <Mail className="h-5 w-5" style={{ color: primaryColor }} />
+                <span className="text-sm font-semibold" style={{ color: primaryColor }}>Contact</span>
+              </div>
+              <h3 className="font-bold text-2xl lg:text-3xl text-gray-900">Get In Touch</h3>
+              <p className="text-gray-500 mt-2">We'd love to hear from you</p>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              {/* Left - Contact Form */}
+              <div className="bg-gray-50 rounded-3xl p-8">
+                <h4 className="font-bold text-xl text-gray-900 mb-6">Send us a message</h4>
+                <form onSubmit={(e) => { e.preventDefault(); leadMutation.mutate(leadForm); }} className="space-y-4">
+                  <div>
+                    <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block">Your Name *</Label>
+                    <Input
+                      id="name"
+                      placeholder="Enter your name"
+                      value={leadForm.name}
+                      onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                      required
+                      className="h-12 bg-white rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email" className="text-sm font-medium text-gray-700 mb-2 block">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={leadForm.email}
+                      onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
+                      className="h-12 bg-white rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone" className="text-sm font-medium text-gray-700 mb-2 block">Phone Number *</Label>
+                    <Input
+                      id="phone"
+                      placeholder="+91 XXXXX XXXXX"
+                      value={leadForm.phone}
+                      onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                      required
+                      className="h-12 bg-white rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="message" className="text-sm font-medium text-gray-700 mb-2 block">Message</Label>
+                    <Textarea
+                      id="message"
+                      placeholder="How can we help you?"
+                      value={leadForm.message}
+                      onChange={(e) => setLeadForm({ ...leadForm, message: e.target.value })}
+                      rows={4}
+                      className="bg-white rounded-xl"
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full h-14 rounded-xl font-semibold text-base"
+                    style={{ backgroundColor: primaryColor }}
+                    disabled={leadMutation.isPending}
+                  >
+                    {leadMutation.isPending ? "Sending..." : "Send Enquiry"}
+                  </Button>
+                </form>
+              </div>
+              
+              {/* Right - Contact Info */}
+              <div className="flex flex-col justify-center">
+                <div className="space-y-6">
+                  {address && (
+                    <div className="flex items-start gap-4 p-6 bg-gray-50 rounded-2xl">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-red-100 flex-shrink-0">
+                        <MapPin className="h-6 w-6 text-red-500" />
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-gray-900 mb-1">Visit Us</h5>
+                        <p className="text-gray-600">{address}{city && `, ${city}`}{state && `, ${state}`}</p>
+                        <button 
+                          className="text-sm font-semibold mt-2 flex items-center gap-1.5 hover:gap-2 transition-all"
+                          style={{ color: primaryColor }}
+                          onClick={() => {
+                            // Use Google Maps URL if available, otherwise generate from address
+                            if (googleMapsUrl) {
+                              window.open(googleMapsUrl, '_blank');
+                            } else {
+                              const fullAddress = `${address}${city ? `, ${city}` : ''}${state ? `, ${state}` : ''}${pincode ? ` ${pincode}` : ''}`;
+                              const encodedAddress = encodeURIComponent(fullAddress);
+                              window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+                            }
+                          }}
+                        >
+                          Get Directions <ArrowRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {phone && (
+                    <div className="flex items-start gap-4 p-6 bg-gray-50 rounded-2xl">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-green-100 flex-shrink-0">
+                        <Phone className="h-6 w-6 text-green-600" />
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-gray-900 mb-1">Call Us</h5>
+                        <a href={`tel:${phone}`} className="text-gray-600 hover:underline text-lg">{phone}</a>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {email && (
+                    <div className="flex items-start gap-4 p-6 bg-gray-50 rounded-2xl">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-100 flex-shrink-0">
+                        <Mail className="h-6 w-6 text-blue-500" />
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-gray-900 mb-1">Email Us</h5>
+                        <a href={`mailto:${email}`} className="text-gray-600 hover:underline">{email}</a>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {whatsapp && (
+                    <Button 
+                      className="w-full h-14 rounded-xl font-semibold text-base gap-3 bg-green-500 hover:bg-green-600"
+                      onClick={() => window.open(`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`)}
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                      Chat on WhatsApp
+                    </Button>
+                  )}
                 </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={leadForm.email}
-                    onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
-                    placeholder="your@email.com"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone *</Label>
-                  <Input
-                    id="phone"
-                    value={leadForm.phone}
-                    onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
-                    placeholder="Your phone number"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="message">Message</Label>
-                  <Textarea
-                    id="message"
-                    value={leadForm.message}
-                    onChange={(e) => setLeadForm({ ...leadForm, message: e.target.value })}
-                    placeholder="How can we help you?"
-                    rows={4}
-                  />
-                </div>
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  style={{ backgroundColor: primaryColor }}
-                  disabled={leadMutation.isPending}
-                >
-                  {leadMutation.isPending ? "Sending..." : "Send Enquiry"}
-                  <Send className="h-4 w-4 ml-2" />
-                </Button>
-              </form>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ==================== FOOTER ==================== */}
-      <footer className="bg-gray-900 text-white py-16">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
-            {/* Brand */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
+      {/* ==================== FOOTER - FULL WIDTH ==================== */}
+      <footer className="bg-gray-900 text-white">
+        {/* Main Footer Content */}
+        <div className="w-full px-6 lg:px-12 xl:px-20 py-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 max-w-7xl mx-auto">
+            {/* Brand Section */}
+            <div className="lg:col-span-2">
+              <div className="flex items-center gap-4 mb-6">
                 {logo ? (
-                  <img src={logo} alt={businessName} className="h-12 w-12 rounded-lg object-cover" />
+                  <img src={logo} alt={businessName} className="h-16 w-16 rounded-2xl object-cover" />
                 ) : (
-                  <div className="h-12 w-12 rounded-lg flex items-center justify-center text-xl font-bold" style={{ backgroundColor: primaryColor }}>
+                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-2xl font-bold" style={{ backgroundColor: primaryColor }}>
                     {businessName.charAt(0)}
                   </div>
                 )}
                 <div>
-                  <h3 className="font-bold text-lg">{businessName}</h3>
-                  {category && <p className="text-sm text-gray-400">{category}</p>}
+                  <h3 className="font-bold text-2xl">{businessName}</h3>
+                  {category && <p className="text-gray-400">{category}</p>}
                 </div>
               </div>
-              {about && <p className="text-gray-400 text-sm line-clamp-3">{about}</p>}
+              {about && (
+                <p className="text-gray-400 leading-relaxed max-w-md mb-6 line-clamp-3">{about}</p>
+              )}
+              
+              {/* Quick Action Buttons */}
+              <div className="flex flex-wrap gap-3">
+                {phone && (
+                  <Button className="h-11 rounded-xl gap-2" style={{ backgroundColor: primaryColor }} onClick={() => window.open(`tel:${phone}`)}>
+                    <Phone className="h-4 w-4" />
+                    Call Now
+                  </Button>
+                )}
+                {whatsapp && (
+                  <Button variant="outline" className="h-11 rounded-xl gap-2 border-green-500 text-green-400 hover:bg-green-500/20" onClick={() => window.open(`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`)}>
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp
+                  </Button>
+                )}
+              </div>
             </div>
-
+            
             {/* Quick Links */}
             <div>
-              <h4 className="font-semibold mb-4">Quick Links</h4>
-              <ul className="space-y-2">
+              <h4 className="font-semibold text-lg mb-4">Quick Links</h4>
+              <ul className="space-y-3">
                 {navItems.map((item, idx) => (
                   <li key={idx}>
-                    <button
+                    <button 
                       onClick={() => scrollToSection(item.ref)}
-                      className="text-gray-400 hover:text-white transition-colors text-sm"
+                      className="text-gray-400 hover:text-white transition-colors"
                     >
                       {item.label}
                     </button>
@@ -2571,101 +3044,79 @@ export default function MiniWebsitePublic() {
                 ))}
               </ul>
             </div>
-
+            
             {/* Contact Info */}
             <div>
-              <h4 className="font-semibold mb-4">Contact Info</h4>
-              <ul className="space-y-3 text-sm text-gray-400">
+              <h4 className="font-semibold text-lg mb-4">Contact Info</h4>
+              <ul className="space-y-4">
                 {address && (
-                  <li className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{address}{city && `, ${city}`}</span>
+                  <li className="flex items-start gap-3">
+                    <MapPin className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <span className="text-gray-400">{address}{city && `, ${city}`}</span>
                   </li>
                 )}
                 {phone && (
-                  <li className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 flex-shrink-0" />
-                    <a href={`tel:${phone}`} className="hover:text-white">{phone}</a>
+                  <li className="flex items-center gap-3">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                    <a href={`tel:${phone}`} className="text-gray-400 hover:text-white transition-colors">{phone}</a>
                   </li>
                 )}
                 {email && (
-                  <li className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 flex-shrink-0" />
-                    <a href={`mailto:${email}`} className="hover:text-white">{email}</a>
+                  <li className="flex items-center gap-3">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                    <a href={`mailto:${email}`} className="text-gray-400 hover:text-white transition-colors">{email}</a>
                   </li>
                 )}
               </ul>
-            </div>
-
-            {/* Social Links */}
-            <div>
-              <h4 className="font-semibold mb-4">Follow Us</h4>
-              <div className="flex gap-3">
-                {socialLinks.facebook && (
-                  <a href={socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 hover:bg-blue-600 rounded-full transition-colors">
+              
+              {/* Social Links */}
+              <div className="flex gap-3 mt-6">
+                {(socialLinks.facebook || socialMedia.facebook) && (
+                  <a href={socialLinks.facebook || socialMedia.facebook} target="_blank" rel="noopener noreferrer" className="w-10 h-10 bg-gray-800 hover:bg-blue-600 rounded-xl flex items-center justify-center transition-colors">
                     <Facebook className="h-5 w-5" />
                   </a>
                 )}
-                {socialLinks.instagram && (
-                  <a href={socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 hover:bg-pink-600 rounded-full transition-colors">
+                {(socialLinks.instagram || socialMedia.instagram) && (
+                  <a href={socialLinks.instagram || socialMedia.instagram} target="_blank" rel="noopener noreferrer" className="w-10 h-10 bg-gray-800 hover:bg-pink-600 rounded-xl flex items-center justify-center transition-colors">
                     <Instagram className="h-5 w-5" />
                   </a>
                 )}
-                {socialLinks.twitter && (
-                  <a href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 hover:bg-sky-500 rounded-full transition-colors">
-                    <Twitter className="h-5 w-5" />
-                  </a>
-                )}
-                {socialLinks.linkedin && (
-                  <a href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 hover:bg-blue-700 rounded-full transition-colors">
-                    <Linkedin className="h-5 w-5" />
-                  </a>
-                )}
-                {socialLinks.youtube && (
-                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 hover:bg-red-600 rounded-full transition-colors">
+                {(socialLinks.youtube || socialMedia.youtube) && (
+                  <a href={socialLinks.youtube || socialMedia.youtube} target="_blank" rel="noopener noreferrer" className="w-10 h-10 bg-gray-800 hover:bg-red-600 rounded-xl flex items-center justify-center transition-colors">
                     <Youtube className="h-5 w-5" />
                   </a>
                 )}
-              </div>
-              
-              {/* CTA Buttons */}
-              <div className="mt-6 space-y-2">
-                {phone && (
-                  <Button size="sm" className="w-full" style={{ backgroundColor: primaryColor }} onClick={() => window.open(`tel:${phone}`)}>
-                    <Phone className="h-4 w-4 mr-2" />
-                    Call Now
-                  </Button>
-                )}
-                {whatsapp && (
-                  <Button size="sm" variant="outline" className="w-full border-green-500 text-green-400 hover:bg-green-500/10" onClick={() => window.open(`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`)}>
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    WhatsApp
-                  </Button>
+                {(socialLinks.twitter || socialMedia.twitter) && (
+                  <a href={socialLinks.twitter || socialMedia.twitter} target="_blank" rel="noopener noreferrer" className="w-10 h-10 bg-gray-800 hover:bg-sky-500 rounded-xl flex items-center justify-center transition-colors">
+                    <Twitter className="h-5 w-5" />
+                  </a>
                 )}
               </div>
             </div>
           </div>
+        </div>
 
-          <Separator className="my-10 bg-gray-800" />
-
-          {/* Bottom Footer */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-gray-400">
-              © {new Date().getFullYear()} {businessName}. All rights reserved.
-            </p>
-            
-            {/* Vyora Branding */}
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span>Powered by</span>
-              <a 
-                href="https://vyora.in" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 font-semibold text-gray-400 hover:text-white transition-colors"
-              >
-                <Globe className="h-4 w-4" />
-                Vyora
-              </a>
+        {/* Bottom Footer */}
+        <div className="border-t border-gray-800">
+          <div className="w-full px-6 lg:px-12 xl:px-20 py-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 max-w-7xl mx-auto">
+              <p className="text-sm text-gray-400">
+                © {new Date().getFullYear()} {businessName}. All rights reserved.
+              </p>
+              
+              {/* Vyora Branding */}
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>Powered by</span>
+                <a 
+                  href="https://vyora.in" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 font-semibold text-gray-400 hover:text-white transition-colors"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center text-xs font-bold">V</div>
+                  Vyora
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -2705,7 +3156,7 @@ export default function MiniWebsitePublic() {
                 type: 'product',
                 id: selectedProduct.id,
                 name: selectedProduct.name,
-                price: selectedProduct.price,
+                price: selectedProduct.sellingPrice || selectedProduct.price,
                 quantity,
                 image: selectedProduct.images?.[0],
                 vendorProductId: selectedProduct.id,
@@ -2716,7 +3167,19 @@ export default function MiniWebsitePublic() {
         />
       )}
 
-      {/* Desktop-only floating CTA - mobile uses separate UI */}
+      {/* ==================== QUOTATION MODAL ==================== */}
+      <QuotationModal
+        open={quotationModalOpen}
+        onOpenChange={setQuotationModalOpen}
+        items={cart}
+        subdomain={subdomain}
+        primaryColor={primaryColor}
+        customerToken={customerToken}
+        onSuccess={() => {
+          setCart([]);
+          localStorage.removeItem(`cart_${subdomain}`);
+        }}
+      />
     </div>
   );
 }

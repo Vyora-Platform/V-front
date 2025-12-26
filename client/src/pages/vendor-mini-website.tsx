@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -27,6 +27,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { MiniWebsite, VendorCatalogue, VendorProduct } from "@shared/schema";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 import { LoadingSpinner } from "@/components/AuthGuard";
 
 // Days of the week for business hours
@@ -152,14 +154,12 @@ const STEPS = [
   { id: 6, name: "Team & About", icon: Users },
   { id: 7, name: "FAQs", icon: HelpCircle },
   { id: 8, name: "Testimonials", icon: Star },
-  { id: 9, name: "Coupons", icon: Tag },
-  { id: 10, name: "Catalog", icon: Package },
-  { id: 11, name: "E-commerce", icon: Package },
-  { id: 12, name: "Trust Numbers", icon: Star },
-  { id: 13, name: "Social Media", icon: Globe },
-  { id: 14, name: "Website Layout", icon: Store },
-  { id: 15, name: "Color Theme", icon: Palette },
-  { id: 16, name: "Review & Publish", icon: CheckCircle2 },
+  { id: 9, name: "E-commerce", icon: Package },
+  { id: 10, name: "Trust Numbers", icon: Star },
+  { id: 11, name: "Social Media", icon: Globe },
+  { id: 12, name: "Website Layout", icon: Store },
+  { id: 13, name: "Color Theme", icon: Palette },
+  { id: 14, name: "Review & Publish", icon: CheckCircle2 },
 ];
 
 // LocalStorage keys - include vendorId for multi-vendor support
@@ -193,6 +193,11 @@ export default function VendorMiniWebsite() {
   
   // Get real vendor ID from localStorage first (before useAuth)
   const { vendorId } = useAuth();
+  
+  // Pro subscription check - block save/publish for non-Pro users
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<'save' | 'publish'>('save');
   
   // Storage keys with vendorId
   const STORAGE_KEY_FORM_DATA = vendorId ? getStorageKey(vendorId, 'form_data') : 'vendor_website_builder_form_data';
@@ -329,14 +334,26 @@ export default function VendorMiniWebsite() {
     },
   });
 
-  // Save form data to localStorage on every change (instant)
+  // Combined localStorage save with debouncing for performance
   useEffect(() => {
+    let localSaveTimeout: NodeJS.Timeout;
     const subscription = form.watch((data) => {
-      if (vendorId) {
-        localStorage.setItem(STORAGE_KEY_FORM_DATA, JSON.stringify(data));
-      }
+      // Debounce localStorage writes to prevent excessive writes
+      clearTimeout(localSaveTimeout);
+      localSaveTimeout = setTimeout(() => {
+        if (vendorId) {
+          try {
+            localStorage.setItem(STORAGE_KEY_FORM_DATA, JSON.stringify(data));
+          } catch (e) {
+            console.warn("Failed to save to localStorage:", e);
+          }
+        }
+      }, 500); // 500ms debounce for localStorage
     });
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(localSaveTimeout);
+    };
   }, [form, vendorId, STORAGE_KEY_FORM_DATA]);
   
   // Save on page unload
@@ -344,7 +361,11 @@ export default function VendorMiniWebsite() {
     const handleBeforeUnload = () => {
       const data = form.getValues();
       if (vendorId) {
-        localStorage.setItem(STORAGE_KEY_FORM_DATA, JSON.stringify(data));
+        try {
+          localStorage.setItem(STORAGE_KEY_FORM_DATA, JSON.stringify(data));
+        } catch (e) {
+          console.warn("Failed to save to localStorage on unload:", e);
+        }
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -450,12 +471,7 @@ export default function VendorMiniWebsite() {
         secondaryColor: "#14b8a6",
         accentColor: "#0d9488",
         heroMedia: vendor.banner ? [vendor.banner] : [],
-        teamMembers: [{
-          name: vendor.ownerName || "",
-          role: "Owner",
-          bio: "",
-          photo: "",
-        }],
+        teamMembers: [], // Vendor must create team members manually
         faqs: [],
         testimonials: [],
         selectedCouponIds: [],
@@ -534,12 +550,7 @@ export default function VendorMiniWebsite() {
         secondaryColor: branding?.secondaryColor || "#14b8a6",
         accentColor: branding?.accentColor || "#0d9488",
         heroMedia: branding?.heroMedia || (vendor.banner ? [vendor.banner] : []),
-        teamMembers: team || (vendor.ownerName ? [{
-          name: vendor.ownerName,
-          role: "Owner",
-          bio: "",
-          photo: "",
-        }] : []),
+        teamMembers: team || [], // Vendor must create team members manually
         faqs: faqs || [],
         testimonials: testimonials || [],
         selectedCouponIds: Array.isArray(coupons) ? coupons.map((c: any) => c.id || c).filter(Boolean) : [],
@@ -666,18 +677,26 @@ export default function VendorMiniWebsite() {
     },
   });
   
-  // Debounced auto-save to backend (2 second delay)
+  // Debounced auto-save to backend (3 second delay for better performance)
   useEffect(() => {
     let saveTimeout: NodeJS.Timeout;
+    let lastSaveTime = 0;
+    const MIN_SAVE_INTERVAL = 5000; // Minimum 5 seconds between saves
+    
     const subscription = form.watch((data) => {
-      // Debounced auto-save to backend
+      // Debounced auto-save to backend with rate limiting
       clearTimeout(saveTimeout);
       saveTimeout = setTimeout(() => {
-        if (data.subdomain && data.businessName && vendorId && !silentSaveMutation.isPending) {
+        const now = Date.now();
+        // Only save if minimum interval has passed and required fields exist
+        if (data.subdomain && data.businessName && vendorId && 
+            !silentSaveMutation.isPending && 
+            (now - lastSaveTime) > MIN_SAVE_INTERVAL) {
+          lastSaveTime = now;
           setIsSaving(true);
           silentSaveMutation.mutate(data as FormValues);
         }
-      }, 2000); // 2 second debounce for backend save
+      }, 3000); // 3 second debounce for backend save
     });
     return () => {
       subscription.unsubscribe();
@@ -824,29 +843,20 @@ export default function VendorMiniWebsite() {
           errors.push(`At least 3 testimonials are required. You have ${testimonials.length}.`);
         }
         break;
-      case 9: // Coupons - optional (but step must be visited)
+      case 9: // E-commerce - validation handled by form schema
         break;
-      case 10: // Catalog - At least 1 service or product
-        const selectedServices = values.selectedServiceIds || [];
-        const selectedProducts = values.selectedProductIds || [];
-        if (selectedServices.length === 0 && selectedProducts.length === 0) {
-          errors.push("At least 1 service or product must be selected");
-        }
+      case 10: // Trust Numbers - optional, skippable
         break;
-      case 11: // E-commerce - validation handled by form schema
+      case 11: // Social Media - optional, skippable
         break;
-      case 12: // Trust Numbers - optional, skippable
-        break;
-      case 13: // Social Media - optional, skippable
-        break;
-      case 14: // Website Layout - must select a layout
+      case 12: // Website Layout - must select a layout
         if (!values.layoutId || !values.layoutId.trim()) {
           errors.push("Please select a website layout");
         }
         break;
-      case 15: // Color Theme - colors are pre-selected, valid by default
+      case 13: // Color Theme - colors are pre-selected, valid by default
         break;
-      case 16: // Review & Publish - no validation needed
+      case 14: // Review & Publish - no validation needed
         break;
     }
 
@@ -921,6 +931,15 @@ export default function VendorMiniWebsite() {
         return;
       }
 
+      // PRO SUBSCRIPTION CHECK - Block save for non-Pro users
+      const actionCheck = canPerformAction('save');
+      if (!actionCheck.allowed) {
+        console.log('[PRO_GUARD] Auto-save on next step blocked - User is not Pro');
+        setBlockedAction('save');
+        setShowUpgradeModal(true);
+        return;
+      }
+
       // Mark current step as completed
       setCompletedSteps(prev => new Set([...prev, currentStep]));
 
@@ -940,6 +959,15 @@ export default function VendorMiniWebsite() {
   };
 
   const handleSaveDraft = async () => {
+    // PRO SUBSCRIPTION CHECK - Block save for non-Pro users
+    const actionCheck = canPerformAction('save');
+    if (!actionCheck.allowed) {
+      console.log('[PRO_GUARD] Save draft blocked - User is not Pro');
+      setBlockedAction('save');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     // Check minimum required fields for draft
     const values = form.getValues();
     if (!values.subdomain || !values.businessName) {
@@ -957,6 +985,15 @@ export default function VendorMiniWebsite() {
   };
 
   const handlePublish = async () => {
+    // PRO SUBSCRIPTION CHECK - Block publish for non-Pro users
+    const actionCheck = canPerformAction('publish');
+    if (!actionCheck.allowed) {
+      console.log('[PRO_GUARD] Publish blocked - User is not Pro');
+      setBlockedAction('publish');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     // Validate all required steps for publishing (steps 1-13, excluding final review step 14)
     const allErrors: string[] = [];
     for (let step = 1; step <= 13; step++) {
@@ -995,62 +1032,77 @@ export default function VendorMiniWebsite() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden max-w-[1440px] mx-auto">
-      <div className="w-full h-full flex flex-col flex-1 overflow-hidden">
-        {/* Header - Fixed on mobile */}
-        <div className="px-4 md:px-6 py-3 md:py-4 border-b sticky top-0 bg-background z-10 flex-shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+    <div className="min-h-screen bg-gray-50/50">
+      {/* Fixed Header with Back Navigation */}
+      <header className="sticky top-0 z-30 bg-white border-b shadow-sm">
+        <div className="max-w-[1440px] mx-auto">
+          <div className="flex items-center justify-between px-4 md:px-6 h-14 md:h-16">
+            {/* Left: Back + Title */}
+            <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 onClick={() => window.history.back()}
-                className="flex-shrink-0 h-9 w-9"
+                className="flex-shrink-0 h-10 w-10 rounded-full hover:bg-gray-100"
                 data-testid="button-back"
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg md:text-2xl font-bold truncate" data-testid="heading-builder">
+                <h1 className="text-base md:text-xl font-bold text-gray-900 truncate" data-testid="heading-builder">
                   Website Builder
                 </h1>
-                {/* Auto-save indicator */}
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {isSaving ? (
                     <span className="flex items-center gap-1 text-amber-600">
-                      <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
                       Saving...
                     </span>
                   ) : lastSaved ? (
                     <span className="flex items-center gap-1 text-green-600">
                       <CheckCircle2 className="h-3 w-3" />
-                      All changes saved
+                      Saved
                     </span>
-                  ) : (
-                    <span className="hidden sm:block">
-                      {isCreateMode ? "Create your website" : "Edit your website"}
-                    </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowPreview(true)}
-              className="gap-2 text-xs md:text-sm px-3 md:px-4 h-9 md:h-[var(--input-h)] flex-shrink-0"
-              data-testid="button-live-preview"
-            >
-              <Eye className="h-4 w-4" />
-              <span className="hidden sm:inline">Live</span> Preview
-            </Button>
+            
+            {/* Right: Step Counter + Preview */}
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span className="font-medium text-primary">{currentStep}</span>
+                <span>/</span>
+                <span>{STEPS.length}</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowPreview(true)}
+                className="h-9 md:h-10 px-3 md:px-4 text-xs md:text-sm font-medium"
+                data-testid="button-live-preview"
+              >
+                <Eye className="h-4 w-4 mr-1.5" />
+                Preview
+              </Button>
+            </div>
+          </div>
+          
+          {/* Progress Bar - Always Visible */}
+          <div className="h-1 bg-gray-100">
+            <div 
+              className="h-full bg-blue-600 transition-all duration-300 ease-out" 
+              style={{ width: `${(currentStep / STEPS.length) * 100}%` }}
+            />
           </div>
         </div>
+      </header>
 
-        {/* Progress Stepper - Scrollable horizontally on mobile */}
-        <div className="px-4 md:px-6 py-3 border-b overflow-x-auto scrollbar-hide flex-shrink-0">
-          <div className="flex gap-2 md:gap-3 min-w-max pb-1">
+      {/* Horizontal Step Navigation - Scrollable with Rectangular Outline */}
+      <nav className="sticky top-14 md:top-16 z-20 bg-white border-b">
+        <div className="max-w-[1440px] mx-auto">
+          <div className="flex overflow-x-auto scrollbar-hide px-4 md:px-6 py-2.5 md:py-3 gap-2">
             {STEPS.map((step) => {
               const StepIcon = step.icon;
               const isCompleted = completedSteps.has(step.id);
@@ -1064,136 +1116,134 @@ export default function VendorMiniWebsite() {
                   type="button"
                   onClick={() => handleStepClick(step.id)}
                   disabled={isLocked}
-                  className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl border transition-colors text-xs md:text-sm min-h-[var(--input-h)] ${
-                    isActive
-                      ? "bg-primary text-primary-foreground border-primary"
+                  className={`
+                    flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 
+                    text-xs font-medium whitespace-nowrap transition-all flex-shrink-0
+                    ${isActive
+                      ? "bg-blue-600 text-white border-blue-600 shadow-md"
                       : isCompleted
-                      ? "bg-green-50 border-green-300 hover:bg-green-100 cursor-pointer"
+                      ? "bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
                       : isLocked
-                      ? "bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed"
-                      : "bg-card border-border hover:bg-muted cursor-pointer"
-                  }`}
+                      ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-blue-400"
+                    }
+                  `}
                 >
-                  {isLocked ? (
-                    <Lock className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <StepIcon className="h-4 w-4" />
-                  )}
-                  <span className="font-medium whitespace-nowrap">{step.name}</span>
-                  {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                  <StepIcon className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-white" : isCompleted ? "text-blue-600" : "text-gray-500"}`} />
+                  <span>{step.name}</span>
+                  {isCompleted && <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />}
                 </button>
               );
             })}
           </div>
         </div>
+      </nav>
 
-        {/* Main Content - Full height scrollable with fixed bottom nav space */}
-        <div className="flex-1 overflow-y-auto overscroll-contain pb-32 md:pb-6">
-          {/* Form Section */}
-          <div className="p-4 md:p-6 space-y-4">
-            <Form {...form}>
-              <form className="space-y-6">
-                {/* Step 1: Choose Your Website Name */}
+      {/* Main Content Area - No Fixed Heights, Full Scrolling */}
+      <main className="max-w-[1440px] mx-auto">
+        <div className="px-4 md:px-6 py-4 md:py-6 pb-40 md:pb-32">
+          <Form {...form}>
+            <form className="space-y-4 md:space-y-6">
+                {/* Step 1: Choose Your Website Name - Optimized */}
                 {currentStep === 1 && (
-                  <Card className="border-2 rounded-xl">
-                    <CardHeader className="text-center pb-2 p-4 md:p-6">
-                      <div className="mx-auto w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full flex items-center justify-center mb-4">
-                        <Globe className="h-7 w-7 md:h-8 md:w-8 text-white" />
+                  <Card className="rounded-2xl border-0 shadow-sm bg-white overflow-hidden">
+                    {/* Header with gradient */}
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-700 px-5 py-6 md:px-8 md:py-8 text-center text-white">
+                      <div className="mx-auto w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center mb-4">
+                        <Globe className="h-8 w-8 md:h-10 md:w-10 text-white" />
                       </div>
-                      <CardTitle className="text-xl md:text-2xl">Choose Your Website Name</CardTitle>
-                      <CardDescription className="text-sm md:text-base">
+                      <h2 className="text-xl md:text-2xl font-bold mb-2">Choose Your Website Name</h2>
+                      <p className="text-sm md:text-base text-white/90">
                         {subdomainLocked 
-                          ? "Your website name has been confirmed and is permanently locked."
-                          : "Pick a unique name for your business website. This will be your online address."
+                          ? "Your website name is permanently locked."
+                          : "This will be your unique online address."
                         }
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6 pt-4 p-4 md:p-6">
-                      <div className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="subdomain"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-base font-semibold flex items-center gap-2">
-                                Website Name
-                                {subdomainLocked && (
-                                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                                    <Lock className="h-3 w-3" />
-                                    Locked
-                                  </Badge>
-                                )}
-                              </FormLabel>
-                              <div className="space-y-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="relative flex-1">
-                                    <FormControl>
-                                      <Input 
-                                        {...field}
-                                        value={field.value?.toLowerCase().replace(/[^a-z0-9-]/g, '') || ''}
-                                        onChange={(e) => {
-                                          // Only allow changes if NOT locked
-                                          if (!subdomainLocked) {
-                                            const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-                                            field.onChange(value);
-                                          }
-                                        }}
-                                        data-testid="input-subdomain"
-                                        placeholder="yourbusiness"
-                                        disabled={subdomainLocked}
-                                        className={`text-lg font-medium pr-10 ${
-                                          subdomainLocked ? 'bg-gray-50 cursor-not-allowed' :
-                                          subdomainAvailable === true ? 'border-green-500 focus-visible:ring-green-500' : 
-                                          subdomainAvailable === false ? 'border-red-500 focus-visible:ring-red-500' : ''
-                                        }`}
-                                        autoComplete="off"
-                                      />
-                                    </FormControl>
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                      {subdomainLocked ? (
-                                        <Lock className="h-5 w-5 text-green-600" />
-                                      ) : !checkingSubdomain && subdomainAvailable === true ? (
-                                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                      ) : !checkingSubdomain && subdomainAvailable === false ? (
-                                        <AlertCircle className="h-5 w-5 text-red-500" />
-                                      ) : null}
-                                    </div>
+                      </p>
+                    </div>
+                    <CardContent className="p-5 md:p-8 space-y-5">
+                      <FormField
+                        control={form.control}
+                        name="subdomain"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              Website Name
+                              {subdomainLocked && (
+                                <Badge variant="secondary" className="text-xs flex items-center gap-1 bg-green-100 text-green-700">
+                                  <Lock className="h-3 w-3" />
+                                  Locked
+                                </Badge>
+                              )}
+                            </FormLabel>
+                            <div className="space-y-4">
+                              <div className="flex flex-col gap-3">
+                                <div className="relative">
+                                  <FormControl>
+                                    <Input 
+                                      {...field}
+                                      value={field.value?.toLowerCase().replace(/[^a-z0-9-]/g, '') || ''}
+                                      onChange={(e) => {
+                                        if (!subdomainLocked) {
+                                          const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                                          field.onChange(value);
+                                        }
+                                      }}
+                                      data-testid="input-subdomain"
+                                      placeholder="yourbusiness"
+                                      disabled={subdomainLocked}
+                                      className={`h-14 text-lg font-medium pr-12 rounded-xl ${
+                                        subdomainLocked ? 'bg-green-50 border-green-300 cursor-not-allowed' :
+                                        subdomainAvailable === true ? 'border-green-500 focus-visible:ring-green-500' : 
+                                        subdomainAvailable === false ? 'border-red-500 focus-visible:ring-red-500' : 'border-gray-200'
+                                      }`}
+                                      autoComplete="off"
+                                    />
+                                  </FormControl>
+                                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                    {subdomainLocked ? (
+                                      <Lock className="h-5 w-5 text-green-600" />
+                                    ) : !checkingSubdomain && subdomainAvailable === true ? (
+                                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                    ) : !checkingSubdomain && subdomainAvailable === false ? (
+                                      <AlertCircle className="h-5 w-5 text-red-500" />
+                                    ) : null}
                                   </div>
-                                  {!subdomainLocked && (
-                                    <Button
-                                      type="button"
-                                      onClick={checkSubdomainAvailability}
-                                      disabled={checkingSubdomain || !field.value || field.value.length < 3}
-                                      className="shrink-0 bg-teal-600 hover:bg-teal-700"
-                                    >
-                                      {checkingSubdomain ? (
-                                        <>
-                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                          Checking...
-                                        </>
-                                      ) : (
-                                        "Check & Lock"
-                                      )}
-                                    </Button>
-                                  )}
                                 </div>
+                                {!subdomainLocked && (
+                                  <Button
+                                    type="button"
+                                    onClick={checkSubdomainAvailability}
+                                    disabled={checkingSubdomain || !field.value || field.value.length < 3}
+                                    className="w-full sm:w-auto h-12 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold"
+                                  >
+                                    {checkingSubdomain ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                        Checking...
+                                      </>
+                                    ) : (
+                                      "Check & Lock Name"
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
                                 
                                 {/* Subdomain preview */}
-                                <div className={`p-4 rounded-lg border ${subdomainLocked ? 'bg-green-50 border-green-200' : 'bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900'}`}>
-                                  <p className="text-sm text-muted-foreground mb-1">
-                                    {subdomainLocked ? "Your permanent website address:" : "Your website will be available at:"}
+                                <div className={`p-4 rounded-xl border-2 ${subdomainLocked ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                    {subdomainLocked ? "Your Website Address" : "Preview"}
                                   </p>
-                                  <p className={`text-lg font-mono font-semibold break-all ${subdomainLocked ? 'text-green-700' : 'text-primary'}`}>
+                                  <p className={`text-base md:text-lg font-mono font-bold break-all ${subdomainLocked ? 'text-green-700' : 'text-gray-900'}`}>
                                     {getSiteUrl(field.value || 'yourbusiness')}
                                   </p>
                                 </div>
                                 
                                 {/* Locked confirmation message */}
                                 {subdomainLocked && (
-                                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                                    <p className="text-sm text-green-700 flex items-center gap-2">
-                                      <CheckCircle2 className="h-4 w-4" />
-                                      This website name is permanently reserved for you. It cannot be changed.
+                                  <div className="p-3 bg-green-100 border border-green-300 rounded-xl">
+                                    <p className="text-sm text-green-800 flex items-center gap-2 font-medium">
+                                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                                      Permanently reserved for you. Cannot be changed.
                                     </p>
                                   </div>
                                 )}
@@ -1233,50 +1283,52 @@ export default function VendorMiniWebsite() {
                                 
                                 <FormMessage />
                               </div>
-                              <FormDescription className="mt-3">
-                                <span className="block text-xs text-muted-foreground">
-                                  • Use 3-50 characters
+                              <FormDescription className="mt-3 p-3 bg-gray-50 rounded-xl">
+                                <span className="block text-xs text-gray-500 mb-1">
+                                  ✓ Use 3-50 characters
                                 </span>
-                                <span className="block text-xs text-muted-foreground">
-                                  • Only lowercase letters, numbers, and hyphens allowed
+                                <span className="block text-xs text-gray-500 mb-1">
+                                  ✓ Only lowercase letters, numbers, and hyphens
                                 </span>
-                                <span className="block text-xs text-muted-foreground">
-                                  • Cannot start or end with a hyphen
+                                <span className="block text-xs text-gray-500">
+                                  ✓ Cannot start or end with a hyphen
                                 </span>
                               </FormDescription>
                             </FormItem>
                           )}
                         />
-                      </div>
-                      
                     </CardContent>
                   </Card>
                 )}
 
-                {/* Step 2: Business Info */}
+                {/* Step 2: Business Info - Optimized */}
                 {currentStep === 2 && (
-                  <Card className="rounded-xl">
-                    <CardHeader className="p-4 md:p-6">
-                      <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                        <Store className="h-5 w-5" />
-                        Business Information
-                      </CardTitle>
-                      <CardDescription className="text-sm">
-                        Core details about your business
-                        <span className="block mt-1 text-xs">
-                          * Required fields must be filled to proceed
-                        </span>
-                      </CardDescription>
+                  <Card className="rounded-2xl border-0 shadow-sm bg-white">
+                    <CardHeader className="p-5 md:p-6 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+                          <Store className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg md:text-xl font-semibold">Business Information</CardTitle>
+                          <CardDescription className="text-sm text-gray-500">Core details about your business</CardDescription>
+                        </div>
+                      </div>
                     </CardHeader>
-                    <CardContent className="space-y-4 p-4 md:p-6 pt-0 md:pt-0">
+                    <CardContent className="p-5 md:p-6 pt-0 space-y-5">
                       <FormField
                         control={form.control}
                         name="businessName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Business Name *</FormLabel>
+                            <FormLabel className="text-sm font-medium text-gray-700">Business Name <span className="text-red-500">*</span></FormLabel>
                             <FormControl>
-                              <Input {...field} data-testid="input-business-name" />
+                              <Input 
+                                {...field} 
+                                data-testid="input-business-name" 
+                                className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                                placeholder="Enter your business name"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1288,9 +1340,14 @@ export default function VendorMiniWebsite() {
                         name="tagline"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Tagline *</FormLabel>
+                            <FormLabel className="text-sm font-medium text-gray-700">Tagline <span className="text-red-500">*</span></FormLabel>
                             <FormControl>
-                              <Input {...field} data-testid="input-tagline" placeholder="A catchy phrase about your business" />
+                              <Input 
+                                {...field} 
+                                data-testid="input-tagline" 
+                                placeholder="A catchy phrase about your business"
+                                className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1302,9 +1359,15 @@ export default function VendorMiniWebsite() {
                         name="description"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>About Your Business *</FormLabel>
+                            <FormLabel className="text-sm font-medium text-gray-700">About Your Business <span className="text-red-500">*</span></FormLabel>
                             <FormControl>
-                              <Textarea {...field} data-testid="input-description" rows={4} placeholder="Tell visitors about your business..." />
+                              <Textarea 
+                                {...field} 
+                                data-testid="input-description" 
+                                rows={5} 
+                                placeholder="Tell visitors about your business, what you do, and what makes you special..."
+                                className="text-base rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500 resize-none"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1316,7 +1379,7 @@ export default function VendorMiniWebsite() {
                         name="logo"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Business Logo (Optional)</FormLabel>
+                            <FormLabel className="text-sm font-medium text-gray-700">Business Logo <span className="text-gray-400 font-normal">(Optional)</span></FormLabel>
                             <FormControl>
                               <FileUpload
                                 value={field.value}
@@ -1326,7 +1389,7 @@ export default function VendorMiniWebsite() {
                                 allowAnyFile
                               />
                             </FormControl>
-                            <p className="text-xs text-muted-foreground">Upload your business logo (any image format)</p>
+                            <p className="text-xs text-gray-500 mt-1">Recommended: Square image, at least 200x200px</p>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1335,53 +1398,77 @@ export default function VendorMiniWebsite() {
                   </Card>
                 )}
 
-                {/* Step 3: Contact Info */}
+                {/* Step 3: Contact Info - Optimized */}
                 {currentStep === 3 && (
-                  <Card className="rounded-xl">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Phone className="h-5 w-5" />
-                        Contact Information
-                      </CardTitle>
-                      <CardDescription>How customers can reach you</CardDescription>
+                  <Card className="rounded-2xl border-0 shadow-sm bg-white">
+                    <CardHeader className="p-5 md:p-6 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+                          <Phone className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg md:text-xl font-semibold">Contact Information</CardTitle>
+                          <CardDescription className="text-sm text-gray-500">How customers can reach you</CardDescription>
+                        </div>
+                      </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="contactEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email *</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="email" data-testid="input-contact-email" placeholder="your@email.com" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="contactPhone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone *</FormLabel>
-                            <FormControl>
-                              <Input {...field} data-testid="input-contact-phone" placeholder="+91 98765 43210" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <CardContent className="p-5 md:p-6 pt-0 space-y-5">
+                      {/* Email & Phone in Grid on Desktop */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                        <FormField
+                          control={form.control}
+                          name="contactEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium text-gray-700">Email <span className="text-red-500">*</span></FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  type="email" 
+                                  data-testid="input-contact-email" 
+                                  placeholder="your@email.com"
+                                  className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="contactPhone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium text-gray-700">Phone <span className="text-red-500">*</span></FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  data-testid="input-contact-phone" 
+                                  placeholder="+91 98765 43210"
+                                  className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                       
                       <FormField
                         control={form.control}
                         name="address"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Address *</FormLabel>
+                            <FormLabel className="text-sm font-medium text-gray-700">Complete Address <span className="text-red-500">*</span></FormLabel>
                             <FormControl>
-                              <Textarea {...field} data-testid="input-address" rows={3} placeholder="Your business address" />
+                              <Textarea 
+                                {...field} 
+                                data-testid="input-address" 
+                                rows={3} 
+                                placeholder="Shop No., Building Name, Street, Area, City, State - Pincode"
+                                className="text-base rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500 resize-none"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1393,15 +1480,20 @@ export default function VendorMiniWebsite() {
                         name="googleMapsUrl"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4" />
-                              Google Maps Link (Optional)
+                            <FormLabel className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-red-500" />
+                              Google Maps Link <span className="text-gray-400 font-normal">(Optional)</span>
                             </FormLabel>
                             <FormControl>
-                              <Input {...field} data-testid="input-google-maps" placeholder="https://maps.google.com/..." />
+                              <Input 
+                                {...field} 
+                                data-testid="input-google-maps" 
+                                placeholder="https://maps.google.com/..."
+                                className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                              />
                             </FormControl>
-                            <p className="text-xs text-muted-foreground">
-                              Paste Google Maps link for easy navigation to your store
+                            <p className="text-xs text-gray-500 mt-1">
+                              Paste your Google Maps link. If not provided, we'll use your address for directions.
                             </p>
                             <FormMessage />
                           </FormItem>
@@ -1411,114 +1503,117 @@ export default function VendorMiniWebsite() {
                   </Card>
                 )}
 
-                {/* Step 4: Business Hours */}
+                {/* Step 4: Business Hours - Optimized */}
                 {currentStep === 4 && (
-                  <Card className="rounded-xl">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Clock className="h-5 w-5" />
-                        Business Hours
-                      </CardTitle>
-                      <CardDescription>
-                        Set your operating hours (add multiple time slots for break hours)
-                        <span className="block mt-1 text-xs text-amber-600">
-                          * At least one day must be marked as open to proceed
-                        </span>
-                      </CardDescription>
+                  <Card className="rounded-2xl border-0 shadow-sm bg-white">
+                    <CardHeader className="p-5 md:p-6 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-orange-50 flex items-center justify-center">
+                          <Clock className="h-5 w-5 md:h-6 md:w-6 text-orange-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg md:text-xl font-semibold">Business Hours</CardTitle>
+                          <CardDescription className="text-sm text-gray-500">Set your weekly operating schedule</CardDescription>
+                        </div>
+                      </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="p-5 md:p-6 pt-0 space-y-3">
                       {!(form.watch("businessHours") || []).some((day: any) => day.isOpen) && (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-                          <p className="text-sm text-amber-800">
-                            <AlertCircle className="h-4 w-4 inline mr-2" />
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                          <p className="text-sm text-amber-800 flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 flex-shrink-0" />
                             At least one business day must be open.
                           </p>
                         </div>
                       )}
-                      {form.watch("businessHours")?.map((dayHours, dayIndex) => {
-                        const day = dayHours.day;
-                        const isOpen = form.watch(`businessHours.${dayIndex}.isOpen`);
-                        const slots = form.watch(`businessHours.${dayIndex}.slots`) || [];
-                        
-                        return (
-                          <div key={day} className="p-3 border rounded-md space-y-2">
-                            <div className="flex items-center gap-3">
-                              <FormField
-                                control={form.control}
-                                name={`businessHours.${dayIndex}.isOpen`}
-                                render={({ field }) => (
-                                  <FormItem className="flex items-center gap-2">
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                        data-testid={`checkbox-${day.toLowerCase()}`}
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                              <span className="w-24 font-medium text-sm">{day}</span>
-                              {!isOpen && <span className="text-sm text-muted-foreground">Closed</span>}
-                            </div>
-                            
-                            {isOpen && (
-                              <div className="space-y-2 pl-10">
-                                {slots.map((slot, slotIndex) => (
-                                  <div key={slotIndex} className="flex items-center gap-2">
-                                    <Input
-                                      type="time"
-                                      value={slot.open}
-                                      onChange={(e) => {
-                                        const newSlots = [...slots];
-                                        newSlots[slotIndex] = { ...newSlots[slotIndex], open: e.target.value };
-                                        form.setValue(`businessHours.${dayIndex}.slots`, newSlots);
-                                      }}
-                                      className="flex-1"
-                                      data-testid={`input-open-${day.toLowerCase()}-${slotIndex}`}
-                                    />
-                                    <span className="text-muted-foreground text-sm">to</span>
-                                    <Input
-                                      type="time"
-                                      value={slot.close}
-                                      onChange={(e) => {
-                                        const newSlots = [...slots];
-                                        newSlots[slotIndex] = { ...newSlots[slotIndex], close: e.target.value };
-                                        form.setValue(`businessHours.${dayIndex}.slots`, newSlots);
-                                      }}
-                                      className="flex-1"
-                                      data-testid={`input-close-${day.toLowerCase()}-${slotIndex}`}
-                                    />
-                                    {slots.length > 1 && (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => {
-                                          const newSlots = slots.filter((_, i) => i !== slotIndex);
+                      
+                      <div className="space-y-2">
+                        {form.watch("businessHours")?.map((dayHours, dayIndex) => {
+                          const day = dayHours.day;
+                          const isOpen = form.watch(`businessHours.${dayIndex}.isOpen`);
+                          const slots = form.watch(`businessHours.${dayIndex}.slots`) || [];
+                          
+                          return (
+                            <div key={day} className={`p-3 md:p-4 border rounded-xl transition-colors ${isOpen ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                              <div className="flex items-center gap-3">
+                                <FormField
+                                  control={form.control}
+                                  name={`businessHours.${dayIndex}.isOpen`}
+                                  render={({ field }) => (
+                                    <FormItem className="flex items-center">
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                          data-testid={`checkbox-${day.toLowerCase()}`}
+                                          className="h-5 w-5"
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                                <span className="w-20 md:w-24 font-medium text-sm text-gray-900">{day}</span>
+                                {!isOpen && <span className="text-sm text-gray-500">Closed</span>}
+                              </div>
+                              
+                              {isOpen && (
+                                <div className="mt-3 space-y-2 pl-0 md:pl-8">
+                                  {slots.map((slot, slotIndex) => (
+                                    <div key={slotIndex} className="flex flex-wrap items-center gap-2">
+                                      <Input
+                                        type="time"
+                                        value={slot.open}
+                                        onChange={(e) => {
+                                          const newSlots = [...slots];
+                                          newSlots[slotIndex] = { ...newSlots[slotIndex], open: e.target.value };
                                           form.setValue(`businessHours.${dayIndex}.slots`, newSlots);
                                         }}
-                                        data-testid={`button-remove-slot-${day.toLowerCase()}-${slotIndex}`}
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                ))}
-                                {slots.length < 3 && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      const newSlots = [...slots, { open: "14:00", close: "18:00" }];
-                                      form.setValue(`businessHours.${dayIndex}.slots`, newSlots);
-                                    }}
-                                    className="w-full"
-                                    data-testid={`button-add-slot-${day.toLowerCase()}`}
+                                        className="flex-1 min-w-[100px] h-10 md:h-11 rounded-lg text-sm"
+                                        data-testid={`input-open-${day.toLowerCase()}-${slotIndex}`}
+                                      />
+                                      <span className="text-gray-400 text-sm">to</span>
+                                      <Input
+                                        type="time"
+                                        value={slot.close}
+                                        onChange={(e) => {
+                                          const newSlots = [...slots];
+                                          newSlots[slotIndex] = { ...newSlots[slotIndex], close: e.target.value };
+                                          form.setValue(`businessHours.${dayIndex}.slots`, newSlots);
+                                        }}
+                                        className="flex-1 min-w-[100px] h-10 md:h-11 rounded-lg text-sm"
+                                        data-testid={`input-close-${day.toLowerCase()}-${slotIndex}`}
+                                      />
+                                      {slots.length > 1 && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-10 w-10 text-red-500 hover:bg-red-50"
+                                          onClick={() => {
+                                            const newSlots = slots.filter((_, i) => i !== slotIndex);
+                                            form.setValue(`businessHours.${dayIndex}.slots`, newSlots);
+                                          }}
+                                          data-testid={`button-remove-slot-${day.toLowerCase()}-${slotIndex}`}
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {slots.length < 3 && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-1 text-xs h-9 rounded-lg w-full"
+                                      onClick={() => {
+                                        const newSlots = [...slots, { open: "14:00", close: "18:00" }];
+                                        form.setValue(`businessHours.${dayIndex}.slots`, newSlots);
+                                      }}
+                                      data-testid={`button-add-slot-${day.toLowerCase()}`}
                                   >
                                     <Plus className="h-3 w-3 mr-2" />
-                                    Add Break Hours
+                                    Add Break
                                   </Button>
                                 )}
                               </div>
@@ -1526,6 +1621,7 @@ export default function VendorMiniWebsite() {
                           </div>
                         );
                       })}
+                      </div>
                     </CardContent>
                   </Card>
                 )}
@@ -1542,141 +1638,17 @@ export default function VendorMiniWebsite() {
                 {/* Step 8: Testimonials */}
                 {currentStep === 8 && <TestimonialsStep form={form} />}
 
-                {/* Step 9: Coupons */}
-                {currentStep === 9 && <CouponsStep form={form} />}
+                {/* Step 9: E-commerce Settings */}
+                {currentStep === 9 && <EcommerceSettingsStep form={form} />}
 
-                {/* Step 10: Catalog */}
-                {currentStep === 10 && (
-                  <Card className="rounded-xl">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Package className="h-5 w-5" />
-                        Select Catalog Items
-                      </CardTitle>
-                      <CardDescription>
-                        Choose services and products to display on your mini-website
-                        <span className="block mt-1 text-xs text-amber-600">
-                          * At least 1 service or product must be selected to proceed
-                        </span>
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {(form.watch("selectedServiceIds") || []).length === 0 && (form.watch("selectedProductIds") || []).length === 0 && (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-                          <p className="text-sm text-amber-800">
-                            <AlertCircle className="h-4 w-4 inline mr-2" />
-                            At least 1 service or product must be selected.
-                          </p>
-                        </div>
-                      )}
-                      {/* Services Section */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-base">Services</h4>
-                          <Badge variant="secondary">
-                            {(form.watch("selectedServiceIds") || []).length} selected
-                          </Badge>
-                        </div>
-                        {services.length > 0 ? (
-                          <div className="border rounded-lg p-4 space-y-2 max-h-64 overflow-y-auto bg-muted/30">
-                            {services.map((service) => (
-                              <div key={service.id} className="flex items-center gap-3 p-2 hover:bg-background rounded-md transition-colors">
-                                <Checkbox
-                                  checked={(form.watch("selectedServiceIds") || []).includes(service.id)}
-                                  onCheckedChange={(checked) => {
-                                    const current = form.watch("selectedServiceIds") || [];
-                                    if (checked) {
-                                      form.setValue("selectedServiceIds", [...current, service.id], { shouldValidate: true, shouldDirty: true });
-                                    } else {
-                                      form.setValue("selectedServiceIds", current.filter(id => id !== service.id), { shouldValidate: true, shouldDirty: true });
-                                    }
-                                  }}
-                                  data-testid={`checkbox-service-${service.id}`}
-                                />
-                                <div className="flex-1">
-                                  <span className="text-sm font-medium">{service.name}</span>
-                                  {service.description && (
-                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{service.description}</p>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="border rounded-lg p-4 bg-muted/30 text-center">
-                            <p className="text-sm text-muted-foreground">
-                              No services available. Add services in the Services Catalogue module first.
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                {/* Step 10: Trust Numbers */}
+                {currentStep === 10 && <TrustNumbersStep form={form} />}
 
-                      {/* Products Section */}
-                      <div className="space-y-3 border-t pt-4">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-base">Products</h4>
-                          <Badge variant="secondary">
-                            {(form.watch("selectedProductIds") || []).length} selected
-                          </Badge>
-                        </div>
-                        {products.length > 0 ? (
-                          <div className="border rounded-lg p-4 space-y-2 max-h-64 overflow-y-auto bg-muted/30">
-                            {products.map((product) => (
-                              <div key={product.id} className="flex items-center gap-3 p-2 hover:bg-background rounded-md transition-colors">
-                                <Checkbox
-                                  checked={(form.watch("selectedProductIds") || []).includes(product.id)}
-                                  onCheckedChange={(checked) => {
-                                    const current = form.watch("selectedProductIds") || [];
-                                    if (checked) {
-                                      form.setValue("selectedProductIds", [...current, product.id], { shouldValidate: true, shouldDirty: true });
-                                    } else {
-                                      form.setValue("selectedProductIds", current.filter(id => id !== product.id), { shouldValidate: true, shouldDirty: true });
-                                    }
-                                  }}
-                                  data-testid={`checkbox-product-${product.id}`}
-                                />
-                                <div className="flex-1">
-                                  <span className="text-sm font-medium">{product.name}</span>
-                                  {product.description && (
-                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{product.description}</p>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="border rounded-lg p-4 bg-muted/30 text-center">
-                            <p className="text-sm text-muted-foreground">
-                              No products available. Add products in the Products Catalogue module first.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {services.length === 0 && products.length === 0 && (
-                        <div className="border rounded-lg p-6 bg-muted/30 text-center">
-                          <Package className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-                          <p className="text-sm font-medium mb-1">No catalog items available</p>
-                          <p className="text-xs text-muted-foreground">
-                            Please add services or products in their respective catalogue modules first.
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Step 11: Social Media Links */}
+                {currentStep === 11 && <SocialMediaStep form={form} />}
 
-                {/* Step 11: E-commerce Settings */}
-                {currentStep === 11 && <EcommerceSettingsStep form={form} />}
-
-                {/* Step 12: Trust Numbers */}
-                {currentStep === 12 && <TrustNumbersStep form={form} />}
-
-                {/* Step 13: Social Media Links */}
-                {currentStep === 13 && <SocialMediaStep form={form} />}
-
-                {/* Step 14: Website Layout */}
-                {currentStep === 14 && (
+                {/* Step 12: Website Layout */}
+                {currentStep === 12 && (
                   <LayoutSelector
                     selectedLayout={form.watch("layoutId") || "hybrid-business"}
                     onLayoutChange={(layoutId) => form.setValue("layoutId", layoutId, { shouldValidate: true, shouldDirty: true })}
@@ -1687,11 +1659,11 @@ export default function VendorMiniWebsite() {
                   />
                 )}
 
-                {/* Step 15: Color Theme */}
-                {currentStep === 15 && <ColorThemeStep form={form} />}
+                {/* Step 13: Color Theme */}
+                {currentStep === 13 && <ColorThemeStep form={form} />}
 
-                {/* Step 16: Review & Publish */}
-                {currentStep === 16 && (
+                {/* Step 14: Review & Publish */}
+                {currentStep === 14 && (
                   <div className="space-y-6">
                     {/* Website URL Card - Prominent */}
                     <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
@@ -1932,206 +1904,479 @@ export default function VendorMiniWebsite() {
                       </CardContent>
                     </Card>
 
-                    {/* Action Buttons */}
-                    <Card className="border-2 rounded-xl">
-                      <CardContent className="p-4 md:p-6">
-                        <div className="flex flex-col gap-4">
-                          {/* Navigation */}
-                          <div className="flex justify-between items-center pb-4 border-b">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={handlePrevious}
-                              data-testid="button-previous-review"
-                              className="h-[var(--input-h)] text-sm"
-                            >
-                              <ChevronLeft className="h-4 w-4 mr-2" />
-                              Previous Step
-                            </Button>
-                            <div className="text-sm text-muted-foreground">
-                              Step 16 of 16
-                            </div>
-                          </div>
-
-                          {/* Action Grid */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={handleSaveDraft}
-                              disabled={saveMutation.isPending}
-                              data-testid="button-save-draft"
-                              className="h-[var(--cta-h)] text-sm"
-                            >
-                              <Save className="h-5 w-5 mr-2" />
-                              Save Draft
-                            </Button>
-                            
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={handlePreview}
-                              data-testid="button-preview"
-                              className="h-[var(--cta-h)] text-sm"
-                            >
-                              <Eye className="h-5 w-5 mr-2" />
-                              Preview Site
-                            </Button>
-                          </div>
-
-                          {/* Publish Button */}
-                          <Button
-                            type="button"
-                            onClick={handlePublish}
-                            disabled={publishMutation.isPending || saveMutation.isPending}
-                            data-testid="button-publish"
-                            className="w-full h-[var(--cta-h)] md:h-14 text-base md:text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-                          >
-                            <Globe className="h-5 w-5 mr-2" />
-                            {publishMutation.isPending ? "Publishing..." : "Publish Website"}
-                          </Button>
-
-                          <p className="text-center text-xs md:text-sm text-muted-foreground">
-                            Once published, your website will be live at the URL above
-                          </p>
+                    {/* Action Buttons - Clean Layout Without Card on Mobile */}
+                    <div className="mt-6 mb-8 space-y-4">
+                      {/* Navigation Row */}
+                      <div className="flex justify-between items-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handlePrevious}
+                          data-testid="button-previous-review"
+                          className="h-11 text-sm"
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-2" />
+                          Previous Step
+                        </Button>
+                        <div className="text-sm text-muted-foreground">
+                          Step {STEPS.length} of {STEPS.length}
                         </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
+                      </div>
 
-                {/* Navigation Buttons - Fixed at bottom on mobile */}
-                {currentStep < STEPS.length && (
-                  <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 md:relative md:border-0 md:p-0 md:pt-6 md:mt-6 z-20">
-                    <div className="flex gap-3 max-w-[1440px] mx-auto">
+                      {/* Action Grid */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleSaveDraft}
+                          disabled={saveMutation.isPending}
+                          data-testid="button-save-draft"
+                          className="h-12 text-sm"
+                        >
+                          <Save className="h-5 w-5 mr-2" />
+                          Save Draft
+                          {!isPro && <Lock className="h-3.5 w-3.5 ml-1.5 opacity-60" />}
+                        </Button>
+                        
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handlePreview}
+                          data-testid="button-preview"
+                          className="h-12 text-sm"
+                        >
+                          <Eye className="h-5 w-5 mr-2" />
+                          Preview Site
+                        </Button>
+                      </div>
+
+                      {/* Publish Button */}
                       <Button
                         type="button"
-                        variant="outline"
-                        onClick={handlePrevious}
-                        disabled={currentStep === 1}
-                        data-testid="button-previous"
-                        className="flex-1 md:flex-none h-12 md:h-[var(--cta-h)] text-sm"
+                        onClick={handlePublish}
+                        disabled={publishMutation.isPending || saveMutation.isPending}
+                        data-testid="button-publish"
+                        className="w-full h-14 text-base md:text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg"
                       >
-                        <ChevronLeft className="h-4 w-4 mr-2" />
-                        Back
+                        <Globe className="h-5 w-5 mr-2" />
+                        {publishMutation.isPending ? "Publishing..." : "Publish Website"}
+                        {!isPro && <Lock className="h-4 w-4 ml-2 opacity-70" />}
                       </Button>
-                    
-                      <Button
-                        type="button"
-                        onClick={handleNext}
-                        data-testid="button-next"
-                        className="flex-1 md:flex-none md:ml-auto h-12 md:h-[var(--cta-h)] text-sm bg-teal-600 hover:bg-teal-700"
-                      >
-                        Save & Next
-                        <ChevronRight className="h-4 w-4 ml-2" />
-                      </Button>
+
+                      <p className="text-center text-xs md:text-sm text-muted-foreground pb-4">
+                        Once published, your website will be live at the URL above
+                      </p>
                     </div>
                   </div>
                 )}
-              </form>
-            </Form>
+
+            </form>
+          </Form>
+        </div>
+      </main>
+
+      {/* Fixed Bottom Navigation Bar - E-commerce Style - Always visible on mobile */}
+      {currentStep < STEPS.length && (
+        <div 
+          className="fixed bottom-0 left-0 md:left-64 right-0 z-40 bg-white border-t-2 border-gray-200"
+          style={{ 
+            boxShadow: '0 -8px 30px rgba(0,0,0,0.15)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+          }}
+        >
+          <div className="max-w-[1440px] mx-auto">
+            {/* Navigation Buttons - ABOVE step counting on mobile */}
+            <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 sm:py-4 bg-white">
+              {/* Back Button */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={currentStep === 1}
+                data-testid="button-previous"
+                className={`
+                  h-11 sm:h-12 px-3 sm:px-5 text-xs sm:text-sm font-medium rounded-lg border-2 flex-shrink-0
+                  ${currentStep === 1 
+                    ? 'opacity-40 cursor-not-allowed' 
+                    : 'hover:bg-gray-50 hover:border-blue-400 active:scale-[0.98]'
+                  }
+                `}
+              >
+                <ChevronLeft className="h-4 w-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">Back</span>
+              </Button>
+              
+              {/* Desktop: Step Info */}
+              <div className="hidden md:flex flex-1 items-center justify-center gap-2 text-sm">
+                <span className="text-gray-500">Step</span>
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold text-sm">
+                  {currentStep}
+                </span>
+                <span className="text-gray-500">of {STEPS.length}:</span>
+                <span className="font-semibold text-gray-900">{STEPS[currentStep - 1]?.name}</span>
+              </div>
+              
+              {/* Mobile: Spacer */}
+              <div className="flex-1 md:hidden" />
+            
+              {/* Save & Continue Button - Prominent on mobile */}
+              <Button
+                type="button"
+                onClick={handleNext}
+                data-testid="button-next"
+                className="h-11 sm:h-12 px-4 sm:px-8 text-xs sm:text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-[0.98] shadow-lg shadow-blue-600/30 flex-shrink-0"
+              >
+                <span className="sm:hidden">Save & Next</span>
+                <span className="hidden sm:inline">Save & Continue</span>
+                {!isPro && <Lock className="h-3.5 w-3.5 ml-1 opacity-70" />}
+                {isPro && <ChevronRight className="h-4 w-4 ml-1 sm:ml-1.5" />}
+              </Button>
+            </div>
+            
+            {/* Mobile Step Progress Bar - BELOW navigation buttons */}
+            <div className="md:hidden bg-gray-50 px-4 py-2 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-gray-600">
+                  Step {currentStep} of {STEPS.length}
+                </span>
+                <span className="text-xs font-bold text-blue-600">
+                  {STEPS[currentStep - 1]?.name}
+                </span>
+              </div>
+              {/* Progress Bar */}
+              <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-300"
+                  style={{ width: `${(currentStep / STEPS.length) * 100}%` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Live Preview Dialog */}
-        <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="w-[95vw] max-w-7xl max-h-[95vh] p-0 overflow-hidden">
-            <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b shrink-0">
-              <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
+      {/* Live Preview Dialog - Matches Published Website */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="w-[95vw] max-w-7xl max-h-[95vh] p-0 overflow-hidden">
+          <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b shrink-0 bg-gradient-to-r from-blue-50 to-purple-50">
+            <DialogTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
+              <div className="flex items-center gap-2">
                 <Eye className="h-5 w-5 text-blue-600" />
-                Live Preview
-              </DialogTitle>
-            </DialogHeader>
-            <div className="overflow-y-auto bg-white" style={{ maxHeight: 'calc(95vh - 80px)' }}>
-              <LivePreview formData={form.watch()} services={services} products={products} />
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+                <span>Live Preview</span>
+                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                  Matches Published Site
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span className="hidden sm:inline">Scroll to see full website</span>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto bg-white" style={{ maxHeight: 'calc(95vh - 80px)' }}>
+            <LivePreview formData={form.watch()} services={services} products={products} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pro Subscription Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action={blockedAction}
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          window.location.href = '/vendor/account';
+        }}
+      />
     </div>
   );
 }
 
-// Gallery Only Step Component (Step 4)
+// Gallery Only Step Component (Step 5) - Optimized
 function GalleryOnlyStep({ form }: { form: any }) {
   const handleImagesChange = async (urls: string[]) => {
     form.setValue("heroMedia", urls, { shouldValidate: true, shouldDirty: true });
   };
+  
+  const heroMedia = form.watch("heroMedia") || [];
 
   return (
-    <Card className="rounded-xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ImageIcon className="h-5 w-5" />
-          Gallery Images
-        </CardTitle>
-        <CardDescription>
-          Upload at least 1 image to showcase your business. These will be displayed in your website gallery.
-          <span className="block mt-1 text-xs text-amber-600">
-            * At least 1 image is required to proceed
-          </span>
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium text-base">Business Gallery</h4>
-            <Badge variant={(form.watch("heroMedia") || []).length >= 1 ? "default" : "destructive"}>
-              {(form.watch("heroMedia") || []).length}/10 images
-            </Badge>
+    <Card className="rounded-2xl border-0 shadow-sm bg-white">
+      <CardHeader className="p-5 md:p-6 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-purple-50 flex items-center justify-center">
+            <ImageIcon className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
           </div>
+          <div className="flex-1">
+            <CardTitle className="text-lg md:text-xl font-semibold">Gallery Images</CardTitle>
+            <CardDescription className="text-sm text-gray-500">Showcase your business with beautiful images</CardDescription>
+          </div>
+          <Badge variant={heroMedia.length >= 1 ? "default" : "destructive"} className="text-xs">
+            {heroMedia.length}/10
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-5 md:p-6 pt-0 space-y-4">
+        {heroMedia.length < 1 && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+            <p className="text-sm text-amber-800 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              At least 1 gallery image is required.
+            </p>
+          </div>
+        )}
 
-          {(form.watch("heroMedia") || []).length < 1 && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-              <p className="text-sm text-amber-800">
-                <AlertCircle className="h-4 w-4 inline mr-2" />
-                At least 1 gallery image is required to proceed.
+        <MultiFileUpload
+          values={heroMedia}
+          onChange={handleImagesChange}
+          category="hero"
+          maxFiles={10}
+          className="w-full"
+          allowAnyFile={true}
+        />
+
+        <p className="text-xs text-gray-500">
+          Recommended: 1200x800px or larger. Supports JPG, PNG, WebP.
+        </p>
+
+        {/* Preview Grid - Responsive */}
+        {heroMedia.length > 0 && (
+          <div className="mt-4">
+            <h5 className="text-sm font-medium text-gray-700 mb-3">Uploaded Images</h5>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {heroMedia.map((url: string, index: number) => (
+                <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 group">
+                  <img
+                    src={url}
+                    alt={`Gallery ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newImages = heroMedia.filter((_: string, i: number) => i !== index);
+                      form.setValue("heroMedia", newImages, { shouldValidate: true, shouldDirty: true });
+                    }}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-lg"
+                  >
+                    ×
+                  </button>
+                  <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                    {index + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Catalog Step Component - MNC Level Optimization
+function CatalogStep({ form, services, products }: { form: any; services: VendorCatalogue[]; products: VendorProduct[] }) {
+  const selectedServiceIds = form.watch("selectedServiceIds") || [];
+  const selectedProductIds = form.watch("selectedProductIds") || [];
+  
+  const toggleService = (serviceId: string, checked: boolean) => {
+    const current = form.getValues("selectedServiceIds") || [];
+    if (checked) {
+      form.setValue("selectedServiceIds", [...current, serviceId], { shouldValidate: true, shouldDirty: true });
+    } else {
+      form.setValue("selectedServiceIds", current.filter((id: string) => id !== serviceId), { shouldValidate: true, shouldDirty: true });
+    }
+  };
+  
+  const toggleProduct = (productId: string, checked: boolean) => {
+    const current = form.getValues("selectedProductIds") || [];
+    if (checked) {
+      form.setValue("selectedProductIds", [...current, productId], { shouldValidate: true, shouldDirty: true });
+    } else {
+      form.setValue("selectedProductIds", current.filter((id: string) => id !== productId), { shouldValidate: true, shouldDirty: true });
+    }
+  };
+  
+  const selectAllServices = () => {
+    form.setValue("selectedServiceIds", services.map(s => s.id), { shouldValidate: true, shouldDirty: true });
+  };
+  
+  const selectAllProducts = () => {
+    form.setValue("selectedProductIds", products.map(p => p.id), { shouldValidate: true, shouldDirty: true });
+  };
+  
+  const deselectAllServices = () => {
+    form.setValue("selectedServiceIds", [], { shouldValidate: true, shouldDirty: true });
+  };
+  
+  const deselectAllProducts = () => {
+    form.setValue("selectedProductIds", [], { shouldValidate: true, shouldDirty: true });
+  };
+
+  return (
+    <Card className="rounded-2xl border-0 shadow-sm bg-white">
+      <CardHeader className="p-5 md:p-6 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-indigo-50 flex items-center justify-center">
+            <Package className="h-5 w-5 md:h-6 md:w-6 text-indigo-600" />
+          </div>
+          <div>
+            <CardTitle className="text-lg md:text-xl font-semibold">Select Catalog Items</CardTitle>
+            <CardDescription className="text-sm text-gray-500">Choose what to display on your website</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-5 md:p-6 pt-0 space-y-5">
+        {selectedServiceIds.length === 0 && selectedProductIds.length === 0 && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+            <p className="text-sm text-amber-800">
+              <AlertCircle className="h-4 w-4 inline mr-2" />
+              At least 1 service or product must be selected.
+            </p>
+          </div>
+        )}
+        
+        {/* Services Section - Fully visible on all devices */}
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h4 className="font-medium text-base">Services</h4>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {selectedServiceIds.length}/{services.length} selected
+              </Badge>
+              {services.length > 0 && (
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllServices}
+                    className="text-xs h-7 px-2"
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={deselectAllServices}
+                    className="text-xs h-7 px-2"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+          {services.length > 0 ? (
+            <div className="border rounded-lg p-3 md:p-4 space-y-2 max-h-[50vh] md:max-h-80 overflow-y-auto bg-muted/30 overscroll-contain">
+              {services.map((service) => (
+                <div 
+                  key={service.id} 
+                  className="flex items-start gap-3 p-3 hover:bg-background rounded-lg transition-colors border border-transparent hover:border-border"
+                >
+                  <Checkbox
+                    checked={selectedServiceIds.includes(service.id)}
+                    onCheckedChange={(checked) => toggleService(service.id, !!checked)}
+                    data-testid={`checkbox-service-${service.id}`}
+                    className="mt-0.5 h-5 w-5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium block">{service.name}</span>
+                    {service.description && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{service.description}</p>
+                    )}
+                    {service.basePrice && (
+                      <p className="text-xs font-medium text-primary mt-1">₹{service.basePrice}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="border rounded-lg p-4 bg-muted/30 text-center">
+              <p className="text-sm text-muted-foreground">
+                No services available. Add services in the Services Catalogue module first.
               </p>
             </div>
           )}
+        </div>
 
-          <MultiFileUpload
-            values={form.watch("heroMedia") || []}
-            onChange={handleImagesChange}
-            category="hero"
-            maxFiles={10}
-            className="w-full"
-            allowAnyFile={true}
-          />
-
-          <p className="text-sm text-muted-foreground">
-            Upload high-quality images of your business, products, or services. Recommended size: 1200x800px or larger.
-          </p>
-
-          {/* Preview Grid */}
-          {(form.watch("heroMedia") || []).length > 0 && (
-            <div className="mt-4">
-              <h5 className="text-sm font-medium mb-3">Preview</h5>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {(form.watch("heroMedia") || []).map((url: string, index: number) => (
-                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 border">
-                    <img
-                      src={url}
-                      alt={`Gallery ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const currentImages = form.watch("heroMedia") || [];
-                        const newImages = currentImages.filter((_: string, i: number) => i !== index);
-                        form.setValue("heroMedia", newImages, { shouldValidate: true, shouldDirty: true });
-                      }}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                    >
-                      ×
-                    </button>
+        {/* Products Section - Fully visible on all devices */}
+        <div className="space-y-3 border-t pt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h4 className="font-medium text-base">Products</h4>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {selectedProductIds.length}/{products.length} selected
+              </Badge>
+              {products.length > 0 && (
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllProducts}
+                    className="text-xs h-7 px-2"
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={deselectAllProducts}
+                    className="text-xs h-7 px-2"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+          {products.length > 0 ? (
+            <div className="border rounded-lg p-3 md:p-4 space-y-2 max-h-[50vh] md:max-h-80 overflow-y-auto bg-muted/30 overscroll-contain">
+              {products.map((product) => (
+                <div 
+                  key={product.id} 
+                  className="flex items-start gap-3 p-3 hover:bg-background rounded-lg transition-colors border border-transparent hover:border-border"
+                >
+                  <Checkbox
+                    checked={selectedProductIds.includes(product.id)}
+                    onCheckedChange={(checked) => toggleProduct(product.id, !!checked)}
+                    data-testid={`checkbox-product-${product.id}`}
+                    className="mt-0.5 h-5 w-5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium block">{product.name}</span>
+                    {product.description && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
+                    )}
+                    {product.sellingPrice && (
+                      <p className="text-xs font-medium text-primary mt-1">₹{product.sellingPrice}</p>
+                    )}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="border rounded-lg p-4 bg-muted/30 text-center">
+              <p className="text-sm text-muted-foreground">
+                No products available. Add products in the Products Catalogue module first.
+              </p>
             </div>
           )}
         </div>
+        
+        {services.length === 0 && products.length === 0 && (
+          <div className="border rounded-lg p-6 bg-muted/30 text-center">
+            <Package className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+            <p className="text-sm font-medium mb-1">No catalog items available</p>
+            <p className="text-xs text-muted-foreground">
+              Please add services or products in their respective catalogue modules first.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -2542,6 +2787,7 @@ function GalleryStep({ form }: { form: any }) {
   );
 }
 
+// Team Members Step - Optimized
 function TeamMembersStep({ form }: { form: any }) {
   const [newMember, setNewMember] = useState({ name: "", role: "", bio: "", photo: "" });
   const teamMembers = form.watch("teamMembers") || [];
@@ -2555,50 +2801,60 @@ function TeamMembersStep({ form }: { form: any }) {
   };
 
   return (
-    <Card className="rounded-xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Team & About Us
-        </CardTitle>
-        <CardDescription>
-          Introduce your team members
-          <span className="block mt-1 text-xs text-amber-600">
-            * At least 1 team member is required to proceed
-          </span>
-        </CardDescription>
+    <Card className="rounded-2xl border-0 shadow-sm bg-white">
+      <CardHeader className="p-5 md:p-6 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-pink-50 flex items-center justify-center">
+            <Users className="h-5 w-5 md:h-6 md:w-6 text-pink-600" />
+          </div>
+          <div className="flex-1">
+            <CardTitle className="text-lg md:text-xl font-semibold">Team Members</CardTitle>
+            <CardDescription className="text-sm text-gray-500">Introduce your team to visitors</CardDescription>
+          </div>
+          <Badge variant={teamMembers.length >= 1 ? "default" : "destructive"} className="text-xs">
+            {teamMembers.length} added
+          </Badge>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="p-5 md:p-6 pt-0 space-y-5">
         {teamMembers.length < 1 && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-            <p className="text-sm text-amber-800">
-              <AlertCircle className="h-4 w-4 inline mr-2" />
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+            <p className="text-sm text-amber-800 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
               At least 1 team member is required.
             </p>
           </div>
         )}
-        <div className="space-y-3">
-          <Input
-            value={newMember.name}
-            onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-            placeholder="Name"
-            data-testid="input-team-name"
-          />
-          <Input
-            value={newMember.role}
-            onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-            placeholder="Role"
-            data-testid="input-team-role"
-          />
+        
+        {/* Add New Member Form */}
+        <div className="p-4 bg-gray-50 rounded-xl space-y-4">
+          <h4 className="text-sm font-semibold text-gray-700">Add Team Member</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              value={newMember.name}
+              onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+              placeholder="Full Name *"
+              data-testid="input-team-name"
+              className="h-11 rounded-xl"
+            />
+            <Input
+              value={newMember.role}
+              onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
+              placeholder="Role / Designation *"
+              data-testid="input-team-role"
+              className="h-11 rounded-xl"
+            />
+          </div>
           <Textarea
             value={newMember.bio}
             onChange={(e) => setNewMember({ ...newMember, bio: e.target.value })}
-            placeholder="Bio (optional)"
+            placeholder="Short bio (optional)"
             data-testid="input-team-bio"
             rows={2}
+            className="rounded-xl resize-none"
           />
           <div>
-            <label className="text-sm font-medium mb-2 block">Team Member Photo (optional)</label>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Photo (optional)</label>
             <FileUpload
               value={newMember.photo}
               onChange={(url) => setNewMember({ ...newMember, photo: url })}
@@ -2607,35 +2863,52 @@ function TeamMembersStep({ form }: { form: any }) {
               allowAnyFile
             />
           </div>
-          <Button type="button" onClick={addTeamMember} className="w-full" data-testid="button-add-team">
+          <Button 
+            type="button" 
+            onClick={addTeamMember} 
+            className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700" 
+            data-testid="button-add-team"
+            disabled={!newMember.name || !newMember.role}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Team Member
           </Button>
         </div>
 
-        {form.watch("teamMembers") && Array.isArray(form.watch("teamMembers")) && form.watch("teamMembers").length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-medium">Team Members</h4>
-            {(form.watch("teamMembers") || []).map((member: any, index: number) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-md">
-                <div>
-                  <p className="font-medium">{member.name}</p>
-                  <p className="text-sm text-muted-foreground">{member.role}</p>
+        {/* Team Members List */}
+        {teamMembers.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-gray-700">Added Members ({teamMembers.length})</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {teamMembers.map((member: any, index: number) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {member.photo ? (
+                      <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-lg font-bold text-gray-400">{member.name?.charAt(0)}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-gray-900 truncate">{member.name}</p>
+                    <p className="text-xs text-gray-500 truncate">{member.role}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-red-500 hover:bg-red-50"
+                    onClick={() => {
+                      const members = teamMembers.filter((_: any, i: number) => i !== index);
+                      form.setValue("teamMembers", members);
+                    }}
+                    data-testid={`button-remove-team-${index}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const members = (form.watch("teamMembers") || []).filter((_: any, i: number) => i !== index);
-                    form.setValue("teamMembers", members);
-                  }}
-                  data-testid={`button-remove-team-${index}`}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
@@ -3335,53 +3608,66 @@ function LivePreview({
   return (
     <div className="w-full min-h-screen bg-white" style={{ fontFamily: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" }}>
       <FullscreenModal />
-      {/* ===== HEADER - Professional Navigation ===== */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-3 md:py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center gap-2.5 md:gap-3">
+      {/* ===== HEADER - Matches Published Website ===== */}
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-30 shadow-sm">
+        <div className="w-full px-4 md:px-6 lg:px-12">
+          <div className="flex items-center justify-between h-16 md:h-20">
+            {/* Logo Section - Same as Published Website */}
+            <div className="flex items-center gap-3 md:gap-4">
               {formData.logo ? (
-                <img src={formData.logo} alt={formData.businessName || "Logo"} className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-cover" />
+                <img src={formData.logo} alt={formData.businessName || "Logo"} className="h-10 w-10 md:h-14 md:w-14 rounded-xl object-cover shadow-md" />
               ) : (
                 <div 
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm md:text-base shadow-md"
-                  style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
+                  className="h-10 w-10 md:h-14 md:w-14 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-2xl shadow-md"
+                  style={{ backgroundColor: primaryColor }}
                 >
                   {formData.businessName?.charAt(0)?.toUpperCase() || "Y"}
                 </div>
               )}
-              <div className="flex flex-col">
-                <span className="text-base md:text-lg font-bold text-gray-900 tracking-tight">{formData.businessName || "Your Business"}</span>
-                {formData.tagline && <span className="text-[10px] md:text-xs text-gray-500 hidden sm:block">{formData.tagline}</span>}
+              <div className="hidden sm:block">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <h1 className="font-bold text-lg md:text-xl lg:text-2xl text-gray-900">{formData.businessName || "Your Business"}</h1>
+                  {/* VYORA Verified Badge - Same as Published */}
+                  <div className="flex items-center gap-1.5 px-2 md:px-3 py-1 rounded-full" style={{ backgroundColor: primaryColor + '15' }}>
+                    <CheckCircle2 className="h-3.5 w-3.5 md:h-4 md:w-4" style={{ color: primaryColor }} />
+                    <span className="text-[10px] md:text-xs font-semibold" style={{ color: primaryColor }}>Verified</span>
+                  </div>
+                </div>
+                {formData.tagline && <p className="text-xs md:text-sm text-gray-500 mt-0.5 max-w-md line-clamp-1">{formData.tagline}</p>}
               </div>
             </div>
             
             {/* Navigation - Hidden on mobile */}
-            <nav className="hidden lg:flex items-center gap-1">
-              <a href="#products" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Products</a>
-              <a href="#services" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Services</a>
-              <a href="#gallery" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Gallery</a>
-              <a href="#about" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">About</a>
-              <a href="#testimonials" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Reviews</a>
-              <a href="#contact" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">Contact</a>
+            {/* Desktop Navigation - Centered with Background - Same as Published */}
+            <nav className="hidden lg:flex items-center gap-1 bg-gray-50 rounded-full px-2 py-1.5">
+              <a href="#products" className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all">Products</a>
+              <a href="#services" className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all">Services</a>
+              <a href="#gallery" className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all">Gallery</a>
+              <a href="#about" className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all">About</a>
+              <a href="#contact" className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all">Contact</a>
             </nav>
             
-            {/* CTA Buttons */}
-            <div className="flex items-center gap-2">
+            {/* Right Actions - Same as Published */}
+            <div className="flex items-center gap-3">
+              {/* Business Status Indicator - Only on desktop */}
+              <div className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 text-green-700">
+                <span className="w-2.5 h-2.5 rounded-full animate-pulse bg-green-500"></span>
+                <span className="text-sm font-semibold">Open Now</span>
+              </div>
+              
               <Button 
                 variant="outline"
                 size="sm"
-                className="hidden md:inline-flex rounded-full px-5 h-9 font-semibold text-xs border-2 hover:bg-gray-50"
+                className="hidden md:inline-flex rounded-full px-5 h-10 font-semibold text-sm border-2 hover:bg-gray-50"
                 style={{ borderColor: primaryColor, color: primaryColor }}
               >
-                <Phone className="w-3.5 h-3.5 mr-1.5" />
+                <Phone className="w-4 h-4 mr-1.5" />
                 Call Now
               </Button>
               <Button 
                 size="sm"
-                className="rounded-full px-5 h-9 font-semibold text-xs shadow-md hover:shadow-lg transition-all"
-                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`, color: 'white' }}
+                className="rounded-full px-5 h-10 font-semibold text-sm shadow-md hover:shadow-lg transition-all"
+                style={{ backgroundColor: primaryColor, color: 'white' }}
               >
                 Get Quote
               </Button>
@@ -4428,7 +4714,10 @@ function EcommerceSettingsStep({ form }: { form: any }) {
       }
     }
 
-    // Auto-enable all other settings (except guest checkout - account creation is required)
+    // COMPULSORY: Account creation is required - guest checkout is ALWAYS disabled
+    form.setValue("allowGuestCheckout", false, { shouldDirty: false });
+
+    // Auto-enable all other settings
     if (!form.getValues("requirePhone")) {
       form.setValue("requirePhone", true, { shouldDirty: false });
     }
@@ -4522,29 +4811,23 @@ function EcommerceSettingsStep({ form }: { form: any }) {
               )}
             />
 
-                {/* Account Creation Required */}
+                {/* Account Creation Required - COMPULSORY */}
                 {(form.watch("ecommerceMode") === "cart" || form.watch("ecommerceMode") === "both") && (
                   <>
-                    <FormField
-                      control={form.control}
-                      name="allowGuestCheckout"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/30">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Account Creation Required</FormLabel>
-                            <FormDescription>
-                              Customers must create an account to place orders
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={false}
-                              disabled
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                    <div className="flex flex-row items-center justify-between rounded-lg border-2 border-blue-200 p-4 bg-blue-50">
+                      <div className="space-y-0.5">
+                        <div className="text-base font-medium flex items-center gap-2">
+                          Account Creation Required
+                          <Badge className="bg-blue-600 text-white text-xs">Compulsory</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Customers must create an account to place orders. This is mandatory for order tracking and customer communication.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <CheckCircle2 className="h-6 w-6" />
+                      </div>
+                    </div>
 
                 {/* Payment Methods - COD Only */}
                 <div className="space-y-3">

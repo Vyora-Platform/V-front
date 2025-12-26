@@ -15,7 +15,7 @@ import {
   ChevronLeft, ChevronRight, Wifi, Car, Thermometer, Bath, Users, 
   GlassWater, Shield, Zap, HeartPulse, UserCheck, CreditCard, 
   SprayCan, Stethoscope, Building2, MessageCircle, Lock, Sparkles,
-  Home, FileText, DollarSign, Layers, Camera
+  Home, FileText, IndianRupee, Layers, Camera
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -497,7 +497,7 @@ export default function ServiceListingForm({
   // Step indicator with icons
   const steps = [
     { number: 1, title: "Basic Info", shortTitle: "Basic", icon: FileText },
-    { number: 2, title: "Pricing & Availability", shortTitle: "Pricing", icon: DollarSign },
+    { number: 2, title: "Pricing & Availability", shortTitle: "Pricing", icon: IndianRupee },
     { number: 3, title: "Inventory", shortTitle: "Inventory", icon: Layers },
     { number: 4, title: "Details", shortTitle: "Details", icon: Sparkles },
     { number: 5, title: "Media", shortTitle: "Media", icon: Camera },
@@ -523,7 +523,7 @@ export default function ServiceListingForm({
   return (
     <div 
       ref={formContainerRef}
-      className="flex flex-col min-h-full md:min-h-0 overflow-y-auto"
+      className="flex flex-col h-full min-h-0 overflow-y-auto"
     >
       {/* Mobile Header - Fixed */}
       <div className="md:hidden sticky top-0 z-20 bg-background border-b px-4 py-3">
@@ -949,8 +949,8 @@ export default function ServiceListingForm({
                           <Input type="number" placeholder="Price" id="pkg-price" className="h-10" />
                           <Button
                             type="button"
-                            size="icon"
-                            className="h-10 w-10 shrink-0"
+                            variant="outline"
+                            className="h-10 px-3 shrink-0 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700 text-sm"
                             onClick={() => {
                               const name = (document.getElementById('pkg-name') as HTMLInputElement)?.value;
                               const sessions = Number((document.getElementById('pkg-sessions') as HTMLInputElement)?.value);
@@ -963,7 +963,7 @@ export default function ServiceListingForm({
                               }
                             }}
                           >
-                            <Plus className="h-4 w-4" />
+                            Add
                           </Button>
                         </div>
                       </div>
@@ -1088,8 +1088,8 @@ export default function ServiceListingForm({
                             </Select>
                             <Button
                               type="button"
-                              size="icon"
-                              className="h-10 w-10"
+                              variant="outline"
+                              className="h-10 px-3 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700 text-sm"
                               onClick={() => {
                                 const label = (document.getElementById('charge-label') as HTMLInputElement)?.value;
                                 const amount = Number((document.getElementById('charge-amount') as HTMLInputElement)?.value);
@@ -1101,7 +1101,7 @@ export default function ServiceListingForm({
                                 }
                               }}
                             >
-                              <Plus className="h-4 w-4" />
+                              Add
                             </Button>
                           </div>
                         </div>
@@ -1160,7 +1160,7 @@ export default function ServiceListingForm({
                     </Select>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 bg-muted/20 rounded-xl">
+                  <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-3 bg-muted/20 rounded-xl scrollbar-thin">
                     {availableTimeSlots.map(slot => (
                       <button
                         key={slot}
@@ -1205,8 +1205,8 @@ export default function ServiceListingForm({
                       />
                       <Button
                         type="button"
-                        size="icon"
-                        className="h-10 w-10 shrink-0"
+                        variant="outline"
+                        className="h-10 px-3 shrink-0 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700 text-sm"
                         onClick={() => {
                           const slot = (document.getElementById('custom-slot') as HTMLInputElement)?.value;
                           if (slot) {
@@ -1215,7 +1215,7 @@ export default function ServiceListingForm({
                           }
                         }}
                       >
-                        <Plus className="h-4 w-4" />
+                        Add
                       </Button>
                     </div>
                   </div>
@@ -1298,7 +1298,7 @@ export default function ServiceListingForm({
                     </div>
 
                     {inventoryItems.length > 0 && (
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                      <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-thin">
                         {inventoryItems.map((item, index) => (
                           <div key={index} className="flex items-center justify-between p-3 bg-background rounded-xl border">
                             <div>
@@ -1354,8 +1354,12 @@ export default function ServiceListingForm({
                         onChange={(e) => setNewInventoryIdentifier(e.target.value)}
                         className="h-12 md:h-10"
                       />
-                      <Button type="button" onClick={addInventoryItem} className="h-12 md:h-10">
-                        <Plus className="h-4 w-4 mr-2" />
+                      <Button 
+                        type="button" 
+                        onClick={addInventoryItem} 
+                        variant="outline"
+                        className="h-12 md:h-10 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                      >
                         Add Item
                       </Button>
                     </div>
@@ -1416,8 +1420,8 @@ export default function ServiceListingForm({
                       />
                       <Button
                         type="button"
-                        size="icon"
-                        className="h-11 w-11 shrink-0 bg-green-500 hover:bg-green-600"
+                        variant="outline"
+                        className="h-11 px-4 shrink-0 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                         onClick={() => {
                           if (newInclusion.trim()) {
                             setInclusions(prev => [...prev, newInclusion.trim()]);
@@ -1425,7 +1429,7 @@ export default function ServiceListingForm({
                           }
                         }}
                       >
-                        <Plus className="h-4 w-4" />
+                        Add
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -1462,8 +1466,8 @@ export default function ServiceListingForm({
                       />
                       <Button
                         type="button"
-                        size="icon"
-                        className="h-11 w-11 shrink-0 bg-red-500 hover:bg-red-600"
+                        variant="outline"
+                        className="h-11 px-4 shrink-0 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                         onClick={() => {
                           if (newExclusion.trim()) {
                             setExclusions(prev => [...prev, newExclusion.trim()]);
@@ -1471,7 +1475,7 @@ export default function ServiceListingForm({
                           }
                         }}
                       >
-                        <Plus className="h-4 w-4" />
+                        Add
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -1529,8 +1533,8 @@ export default function ServiceListingForm({
                     />
                     <Button
                       type="button"
-                      size="icon"
-                      className="h-11 w-11 shrink-0"
+                      variant="outline"
+                      className="h-11 px-4 shrink-0 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                       onClick={() => {
                         if (newAmenity.trim()) {
                           setCustomAmenities(prev => [...prev, newAmenity.trim()]);
@@ -1538,7 +1542,7 @@ export default function ServiceListingForm({
                         }
                       }}
                     >
-                      <Plus className="h-4 w-4" />
+                      Add
                     </Button>
                   </div>
                   {customAmenities.length > 0 && (
@@ -1598,7 +1602,7 @@ export default function ServiceListingForm({
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full"
+                      className="w-full h-11 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                       onClick={() => {
                         if (newPolicyTitle.trim() && newPolicyContent.trim()) {
                           setPolicies(prev => [...prev, { title: newPolicyTitle.trim(), content: newPolicyContent.trim() }]);
@@ -1607,7 +1611,6 @@ export default function ServiceListingForm({
                         }
                       }}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
                       Add Policy
                     </Button>
                   </div>

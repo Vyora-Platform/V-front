@@ -7,7 +7,8 @@ import {
   Calendar, Phone, Mail, MapPin, User, Clock, IndianRupee, ArrowLeft, Plus,
   Search, Filter, TrendingUp, TrendingDown, CheckCircle, XCircle, AlertCircle,
   MoreVertical, Eye, Edit, Trash2, MessageCircle, ChevronRight, CalendarDays,
-  Timer, DollarSign, Repeat, FileText, Sparkles, Building2, Smartphone, Monitor
+  Timer, DollarSign, Repeat, FileText, Sparkles, Building2, Smartphone, Monitor,
+  UserCheck, ChevronDown, CreditCard
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -40,15 +41,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { BookingFormDialog } from "@/components/BookingFormDialog";
-import type { Booking, Vendor } from "@shared/schema";
+import type { Booking, Vendor, Employee } from "@shared/schema";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 type BookingWithService = Booking & {
   serviceName?: string;
   serviceCategory?: string;
+  assignedToName?: string;
 };
 
 // Time slot options
@@ -71,6 +76,21 @@ export default function VendorBookings() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [deleteBookingId, setDeleteBookingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"all" | "today" | "upcoming" | "analytics">("all");
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Fetch vendor's bookings
   const { data: bookings = [], isLoading } = useQuery<BookingWithService[]>({
@@ -84,6 +104,18 @@ export default function VendorBookings() {
     enabled: !!vendorId,
   });
 
+  // Fetch employees for assignment names
+  const { data: employees = [] } = useQuery<Employee[]>({
+    queryKey: [`/api/vendors/${vendorId}/employees`],
+    enabled: !!vendorId,
+  });
+
+  // Create employee map for quick lookup
+  const employeeMap = employees.reduce((acc, emp) => {
+    acc[emp.id] = emp;
+    return acc;
+  }, {} as Record<string, Employee>);
+
   // Update booking status
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -96,6 +128,21 @@ export default function VendorBookings() {
     },
     onError: () => {
       toast({ title: "Failed to update status", variant: "destructive" });
+    },
+  });
+
+  // Update payment status
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({ id, paymentStatus }: { id: string; paymentStatus: string }) => {
+      const response = await apiRequest("PATCH", `/api/bookings/${id}`, { paymentStatus });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/bookings`] });
+      toast({ title: "Payment status updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update payment status", variant: "destructive" });
     },
   });
 
@@ -342,13 +389,14 @@ Thank you for choosing us! 🙏`;
             </div>
           </div>
           <Button
-            onClick={() => setIsCreateDialogOpen(true)}
+            onClick={() => handleProAction('create', () => setIsCreateDialogOpen(true))}
             size="sm"
             className="gap-1.5 h-10 px-4"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Create Booking</span>
             <span className="sm:hidden">New</span>
+            {!isPro && <Lock className="w-3.5 h-3.5 ml-1 opacity-60" />}
           </Button>
         </div>
       </div>
@@ -549,8 +597,10 @@ Thank you for choosing us! 🙏`;
               handleCall={handleCall}
               handleWhatsApp={handleWhatsApp}
               updateStatusMutation={updateStatusMutation}
+              updatePaymentStatusMutation={updatePaymentStatusMutation}
               setDeleteBookingId={setDeleteBookingId}
               setLocation={setLocation}
+              employeeMap={employeeMap}
             />
           </TabsContent>
 
@@ -565,8 +615,10 @@ Thank you for choosing us! 🙏`;
               handleCall={handleCall}
               handleWhatsApp={handleWhatsApp}
               updateStatusMutation={updateStatusMutation}
+              updatePaymentStatusMutation={updatePaymentStatusMutation}
               setDeleteBookingId={setDeleteBookingId}
               setLocation={setLocation}
+              employeeMap={employeeMap}
             />
           </TabsContent>
 
@@ -581,8 +633,10 @@ Thank you for choosing us! 🙏`;
               handleCall={handleCall}
               handleWhatsApp={handleWhatsApp}
               updateStatusMutation={updateStatusMutation}
+              updatePaymentStatusMutation={updatePaymentStatusMutation}
               setDeleteBookingId={setDeleteBookingId}
               setLocation={setLocation}
+              employeeMap={employeeMap}
             />
           </TabsContent>
 
@@ -743,6 +797,13 @@ Thank you for choosing us! 🙏`;
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action={blockedAction}
+      />
     </div>
   );
 }
@@ -758,8 +819,10 @@ interface BookingsListProps {
   handleCall: (phone: string) => void;
   handleWhatsApp: (booking: BookingWithService) => void;
   updateStatusMutation: any;
+  updatePaymentStatusMutation: any;
   setDeleteBookingId: (id: string) => void;
   setLocation: (path: string) => void;
+  employeeMap: Record<string, Employee>;
 }
 
 function BookingsList({
@@ -772,8 +835,10 @@ function BookingsList({
   handleCall,
   handleWhatsApp,
   updateStatusMutation,
+  updatePaymentStatusMutation,
   setDeleteBookingId,
   setLocation,
+  employeeMap,
 }: BookingsListProps) {
   if (bookings.length === 0) {
     return (
@@ -789,147 +854,233 @@ function BookingsList({
 
   return (
     <div className="space-y-3">
-      {bookings.map((booking) => (
-        <Card 
-          key={booking.id} 
-          className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-          onClick={() => setLocation(`/vendor/bookings/${booking.id}`)}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              {/* Avatar */}
-              <Avatar name={booking.patientName} />
+      {bookings.map((booking) => {
+        const assignedEmployee = booking.assignedTo ? employeeMap[booking.assignedTo] : null;
+        
+        return (
+          <Card 
+            key={booking.id} 
+            className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => setLocation(`/vendor/bookings/${booking.id}`)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                {/* Avatar */}
+                <Avatar name={booking.patientName} />
 
-              {/* Main Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-foreground truncate">{booking.patientName}</h3>
+                {/* Main Content */}
+                <div className="flex-1 min-w-0">
+                  {/* Header Row */}
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-foreground">{booking.patientName}</h3>
+                        {getSourceBadge(booking.source)}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {booking.serviceName || "Service"} {booking.serviceCategory ? `• ${booking.serviceCategory}` : ""}
+                      </p>
+                    </div>
+                    
+                    {/* Amount & Badges */}
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-lg flex items-center justify-end">
+                        <IndianRupee className="h-4 w-4" />
+                        {booking.totalAmount.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Details Grid - One info per line */}
+                  <div className="space-y-1.5 text-sm border-t pt-3 mb-3">
+                    {/* Date */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{getDateLabel(new Date(booking.bookingDate))}</span>
+                    </div>
+                    
+                    {/* Time */}
+                    {booking.timeSlot && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>{booking.timeSlot}</span>
+                      </div>
+                    )}
+
+                    {/* Phone */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{booking.patientPhone}</span>
+                    </div>
+
+                    {/* Visit Type / Home Collection */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{booking.isHomeCollection ? "Home Collection" : "Visit at Location"}</span>
                       {booking.isHomeCollection && (
-                        <Badge variant="outline" className="text-[10px] bg-cyan-50 text-cyan-700 border-cyan-200">
-                          <MapPin className="h-2.5 w-2.5 mr-0.5" />
+                        <Badge variant="outline" className="text-[10px] bg-cyan-50 text-cyan-700 border-cyan-200 ml-1">
                           Home
                         </Badge>
                       )}
-                      {getSourceBadge(booking.source)}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate mt-0.5">
-                      {booking.serviceName || "Service"} {booking.serviceCategory ? `• ${booking.serviceCategory}` : ""}
-                    </p>
-                  </div>
-                  
-                  {/* Amount */}
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-lg flex items-center justify-end">
-                      <IndianRupee className="h-4 w-4" />
-                      {booking.totalAmount.toLocaleString()}
-                    </p>
-                    <div className="flex gap-1.5 mt-1">
-                      <Badge className={`${getStatusColor(booking.status)} text-[10px] px-1.5 py-0 h-5 border`}>
-                        {booking.status}
-                      </Badge>
-                      <Badge className={`${getPaymentStatusColor(booking.paymentStatus || "pending")} text-[10px] px-1.5 py-0 h-5 border`}>
-                        {booking.paymentStatus || "pending"}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Date & Time */}
-                <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>{getDateLabel(new Date(booking.bookingDate))}</span>
-                  </div>
-                  {booking.timeSlot && (
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>{booking.timeSlot}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCall(booking.patientPhone);
-                    }}
-                    className="flex-1 h-9 gap-1.5 text-xs"
-                  >
-                    <Phone className="h-4 w-4 text-blue-600" />
-                    <span className="hidden sm:inline">Call Customer</span>
-                    <span className="sm:hidden">Call</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleWhatsApp(booking);
-                    }}
-                    className="flex-1 h-9 gap-1.5 text-xs bg-green-50 hover:bg-green-100 border-green-200"
-                  >
-                    <FaWhatsapp className="h-4 w-4 text-green-600" />
-                    <span className="hidden sm:inline">Send Reminder</span>
-                    <span className="sm:hidden">WhatsApp</span>
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="outline" size="sm" className="h-9 w-9 p-0">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={() => setLocation(`/vendor/bookings/${booking.id}`)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      {booking.status === "pending" && (
-                        <>
-                          <DropdownMenuItem 
-                            onClick={() => updateStatusMutation.mutate({ id: booking.id, status: "confirmed" })}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2 text-blue-600" />
-                            Confirm Booking
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => updateStatusMutation.mutate({ id: booking.id, status: "cancelled" })}
-                          >
-                            <XCircle className="h-4 w-4 mr-2 text-red-600" />
-                            Cancel Booking
-                          </DropdownMenuItem>
-                        </>
+                    {/* Assigned To */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <UserCheck className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{assignedEmployee ? assignedEmployee.name : "Unassigned"}</span>
+                      {assignedEmployee && (
+                        <Badge variant="outline" className="text-[10px] ml-1">
+                          {assignedEmployee.role}
+                        </Badge>
                       )}
-                      {booking.status === "confirmed" && (
+                    </div>
+
+                    {/* Booking Status */}
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge className={`${getStatusColor(booking.status)} text-[10px] px-1.5 py-0 h-5 border`}>
+                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                      </Badge>
+                    </div>
+
+                    {/* Payment Status */}
+                    <div className="flex items-center gap-2">
+                      <IndianRupee className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-muted-foreground">Payment:</span>
+                      <Badge className={`${getPaymentStatusColor(booking.paymentStatus || "pending")} text-[10px] px-1.5 py-0 h-5 border`}>
+                        {(booking.paymentStatus || "pending").charAt(0).toUpperCase() + (booking.paymentStatus || "pending").slice(1)}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCall(booking.patientPhone);
+                      }}
+                      className="h-9 gap-1.5 text-xs"
+                    >
+                      <Phone className="h-4 w-4 text-blue-600" />
+                      <span className="hidden sm:inline">Call</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleWhatsApp(booking);
+                      }}
+                      className="h-9 gap-1.5 text-xs bg-green-50 hover:bg-green-100 border-green-200"
+                    >
+                      <FaWhatsapp className="h-4 w-4 text-green-600" />
+                      <span className="hidden sm:inline">Reminder</span>
+                    </Button>
+                    
+                    {/* Booking Status Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="hidden sm:inline">Booking Status</span>
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Booking Status</div>
+                        <DropdownMenuItem 
+                          onClick={() => updateStatusMutation.mutate({ id: booking.id, status: "pending" })}
+                          disabled={booking.status === "pending"}
+                        >
+                          <div className="h-2 w-2 rounded-full bg-amber-500 mr-2" />
+                          Pending
+                          {booking.status === "pending" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => updateStatusMutation.mutate({ id: booking.id, status: "confirmed" })}
+                          disabled={booking.status === "confirmed"}
+                        >
+                          <div className="h-2 w-2 rounded-full bg-blue-500 mr-2" />
+                          Confirmed
+                          {booking.status === "confirmed" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => updateStatusMutation.mutate({ id: booking.id, status: "completed" })}
+                          disabled={booking.status === "completed"}
                         >
-                          <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                          Mark Complete
+                          <div className="h-2 w-2 rounded-full bg-green-500 mr-2" />
+                          Completed
+                          {booking.status === "completed" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => setDeleteBookingId(booking.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Booking
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <DropdownMenuItem 
+                          onClick={() => updateStatusMutation.mutate({ id: booking.id, status: "cancelled" })}
+                          disabled={booking.status === "cancelled"}
+                        >
+                          <div className="h-2 w-2 rounded-full bg-red-500 mr-2" />
+                          Cancelled
+                          {booking.status === "cancelled" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Payment Status</div>
+                        <DropdownMenuItem 
+                          onClick={() => updatePaymentStatusMutation.mutate({ id: booking.id, paymentStatus: "pending" })}
+                          disabled={booking.paymentStatus === "pending"}
+                        >
+                          <IndianRupee className="h-4 w-4 mr-2 text-amber-600" />
+                          Payment Pending
+                          {booking.paymentStatus === "pending" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => updatePaymentStatusMutation.mutate({ id: booking.id, paymentStatus: "paid" })}
+                          disabled={booking.paymentStatus === "paid"}
+                        >
+                          <IndianRupee className="h-4 w-4 mr-2 text-green-600" />
+                          Paid
+                          {booking.paymentStatus === "paid" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => updatePaymentStatusMutation.mutate({ id: booking.id, paymentStatus: "refunded" })}
+                          disabled={booking.paymentStatus === "refunded"}
+                        >
+                          <IndianRupee className="h-4 w-4 mr-2 text-red-600" />
+                          Refunded
+                          {booking.paymentStatus === "refunded" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="sm" className="h-9 w-9 p-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => setLocation(`/vendor/bookings/${booking.id}`)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => setDeleteBookingId(booking.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Booking
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

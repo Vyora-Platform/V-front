@@ -77,7 +77,7 @@ export function MobileBottomNav({ vendorId: propVendorId }: { vendorId?: string 
   const isNotificationsActive = location === "/vendor/notifications";
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border safe-area-bottom">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-[90] bg-background border-t border-border safe-area-bottom">
       <nav className="flex items-center justify-around h-[64px] px-2">
         {navItems.map((item) => {
           const Icon = item.icon;

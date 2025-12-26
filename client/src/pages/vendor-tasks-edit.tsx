@@ -16,12 +16,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Plus, X, Lock } from "lucide-react";
 import type { Task, Employee } from "@shared/schema";
 import { format } from "date-fns";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 
 export default function VendorTasksEdit() {
   const { vendorId } = useAuth();
@@ -29,6 +31,8 @@ export default function VendorTasksEdit() {
   const params = useParams();
   const taskId = params.id;
   const { toast } = useToast();
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -111,6 +115,13 @@ export default function VendorTasksEdit() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check Pro subscription before allowing update
+    const actionCheck = canPerformAction('update');
+    if (!actionCheck.allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
 
     if (!title.trim()) {
       toast({
@@ -500,11 +511,23 @@ export default function VendorTasksEdit() {
                 data-testid="button-update-task"
               >
                 {updateTaskMutation.isPending ? "Updating..." : "Update Task"}
+                {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
               </Button>
             </div>
           </CardContent>
         </Card>
       </form>
+
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action="update"
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          setLocation('/vendor/account');
+        }}
+      />
     </div>
   );
 }

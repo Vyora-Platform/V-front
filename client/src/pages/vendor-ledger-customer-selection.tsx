@@ -40,6 +40,8 @@ type LedgerTransaction = {
   customerId: string | null;
   type: "in" | "out";
   amount: number;
+  excludeFromBalance: boolean | null;
+  isPOSSale: boolean | null;
 };
 
 export default function VendorLedgerCustomerSelection() {
@@ -76,11 +78,16 @@ export default function VendorLedgerCustomerSelection() {
   });
 
   // Calculate balance per customer
+  // Note: Balance excludes POS paid amounts (excludeFromBalance=true) - only credit/due affects balance
+  // POS paid amounts are product exchange, not credit/loan, so they don't affect net balance
   const customerBalances: Record<string, number> = {};
   transactions.forEach(t => {
     if (t.customerId) {
       if (!customerBalances[t.customerId]) customerBalances[t.customerId] = 0;
-      customerBalances[t.customerId] += t.type === 'in' ? t.amount : -t.amount;
+      // Only include in balance if not excluded (POS paid amounts are excluded)
+      if (!t.excludeFromBalance) {
+        customerBalances[t.customerId] += t.type === 'in' ? t.amount : -t.amount;
+      }
     }
   });
 
@@ -99,7 +106,7 @@ export default function VendorLedgerCustomerSelection() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-background border-b">
+      <div className="sticky top-0 z-30 bg-background border-b">
         {/* Top Bar */}
         <div className="flex items-center gap-3 px-4 py-3">
           <Button

@@ -11,6 +11,8 @@ import {
 import { Bell, Menu, Settings, LogOut, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+const VYORA_LOGO = "https://abizuwqnqkbicrhorcig.storage.supabase.co/storage/v1/object/public/vyora-bucket/partners-vyora/p/IMAGE/logo-vyora.png";
+
 interface NavbarProps {
   userName?: string;
   userAvatar?: string;
@@ -43,7 +45,7 @@ export default function Navbar({
             </Button>
           )}
           <div className="flex items-center gap-2">
-            <div className="text-2xl">🚀</div>
+            <img src={VYORA_LOGO} alt="Vyora" className="w-9 h-9 rounded-lg object-contain" />
             <h1 className="text-xl font-bold text-foreground" style={{ fontFamily: 'Poppins, sans-serif' }}>
               Vyora
             </h1>

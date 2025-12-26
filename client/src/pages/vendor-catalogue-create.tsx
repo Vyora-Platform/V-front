@@ -14,11 +14,29 @@ import type { InsertVendorCatalogue } from "@shared/schema";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 export default function VendorCatalogueCreate() {
   const { vendorId } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
   
   // Form state
   const [formData, setFormData] = useState({
@@ -105,6 +123,10 @@ export default function VendorCatalogueCreate() {
       homeCollectionCharges: formData.homeCollectionCharges,
       isActive: true,
       discountPercentage: 0,
+      serviceType: "one-time", // Required field
+      benefits: [],
+      features: [],
+      highlights: [],
     });
   };
 
@@ -245,7 +267,12 @@ export default function VendorCatalogueCreate() {
                 placeholder="Add inclusion item (press Enter)"
                 data-testid="input-new-inclusion"
               />
-              <Button onClick={handleAddInclusion} data-testid="button-add-inclusion">
+              <Button 
+                onClick={handleAddInclusion} 
+                variant="outline"
+                className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                data-testid="button-add-inclusion"
+              >
                 Add
               </Button>
             </div>
@@ -273,7 +300,12 @@ export default function VendorCatalogueCreate() {
                 placeholder="Add exclusion item (press Enter)"
                 data-testid="input-new-exclusion"
               />
-              <Button onClick={handleAddExclusion} data-testid="button-add-exclusion">
+              <Button 
+                onClick={handleAddExclusion} 
+                variant="outline"
+                className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                data-testid="button-add-exclusion"
+              >
                 Add
               </Button>
             </div>
@@ -301,7 +333,12 @@ export default function VendorCatalogueCreate() {
                 placeholder="Add tag (press Enter)"
                 data-testid="input-new-tag"
               />
-              <Button onClick={handleAddTag} data-testid="button-add-tag">
+              <Button 
+                onClick={handleAddTag} 
+                variant="outline"
+                className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                data-testid="button-add-tag"
+              >
                 Add
               </Button>
             </div>

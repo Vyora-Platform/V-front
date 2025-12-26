@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,6 +33,9 @@ import { format, formatDistanceToNow, differenceInDays, isPast, isFuture } from 
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 export default function VendorCustomers() {
   const { toast } = useToast();
@@ -47,6 +49,21 @@ export default function VendorCustomers() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 
   const { vendorId } = useAuth();
+
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Fetch customers
   const { data: customers = [], isLoading, refetch } = useQuery<Customer[]>({
@@ -225,6 +242,7 @@ export default function VendorCustomers() {
   }, [ordersMapByCustomer]);
 
   // Get ledger balance map by customer
+  // Note: Balance excludes POS paid amounts (product exchange) - only credit/due affects balance
   const ledgerBalanceMap = useMemo(() => {
     const map: Record<string, number> = {};
     allLedgerTransactions.forEach((txn: any) => {
@@ -232,6 +250,9 @@ export default function VendorCustomers() {
         if (!map[txn.customerId]) {
           map[txn.customerId] = 0;
         }
+        // Skip transactions excluded from balance (POS paid amounts)
+        if (txn.excludeFromBalance) return;
+        
         // 'in' means money coming in (payment received), 'out' means money going out
         if (txn.type === 'in') {
           map[txn.customerId] += (txn.amount || 0);
@@ -401,9 +422,19 @@ export default function VendorCustomers() {
               if (!open) setEditingCustomer(null);
             }}>
               <DialogTrigger asChild>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-10 px-4">
+                <Button 
+                  size="sm" 
+                  className="bg-blue-600 hover:bg-blue-700 h-10 px-4"
+                  onClick={(e) => {
+                    if (!isPro) {
+                      e.preventDefault();
+                      handleProAction('create', () => setIsAddDialogOpen(true));
+                    }
+                  }}
+                >
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline ml-1.5">Add Customer</span>
+                  {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
                 </Button>
               </DialogTrigger>
               <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
@@ -417,6 +448,8 @@ export default function VendorCustomers() {
                   customer={editingCustomer}
                   vendorId={vendorId}
                   onSuccess={handleCloseDialog}
+                  isPro={isPro}
+                  handleProAction={handleProAction}
                 />
               </DialogContent>
             </Dialog>
@@ -561,9 +594,14 @@ export default function VendorCustomers() {
                 <p className="text-muted-foreground text-sm text-center">
                   {searchQuery ? "No customers found" : "No customers yet"}
                 </p>
-                <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="mt-4 bg-blue-600 h-10 px-5">
+                <Button 
+                  onClick={() => handleProAction('create', () => setIsAddDialogOpen(true))} 
+                  size="sm" 
+                  className="mt-4 bg-blue-600 h-10 px-5"
+                >
                   <Plus className="h-4 w-4 mr-1.5" />
                   Add Customer
+                  {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
                 </Button>
               </CardContent>
             </Card>
@@ -586,6 +624,8 @@ export default function VendorCustomers() {
                   ongoingBookings={ongoingBookingsMap[customer.id] || []}
                   ongoingOrders={ongoingOrdersMap[customer.id] || []}
                   ledgerBalance={ledgerBalanceMap[customer.id] || 0}
+                  isPro={isPro}
+                  handleProAction={handleProAction}
                 />
               ))}
             </div>
@@ -612,6 +652,8 @@ function CustomerCard({
   ongoingBookings,
   ongoingOrders,
   ledgerBalance,
+  isPro,
+  handleProAction,
 }: {
   customer: Customer;
   onEdit: (customer: Customer) => void;
@@ -627,6 +669,8 @@ function CustomerCard({
   ongoingBookings: any[];
   ongoingOrders: any[];
   ledgerBalance: number;
+  isPro: boolean;
+  handleProAction: (action: string, callback: () => void) => void;
 }) {
   // Use last interaction time (lastVisitDate, or last booking/order date, or createdAt)
   const getLastInteractionDate = () => {
@@ -878,30 +922,35 @@ function CustomerCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={() => onEdit(customer)}>
+              <DropdownMenuItem onClick={() => handleProAction('update', () => onEdit(customer))}>
                 <Edit2 className="h-4 w-4 mr-2" />
                 Edit
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onStatusChange("active")}>
+              <DropdownMenuItem onClick={() => handleProAction('update', () => onStatusChange("active"))}>
                 <UserCheck className="h-4 w-4 mr-2 text-emerald-600" />
                 Active
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange("inactive")}>
+              <DropdownMenuItem onClick={() => handleProAction('update', () => onStatusChange("inactive"))}>
                 <UserX className="h-4 w-4 mr-2 text-gray-600" />
                 Inactive
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange("pending_followup")}>
+              <DropdownMenuItem onClick={() => handleProAction('update', () => onStatusChange("pending_followup"))}>
                 <Clock className="h-4 w-4 mr-2 text-amber-600" />
                 Follow-up
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
-                onClick={() => onDelete(customer.id, customer.name)}
+                onClick={() => handleProAction('delete', () => onDelete(customer.id, customer.name))}
                 className="text-red-600"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -912,7 +961,7 @@ function CustomerCard({
 }
 
 // Customer Form Component
-function CustomerForm({ customer, vendorId, onSuccess }: { customer?: Customer | null; vendorId: string; onSuccess: () => void }) {
+function CustomerForm({ customer, vendorId, onSuccess, isPro, handleProAction }: { customer?: Customer | null; vendorId: string; onSuccess: () => void; isPro?: boolean; handleProAction?: (action: string, callback: () => void) => void }) {
   const { toast } = useToast();
   
   const form = useForm<InsertCustomer>({
@@ -974,177 +1023,97 @@ function CustomerForm({ customer, vendorId, onSuccess }: { customer?: Customer |
   });
 
   const onSubmit = (data: InsertCustomer) => {
-    mutation.mutate(data);
+    if (handleProAction) {
+      handleProAction(customer ? 'update' : 'create', () => mutation.mutate(data));
+    } else {
+      mutation.mutate(data);
+    }
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-9">
-            <TabsTrigger value="basic" className="text-xs">Basic</TabsTrigger>
-            <TabsTrigger value="membership" className="text-xs">Membership</TabsTrigger>
-            <TabsTrigger value="additional" className="text-xs">More</TabsTrigger>
-          </TabsList>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        {/* Basic Information Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-1 border-b">
+            <Users className="h-4 w-4 text-blue-600" />
+            <h3 className="text-sm font-semibold text-gray-700">Basic Information</h3>
+          </div>
+          
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name *</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Full name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-          <TabsContent value="basic" className="space-y-3 mt-3">
+          <div className="grid grid-cols-2 gap-3">
             <FormField
               control={form.control}
-              name="name"
+              name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name *</FormLabel>
+                  <FormLabel>Phone *</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Full name" />
+                    <Input {...field} placeholder="9876543210" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone *</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="9876543210" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value || ""} placeholder="email@example.com" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="gender"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Gender</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="customerType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="walk-in">Walk-in</SelectItem>
-                        <SelectItem value="online">Online</SelectItem>
-                        <SelectItem value="referral">Referral</SelectItem>
-                        <SelectItem value="corporate">Corporate</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
             <FormField
               control={form.control}
-              name="address"
+              name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value || ""} placeholder="Full address" />
+                    <Input {...field} value={field.value || ""} placeholder="email@example.com" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+          </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City</FormLabel>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField
+              control={form.control}
+              name="gender"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gender</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
                     <FormControl>
-                      <Input {...field} value={field.value || ""} placeholder="City" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="state"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>State</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value || ""} placeholder="State" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="pincode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pincode</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value || ""} placeholder="123456" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
-              name="status"
+              name="customerType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Status</FormLabel>
+                  <FormLabel>Type</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -1152,19 +1121,117 @@ function CustomerForm({ customer, vendorId, onSuccess }: { customer?: Customer |
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="pending_followup">Pending Follow-up</SelectItem>
-                      <SelectItem value="blocked">Blocked</SelectItem>
+                      <SelectItem value="walk-in">Walk-in</SelectItem>
+                      <SelectItem value="online">Online</SelectItem>
+                      <SelectItem value="referral">Referral</SelectItem>
+                      <SelectItem value="corporate">Corporate</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </TabsContent>
+          </div>
 
-          <TabsContent value="membership" className="space-y-3 mt-3">
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="pending_followup">Pending Follow-up</SelectItem>
+                    <SelectItem value="blocked">Blocked</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Address Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-1 border-b">
+            <MapPin className="h-4 w-4 text-emerald-600" />
+            <h3 className="text-sm font-semibold text-gray-700">Address</h3>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="address"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Street Address</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value || ""} placeholder="Full address" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-3 gap-3">
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>City</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value || ""} placeholder="City" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="state"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>State</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value || ""} placeholder="State" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="pincode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pincode</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value || ""} placeholder="123456" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Membership Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-1 border-b">
+            <Crown className="h-4 w-4 text-purple-600" />
+            <h3 className="text-sm font-semibold text-gray-700">Membership</h3>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <FormField
               control={form.control}
               name="membershipType"
@@ -1201,72 +1268,79 @@ function CustomerForm({ customer, vendorId, onSuccess }: { customer?: Customer |
                 </FormItem>
               )}
             />
+          </div>
 
+          <FormField
+            control={form.control}
+            name="source"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Source</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value || ""} placeholder="How did they find you?" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Additional Information Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-1 border-b">
+            <Sparkles className="h-4 w-4 text-amber-600" />
+            <h3 className="text-sm font-semibold text-gray-700">Additional Information</h3>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="notes"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Notes</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value || ""} placeholder="Internal notes" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 gap-3">
             <FormField
               control={form.control}
-              name="source"
+              name="emergencyContactName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Source</FormLabel>
+                  <FormLabel>Emergency Contact</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value || ""} placeholder="How did they find you?" />
+                    <Input {...field} value={field.value || ""} placeholder="Name" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </TabsContent>
 
-          <TabsContent value="additional" className="space-y-3 mt-3">
             <FormField
               control={form.control}
-              name="notes"
+              name="emergencyContactPhone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes</FormLabel>
+                  <FormLabel>Emergency Phone</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value || ""} placeholder="Internal notes" />
+                    <Input {...field} value={field.value || ""} placeholder="Phone" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+          </div>
+        </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="emergencyContactName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Emergency Contact</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value || ""} placeholder="Name" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="emergencyContactPhone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Emergency Phone</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value || ""} placeholder="Phone" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        <DialogFooter className="gap-2 pt-2">
+        <DialogFooter className="gap-2 pt-3 border-t">
           <Button type="submit" disabled={mutation.isPending} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
-            {mutation.isPending ? "Saving..." : customer ? "Update" : "Add Customer"}
+            {mutation.isPending ? "Saving..." : customer ? "Update Customer" : "Add Customer"}
+            {isPro === false && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
           </Button>
         </DialogFooter>
       </form>

@@ -631,28 +631,54 @@ function SubscriptionModal({ isOpen, onClose, vendorId, vendor }: { isOpen: bool
     const billingAddress = vendor?.address || "";
     
     try {
-      // Create Razorpay order
-      const orderRes = await apiRequest("POST", "/api/vendor-subscriptions/create-payment", {
+      // [RAZORPAY REQUEST] Log the request to create order
+      const paymentRequestPayload = {
         vendorId,
         planId: "pro",
         billingName,
         billingEmail,
         billingPhone,
         billingAddress,
-      });
+      };
+      console.log("[RAZORPAY REQUEST] Creating payment order for Pro upgrade");
+      console.log("[RAZORPAY REQUEST] Timestamp:", new Date().toISOString());
+      console.log("[RAZORPAY REQUEST] Request payload:", JSON.stringify(paymentRequestPayload, null, 2));
+      
+      // Create Razorpay order
+      const orderRes = await apiRequest("POST", "/api/vendor-subscriptions/create-payment", paymentRequestPayload);
       const orderData = await orderRes.json();
       
+      // [RAZORPAY RESPONSE] Log the complete response
+      console.log("[RAZORPAY RESPONSE] Order creation response received");
+      console.log("[RAZORPAY RESPONSE] Timestamp:", new Date().toISOString());
+      console.log("[RAZORPAY RESPONSE] Complete response:", JSON.stringify(orderData, null, 2));
+      
+      // FAIL BY DEFAULT: Check if transaction was marked as failed by server
+      if (orderData.transactionStatus === 'failed' || orderData.error) {
+        console.log("[RAZORPAY ERROR] Server returned failed transaction status");
+        console.log("[RAZORPAY ERROR] Error:", orderData.error);
+        console.log("[RAZORPAY ERROR] Message:", orderData.message);
+        throw new Error(orderData.message || orderData.error || "Failed to create order");
+      }
+      
       if (!orderData.orderId) {
+        console.log("[RAZORPAY ERROR] Order ID missing from response");
         throw new Error(orderData.error || "Failed to create order");
       }
 
+      console.log("[RAZORPAY RESPONSE] Order ID:", orderData.orderId);
+      console.log("[RAZORPAY RESPONSE] Amount:", orderData.amount);
+      console.log("[RAZORPAY RESPONSE] Subscription ID:", orderData.subscriptionId);
+
       // Load Razorpay script if not loaded
       if (!(window as any).Razorpay) {
+        console.log("[RAZORPAY REQUEST] Loading Razorpay SDK script...");
         const script = document.createElement("script");
         script.src = "https://checkout.razorpay.com/v1/checkout.js";
         script.async = true;
         document.body.appendChild(script);
         await new Promise(resolve => { script.onload = resolve; });
+        console.log("[RAZORPAY RESPONSE] Razorpay SDK loaded successfully");
       }
 
       // Open Razorpay checkout directly - Zepto/Premium style
@@ -662,7 +688,7 @@ function SubscriptionModal({ isOpen, onClose, vendorId, vendor }: { isOpen: bool
         currency: orderData.currency,
         name: "Vyora Pro",
         description: "Unlock all premium features",
-        image: "https://ui-avatars.com/api/?name=V&background=3B82F6&color=fff&size=128&bold=true&format=png",
+        image: "https://abizuwqnqkbicrhorcig.storage.supabase.co/storage/v1/object/public/vyora-bucket/partners-vyora/p/IMAGE/logo-vyora.png",
         order_id: orderData.orderId,
         prefill: {
           name: billingName,
@@ -691,18 +717,53 @@ function SubscriptionModal({ isOpen, onClose, vendorId, vendor }: { isOpen: bool
           }
         },
         handler: async function (response: any) {
+          // [RAZORPAY RESPONSE] Log Razorpay checkout response
+          console.log("[RAZORPAY RESPONSE] Razorpay checkout completed");
+          console.log("[RAZORPAY RESPONSE] Timestamp:", new Date().toISOString());
+          console.log("[RAZORPAY RESPONSE] Razorpay response:", JSON.stringify(response, null, 2));
+          console.log("[RAZORPAY RESPONSE] Payment ID:", response.razorpay_payment_id);
+          console.log("[RAZORPAY RESPONSE] Order ID:", response.razorpay_order_id);
+          console.log("[RAZORPAY RESPONSE] Signature:", response.razorpay_signature ? "Present" : "Missing");
+          
           try {
-            // Verify payment on backend
-            const verifyRes = await apiRequest("POST", "/api/vendor-subscriptions/payment-success", {
+            // [RAZORPAY REQUEST] Log verification request
+            const verificationPayload = {
               subscriptionId: orderData.subscriptionId,
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
-            });
+            };
+            console.log("[RAZORPAY REQUEST] Sending payment verification request");
+            console.log("[RAZORPAY REQUEST] Timestamp:", new Date().toISOString());
+            console.log("[RAZORPAY REQUEST] Verification payload:", JSON.stringify(verificationPayload, null, 2));
+            
+            // Verify payment on backend
+            const verifyRes = await apiRequest("POST", "/api/vendor-subscriptions/payment-success", verificationPayload);
+            const verifyData = await verifyRes.json();
 
-            if (!verifyRes.ok) {
-              throw new Error("Payment verification failed");
+            // [RAZORPAY RESPONSE] Log verification response
+            console.log("[RAZORPAY RESPONSE] Payment verification response received");
+            console.log("[RAZORPAY RESPONSE] Timestamp:", new Date().toISOString());
+            console.log("[RAZORPAY RESPONSE] Verification response:", JSON.stringify(verifyData, null, 2));
+            console.log("[RAZORPAY RESPONSE] Transaction status:", verifyData.transactionStatus);
+
+            // FAIL BY DEFAULT: Check if server confirmed success
+            if (verifyData.transactionStatus === 'failed' || verifyData.success === false || !verifyRes.ok) {
+              console.log("[RAZORPAY ERROR] Server verification returned FAILED status");
+              console.log("[RAZORPAY ERROR] Razorpay payment status:", verifyData.razorpayPaymentStatus);
+              console.log("[RAZORPAY ERROR] Error:", verifyData.error);
+              console.log("[RAZORPAY ERROR] Message:", verifyData.message);
+              
+              toast({ 
+                title: "Payment Verification Failed", 
+                description: verifyData.message || "Payment could not be verified as successful. Please contact support.", 
+                variant: "destructive" 
+              });
+              setIsProcessing(false);
+              return;
             }
+
+            console.log("[RAZORPAY RESPONSE] ✅ Payment verified as SUCCESS");
 
             // Success! Update all caches immediately
             await queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId] });
@@ -721,14 +782,22 @@ function SubscriptionModal({ isOpen, onClose, vendorId, vendor }: { isOpen: bool
             
             // Force page reload to ensure UI updates
             window.location.reload();
-          } catch (error) {
-            console.error("Payment verification error:", error);
+          } catch (error: any) {
+            // [RAZORPAY ERROR] Log verification error
+            console.log("[RAZORPAY ERROR] Payment verification request failed");
+            console.log("[RAZORPAY ERROR] Timestamp:", new Date().toISOString());
+            console.log("[RAZORPAY ERROR] Error message:", error?.message || "Unknown error");
+            console.log("[RAZORPAY ERROR] Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+            console.log("[RAZORPAY ERROR] Stack trace:", error?.stack || "No stack trace");
+            
             toast({ title: "Payment verification failed", description: "Please contact support", variant: "destructive" });
             setIsProcessing(false);
           }
         },
         modal: {
           ondismiss: function() {
+            console.log("[RAZORPAY RESPONSE] Payment modal dismissed by user");
+            console.log("[RAZORPAY RESPONSE] Timestamp:", new Date().toISOString());
             setIsProcessing(false);
             toast({ title: "Payment cancelled", description: "You can upgrade anytime" });
           },
@@ -742,11 +811,22 @@ function SubscriptionModal({ isOpen, onClose, vendorId, vendor }: { isOpen: bool
         }
       };
 
+      console.log("[RAZORPAY REQUEST] Creating Razorpay instance and opening checkout modal");
+      console.log("[RAZORPAY REQUEST] Timestamp:", new Date().toISOString());
+
       const razorpay = new (window as any).Razorpay(options);
       razorpay.open();
       
+      console.log("[RAZORPAY RESPONSE] Razorpay checkout modal opened");
+      
     } catch (error: any) {
-      console.error("Payment error:", error);
+      // [RAZORPAY ERROR] Log payment error
+      console.log("[RAZORPAY ERROR] Payment initialization failed");
+      console.log("[RAZORPAY ERROR] Timestamp:", new Date().toISOString());
+      console.log("[RAZORPAY ERROR] Error message:", error?.message || "Unknown error");
+      console.log("[RAZORPAY ERROR] Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      console.log("[RAZORPAY ERROR] Stack trace:", error?.stack || "No stack trace");
+      
       toast({ title: "Payment failed", description: error.message || "Please try again", variant: "destructive" });
       setIsProcessing(false);
     }

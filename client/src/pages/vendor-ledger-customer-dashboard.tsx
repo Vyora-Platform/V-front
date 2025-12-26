@@ -71,6 +71,8 @@ type LedgerTransaction = {
   referenceType: string | null;
   referenceId: string | null;
   attachments: string[];
+  excludeFromBalance: boolean | null;
+  isPOSSale: boolean | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -132,12 +134,22 @@ export default function VendorLedgerCustomerDashboard() {
     },
   });
 
-  // Calculate summary
+  // Calculate summary - Khatabook style accounting
+  // "You Gave" (type=out) = Credit given = Customer owes you MORE
+  // "You Got" (type=in) = Payment received = Customer owes you LESS
+  // Balance = totalGave - totalGot = what customer owes you
+  // POS paid amounts (excludeFromBalance=true) are excluded from balance calculation
+  const balanceTransactions = transactions.filter(t => !t.excludeFromBalance);
+  const totalGave = balanceTransactions.filter(t => t.type === "out").reduce((sum, t) => sum + t.amount, 0);
+  const totalGot = balanceTransactions.filter(t => t.type === "in").reduce((sum, t) => sum + t.amount, 0);
   const summary: CustomerLedgerSummary = {
+    // Show all transactions (including POS paid) for "You Gave" and "You Got" totals
     totalGiven: transactions.filter(t => t.type === "out").reduce((sum, t) => sum + t.amount, 0),
     totalReceived: transactions.filter(t => t.type === "in").reduce((sum, t) => sum + t.amount, 0),
-    balance: transactions.filter(t => t.type === "in").reduce((sum, t) => sum + t.amount, 0) - 
-             transactions.filter(t => t.type === "out").reduce((sum, t) => sum + t.amount, 0),
+    // Balance = "You Gave" - "You Got" (only non-excluded transactions)
+    // Positive = Customer owes you = "You will GET"
+    // Negative = You owe customer = "You will GIVE"
+    balance: totalGave - totalGot,
     transactionCount: transactions.length,
   };
 
@@ -180,7 +192,7 @@ export default function VendorLedgerCustomerDashboard() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky Header - Khatabook Style */}
-      <div className="sticky top-0 z-50 bg-background">
+      <div className="sticky top-0 z-30 bg-background">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-3">
@@ -409,14 +421,32 @@ export default function VendorLedgerCustomerDashboard() {
                           <p className="text-sm text-foreground line-clamp-1">{transaction.description}</p>
                         )}
                         
-                        <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-                          <span className="capitalize">{transaction.paymentMethod}</span>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground flex-wrap">
+                          <span className="capitalize">{transaction.paymentMethod === 'credit' ? 'Due' : transaction.paymentMethod}</span>
                           <span>•</span>
                           <span>{format(new Date(transaction.transactionDate), 'hh:mm a')}</span>
                           {transaction.attachments?.length > 0 && (
                             <>
                               <span>•</span>
                               <FileText className="h-3 w-3" />
+                            </>
+                          )}
+                          {transaction.isPOSSale && (
+                            <>
+                              <span>•</span>
+                              <span className="text-blue-600 font-medium">POS Sale</span>
+                            </>
+                          )}
+                          {transaction.excludeFromBalance && transaction.type === "in" && (
+                            <>
+                              <span>•</span>
+                              <span className="text-amber-600 text-[10px]">Paid (Settled)</span>
+                            </>
+                          )}
+                          {!transaction.excludeFromBalance && transaction.paymentMethod === 'credit' && transaction.isPOSSale && (
+                            <>
+                              <span>•</span>
+                              <span className="text-orange-600 font-medium text-[10px]">Pending Payment</span>
                             </>
                           )}
                         </div>

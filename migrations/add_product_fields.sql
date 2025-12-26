@@ -29,3 +29,6 @@ CREATE INDEX IF NOT EXISTS idx_vendor_products_variants ON vendor_products USING
 
 
 
+
+
+

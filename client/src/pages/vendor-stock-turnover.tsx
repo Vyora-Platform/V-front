@@ -55,15 +55,34 @@ import {
   AlertCircle,
   CheckCircle2
 } from "lucide-react";
-import { VendorProduct, StockMovement, StockAlert } from "@shared/schema";
+import { VendorProduct, StockMovement, StockAlert, VendorCatalogue } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
+import { Briefcase } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 const USER_ID = "user-1";
+
+// Service Stock Movement type
+interface ServiceStockMovement {
+  id: string;
+  vendorId: string;
+  vendorCatalogueId: string;
+  movementType: 'in' | 'out';
+  quantity: number;
+  previousStock: number;
+  newStock: number;
+  reason?: string;
+  notes?: string;
+  performedBy?: string;
+  createdAt: string;
+}
 
 // Form schemas
 const stockInSchema = z.object({
@@ -99,15 +118,34 @@ export default function VendorStockTurnover() {
   const { vendorId } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState<"products" | "movements" | "alerts">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "services" | "movements" | "alerts">("products");
   const [selectedProduct, setSelectedProduct] = useState<VendorProduct | null>(null);
+  const [selectedService, setSelectedService] = useState<VendorCatalogue | null>(null);
   const [stockInSheetOpen, setStockInSheetOpen] = useState(false);
   const [stockOutSheetOpen, setStockOutSheetOpen] = useState(false);
+  const [serviceStockInSheetOpen, setServiceStockInSheetOpen] = useState(false);
+  const [serviceStockOutSheetOpen, setServiceStockOutSheetOpen] = useState(false);
   const [setAlertDialogOpen, setSetAlertDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [stockFilter, setStockFilter] = useState<"all" | "low" | "out" | "high">("all");
   const [sortBy, setSortBy] = useState<"name" | "stock" | "value">("name");
+  const [itemType, setItemType] = useState<"product" | "service">("product");
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery<{
     totalStockValue: number;
@@ -126,13 +164,37 @@ export default function VendorStockTurnover() {
     enabled: !!vendorId,
   });
 
+  // Services (VendorCatalogues)
+  const { data: services = [], isLoading: servicesLoading } = useQuery<VendorCatalogue[]>({
+    queryKey: [`/api/vendors/${vendorId}/catalogue`],
+    enabled: !!vendorId,
+  });
+
   const { data: movements = [], isLoading: movementsLoading } = useQuery<StockMovement[]>({
     queryKey: [`/api/vendors/${vendorId}/stock-movements`],
     enabled: !!vendorId,
   });
 
+  // Service Stock Movements
+  const { data: serviceMovements = [], isLoading: serviceMovementsLoading } = useQuery<ServiceStockMovement[]>({
+    queryKey: [`/api/vendors/${vendorId}/service-stock-movements`],
+    enabled: !!vendorId,
+  });
+
   const { data: alerts = [], isLoading: alertsLoading } = useQuery<StockAlert[]>({
     queryKey: [`/api/vendors/${vendorId}/stock-alerts`],
+    enabled: !!vendorId,
+  });
+
+  // Service Stock Analytics
+  const { data: serviceAnalytics } = useQuery<{
+    totalStockValue: number;
+    lowStockItems: number;
+    highStockItems: number;
+    outOfStockItems: number;
+    totalServices: number;
+  }>({
+    queryKey: [`/api/vendors/${vendorId}/service-stock-analytics`],
     enabled: !!vendorId,
   });
 
@@ -253,9 +315,10 @@ export default function VendorStockTurnover() {
 
   // Set Alert mutation
   const setAlertMutation = useMutation({
-    mutationFn: async (data: SetAlertForm & { productId: string }) => {
+    mutationFn: async (data: SetAlertForm & { productId?: string; serviceId?: string }) => {
       return await apiRequest("POST", "/api/stock-configs", {
-        vendorProductId: data.productId,
+        vendorProductId: data.productId || null,
+        vendorServiceId: data.serviceId || null,
         minStockLevel: data.minStockLevel,
         maxStockLevel: data.maxStockLevel,
         reorderPoint: data.reorderPoint,
@@ -266,6 +329,7 @@ export default function VendorStockTurnover() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/stock-turnover-analytics`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/stock-alerts`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/service-stock-analytics`] });
       toast({
         title: "✅ Reminder Set",
         description: "Stock alert has been configured",
@@ -273,6 +337,7 @@ export default function VendorStockTurnover() {
       setSetAlertDialogOpen(false);
       setAlertForm.reset();
       setSelectedProduct(null);
+      setSelectedService(null);
     },
     onError: () => {
       toast({
@@ -283,20 +348,109 @@ export default function VendorStockTurnover() {
     },
   });
 
+  // Service Stock In mutation
+  const serviceStockInMutation = useMutation({
+    mutationFn: async (data: StockInForm & { serviceId: string }) => {
+      return await apiRequest("POST", `/api/vendors/${vendorId}/services/${data.serviceId}/stock-in`, {
+        quantity: data.quantity,
+        reason: data.reason,
+        notes: data.notes,
+        userId: USER_ID,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/catalogue`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/service-stock-movements`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/service-stock-analytics`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/stock-alerts`] });
+      toast({
+        title: "✅ Stock Added",
+        description: `Added ${stockInForm.getValues().quantity} units successfully`,
+      });
+      setServiceStockInSheetOpen(false);
+      stockInForm.reset();
+      setSelectedService(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add stock",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Service Stock Out mutation
+  const serviceStockOutMutation = useMutation({
+    mutationFn: async (data: StockOutForm & { serviceId: string }) => {
+      return await apiRequest("POST", `/api/vendors/${vendorId}/services/${data.serviceId}/stock-out`, {
+        quantity: data.quantity,
+        reason: data.reason,
+        notes: data.notes,
+        userId: USER_ID,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/catalogue`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/service-stock-movements`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/service-stock-analytics`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/stock-alerts`] });
+      toast({
+        title: "✅ Stock Removed",
+        description: `Removed ${stockOutForm.getValues().quantity} units successfully`,
+      });
+      setServiceStockOutSheetOpen(false);
+      stockOutForm.reset();
+      setSelectedService(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to remove stock",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleStockIn = (product: VendorProduct) => {
     setSelectedProduct(product);
+    setItemType("product");
     stockInForm.reset();
     setStockInSheetOpen(true);
   };
 
   const handleStockOut = (product: VendorProduct) => {
     setSelectedProduct(product);
+    setItemType("product");
     stockOutForm.reset();
     setStockOutSheetOpen(true);
   };
 
   const handleSetAlert = (product: VendorProduct) => {
     setSelectedProduct(product);
+    setItemType("product");
+    setAlertForm.reset();
+    setSetAlertDialogOpen(true);
+  };
+
+  // Service handlers
+  const handleServiceStockIn = (service: VendorCatalogue) => {
+    setSelectedService(service);
+    setItemType("service");
+    stockInForm.reset();
+    setServiceStockInSheetOpen(true);
+  };
+
+  const handleServiceStockOut = (service: VendorCatalogue) => {
+    setSelectedService(service);
+    setItemType("service");
+    stockOutForm.reset();
+    setServiceStockOutSheetOpen(true);
+  };
+
+  const handleServiceSetAlert = (service: VendorCatalogue) => {
+    setSelectedService(service);
+    setItemType("service");
     setAlertForm.reset();
     setSetAlertDialogOpen(true);
   };
@@ -313,9 +467,23 @@ export default function VendorStockTurnover() {
     }
   };
 
+  const onServiceStockInSubmit = (data: StockInForm) => {
+    if (selectedService) {
+      serviceStockInMutation.mutate({ ...data, serviceId: selectedService.id });
+    }
+  };
+
+  const onServiceStockOutSubmit = (data: StockOutForm) => {
+    if (selectedService) {
+      serviceStockOutMutation.mutate({ ...data, serviceId: selectedService.id });
+    }
+  };
+
   const onSetAlertSubmit = (data: SetAlertForm) => {
     if (selectedProduct) {
       setAlertMutation.mutate({ ...data, productId: selectedProduct.id });
+    } else if (selectedService) {
+      setAlertMutation.mutate({ ...data, serviceId: selectedService.id });
     }
   };
 
@@ -325,6 +493,14 @@ export default function VendorStockTurnover() {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  const getServiceStockStatus = (service: VendorCatalogue) => {
+    const stock = service.stock || 0;
+    if (stock === 0) return { label: "Out of Stock", color: "text-red-600", bg: "bg-red-100 dark:bg-red-900/30" };
+    if (stock < 5) return { label: "Low Stock", color: "text-orange-600", bg: "bg-orange-100 dark:bg-orange-900/30" };
+    if (stock > 50) return { label: "High Stock", color: "text-green-600", bg: "bg-green-100 dark:bg-green-900/30" };
+    return { label: "In Stock", color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/30" };
   };
 
   const getStockStatus = (product: VendorProduct) => {
@@ -353,6 +529,30 @@ export default function VendorStockTurnover() {
       return 0;
     });
 
+  // Filter and sort services (only those with stock tracking enabled or non-zero stock)
+  // Filter and sort services - show all services from catalogue for stock management
+  const filteredServices = services
+    .filter(s => {
+      // Only filter by active status
+      if (!s.isActive) return false;
+      
+      const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           s.category.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!matchesSearch) return false;
+      
+      const stock = s.stock || 0;
+      if (stockFilter === "low") return stock > 0 && stock < 5;
+      if (stockFilter === "out") return stock === 0;
+      if (stockFilter === "high") return stock > 50;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "stock") return (b.stock || 0) - (a.stock || 0);
+      if (sortBy === "value") return ((b.price || 0) * (b.stock || 0)) - ((a.price || 0) * (a.stock || 0));
+      return 0;
+    });
+
   // Group movements by date
   const groupedMovements = movements.reduce((groups, movement) => {
     const date = new Date(movement.createdAt);
@@ -367,15 +567,42 @@ export default function VendorStockTurnover() {
     return groups;
   }, {} as Record<string, StockMovement[]>);
 
+  // Group service movements by date
+  const groupedServiceMovements = serviceMovements.reduce((groups, movement) => {
+    const date = new Date(movement.createdAt);
+    let label = format(date, 'dd MMM yyyy');
+    if (isToday(date)) label = "Today";
+    else if (isYesterday(date)) label = "Yesterday";
+    else if (isThisWeek(date)) label = format(date, 'EEEE');
+    else if (isThisMonth(date)) label = format(date, 'dd MMMM');
+    
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(movement);
+    return groups;
+  }, {} as Record<string, ServiceStockMovement[]>);
+
   // Get product name by ID
   const getProductName = (productId: string) => {
     const product = products.find(p => p.id === productId);
     return product?.name || "Unknown Product";
   };
 
+  // Get service name by ID
+  const getServiceName = (serviceId: string) => {
+    const service = services.find(s => s.id === serviceId);
+    return service?.name || "Unknown Service";
+  };
+
   const getProductImage = (product: VendorProduct) => {
     if (product.images && product.images.length > 0) {
       return product.images[0];
+    }
+    return null;
+  };
+
+  const getServiceImage = (service: VendorCatalogue) => {
+    if (service.images && service.images.length > 0) {
+      return service.images[0];
     }
     return null;
   };
@@ -386,7 +613,7 @@ export default function VendorStockTurnover() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-background border-b">
+      <div className="sticky top-0 z-30 bg-background border-b">
         {/* Top Header */}
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -511,26 +738,33 @@ export default function VendorStockTurnover() {
         {/* Tabs */}
         <div className="px-4 pb-3">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 h-11 p-1 bg-muted/50 rounded-xl">
+            <TabsList className="grid w-full grid-cols-4 h-11 p-1 bg-muted/50 rounded-xl">
               <TabsTrigger 
                 value="products" 
-                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs font-medium flex items-center gap-1.5"
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs font-medium flex items-center gap-1"
               >
-                <Package className="h-3.5 w-3.5" />
+                <Package className="h-3 w-3" />
                 Products
               </TabsTrigger>
               <TabsTrigger 
-                value="movements" 
-                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs font-medium flex items-center gap-1.5"
+                value="services" 
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs font-medium flex items-center gap-1"
               >
-                <Clock className="h-3.5 w-3.5" />
+                <Briefcase className="h-3 w-3" />
+                Services
+              </TabsTrigger>
+              <TabsTrigger 
+                value="movements" 
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs font-medium flex items-center gap-1"
+              >
+                <Clock className="h-3 w-3" />
                 History
               </TabsTrigger>
               <TabsTrigger 
                 value="alerts" 
-                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs font-medium flex items-center gap-1.5"
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs font-medium flex items-center gap-1"
               >
-                <Bell className="h-3.5 w-3.5" />
+                <Bell className="h-3 w-3" />
                 Alerts
                 {alerts.filter(a => a.status === 'active').length > 0 && (
                   <Badge variant="destructive" className="ml-1 h-4 px-1 text-[10px]">
@@ -701,16 +935,138 @@ export default function VendorStockTurnover() {
           </>
         )}
 
-        {/* Movements Tab - Stock History */}
+        {/* Services Tab */}
+        {activeTab === "services" && (
+          <>
+            {servicesLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
+                ))}
+              </div>
+            ) : filteredServices.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <Briefcase className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No services found</h3>
+                <p className="text-sm text-muted-foreground text-center mb-6 max-w-xs">
+                  {searchQuery || stockFilter !== "all" 
+                    ? "Try adjusting your search or filters" 
+                    : "Add services to your catalogue to manage stock"
+                  }
+                </p>
+                <Button onClick={() => setLocation("/vendor/catalogue")}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Services
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredServices.map((service) => {
+                  const status = getServiceStockStatus(service);
+                  const stock = service.stock || 0;
+                  const stockWorth = service.price * stock;
+                  const image = getServiceImage(service);
+
+                  return (
+                    <Card 
+                      key={service.id} 
+                      className="overflow-hidden hover:shadow-md transition-all"
+                    >
+                      <CardContent className="p-0">
+                        <div className="flex">
+                          {/* Service Image */}
+                          <div className="flex-shrink-0 w-24 h-28 md:w-28 md:h-32 bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-800 dark:to-purple-900 flex items-center justify-center border-r">
+                            {image ? (
+                              <img 
+                                src={image} 
+                                alt={service.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center">
+                                <span className="text-3xl mb-1">{service.icon}</span>
+                                <Briefcase className="h-3 w-3 text-muted-foreground opacity-50" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Service Info */}
+                          <div className="flex-1 p-3 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-sm truncate">{service.name}</h3>
+                                <p className="text-xs text-muted-foreground truncate">{service.category}</p>
+                              </div>
+                              <Badge className={`${status.bg} ${status.color} border-0 text-[10px] px-1.5 py-0.5 font-medium flex-shrink-0`}>
+                                {status.label}
+                              </Badge>
+                            </div>
+
+                            {/* Stats Grid */}
+                            <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                              <div className="bg-muted/50 rounded-lg p-1.5 text-center">
+                                <p className="text-muted-foreground text-[10px]">{service.stockUnit || 'Slots'}</p>
+                                <p className={`font-bold ${stock === 0 ? 'text-red-600' : stock < 5 ? 'text-orange-600' : ''}`}>
+                                  {stock}
+                                </p>
+                              </div>
+                              <div className="bg-muted/50 rounded-lg p-1.5 text-center">
+                                <p className="text-muted-foreground text-[10px]">Price</p>
+                                <p className="font-bold">₹{service.price}</p>
+                              </div>
+                              <div className="bg-muted/50 rounded-lg p-1.5 text-center">
+                                <p className="text-muted-foreground text-[10px]">Worth</p>
+                                <p className="font-bold text-purple-600">₹{stockWorth.toLocaleString('en-IN')}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex border-t divide-x">
+                          <button
+                            className="flex-1 py-2.5 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 flex items-center justify-center gap-1.5 transition-colors"
+                            onClick={() => handleServiceSetAlert(service)}
+                          >
+                            <Bell className="h-3.5 w-3.5" />
+                            Reminder
+                          </button>
+                          <button
+                            className="flex-1 py-2.5 text-xs font-medium text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center justify-center gap-1.5 transition-colors"
+                            onClick={() => handleServiceStockIn(service)}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add Slots
+                          </button>
+                          <button
+                            className="flex-1 py-2.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center gap-1.5 transition-colors"
+                            onClick={() => handleServiceStockOut(service)}
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                            Remove
+                          </button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Movements Tab - Stock History (Products & Services) */}
         {activeTab === "movements" && (
           <>
-            {movementsLoading ? (
+            {(movementsLoading || serviceMovementsLoading) ? (
               <div className="space-y-3">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />
                 ))}
               </div>
-            ) : movements.length === 0 ? (
+            ) : (movements.length === 0 && serviceMovements.length === 0) ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
                   <Clock className="h-10 w-10 text-muted-foreground" />
@@ -722,74 +1078,164 @@ export default function VendorStockTurnover() {
               </div>
             ) : (
               <div className="space-y-4">
-                {Object.entries(groupedMovements).map(([dateLabel, dayMovements]) => (
-                  <div key={dateLabel}>
-                    <div className="sticky top-0 bg-background z-10 py-2">
-                      <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
-                        {dateLabel}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {dayMovements.map((movement) => (
-                        <Card key={movement.id} className="overflow-hidden">
-                          <CardContent className="p-3">
-                            <div className="flex items-center gap-3">
-                              {/* Movement Type Icon */}
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                movement.movementType === 'in' 
-                                  ? 'bg-green-100 dark:bg-green-900/30' 
-                                  : 'bg-red-100 dark:bg-red-900/30'
-                              }`}>
-                                {movement.movementType === 'in' ? (
-                                  <TrendingUp className="h-5 w-5 text-green-600" />
-                                ) : (
-                                  <TrendingDown className="h-5 w-5 text-red-600" />
-                                )}
-                              </div>
+                {/* Products History Section */}
+                {movements.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 mb-3">
+                      <Package className="h-4 w-4" />
+                      Products History
+                    </h3>
+                    {Object.entries(groupedMovements).map(([dateLabel, dayMovements]) => (
+                      <div key={dateLabel}>
+                        <div className="sticky top-0 bg-background z-10 py-2">
+                          <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                            {dateLabel}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {dayMovements.map((movement) => (
+                            <Card key={movement.id} className="overflow-hidden">
+                              <CardContent className="p-3">
+                                <div className="flex items-center gap-3">
+                                  {/* Movement Type Icon */}
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                    movement.movementType === 'in' 
+                                      ? 'bg-green-100 dark:bg-green-900/30' 
+                                      : 'bg-red-100 dark:bg-red-900/30'
+                                  }`}>
+                                    {movement.movementType === 'in' ? (
+                                      <TrendingUp className="h-5 w-5 text-green-600" />
+                                    ) : (
+                                      <TrendingDown className="h-5 w-5 text-red-600" />
+                                    )}
+                                  </div>
 
-                              {/* Movement Details */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="font-medium text-sm truncate">
-                                    {getProductName(movement.vendorProductId)}
-                                  </span>
-                                  <Badge 
-                                    variant="outline"
-                                    className={`text-[10px] px-1.5 py-0 ${
-                                      movement.movementType === 'in' 
-                                        ? 'text-green-600 border-green-300' 
-                                        : 'text-red-600 border-red-300'
-                                    }`}
-                                  >
-                                    {movement.movementType.toUpperCase()}
-                                  </Badge>
+                                  {/* Movement Details */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                      <span className="font-medium text-sm truncate">
+                                        {getProductName(movement.vendorProductId)}
+                                      </span>
+                                      <Badge 
+                                        variant="outline"
+                                        className={`text-[10px] px-1.5 py-0 ${
+                                          movement.movementType === 'in' 
+                                            ? 'text-green-600 border-green-300' 
+                                            : 'text-red-600 border-red-300'
+                                        }`}
+                                      >
+                                        {movement.movementType.toUpperCase()}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {movement.reason || 'No reason specified'}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {format(new Date(movement.createdAt), 'hh:mm a')}
+                                    </p>
+                                  </div>
+
+                                  {/* Quantity */}
+                                  <div className="text-right flex-shrink-0">
+                                    <span className={`text-lg font-bold ${
+                                      movement.movementType === 'in' ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                      {movement.movementType === 'in' ? '+' : '-'}{Math.abs(movement.quantity)}
+                                    </span>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {movement.previousStock} → {movement.newStock}
+                                    </p>
+                                  </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {movement.reason || 'No reason specified'}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {format(new Date(movement.createdAt), 'hh:mm a')}
-                                </p>
-                              </div>
-
-                              {/* Quantity */}
-                              <div className="text-right flex-shrink-0">
-                                <span className={`text-lg font-bold ${
-                                  movement.movementType === 'in' ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                  {movement.movementType === 'in' ? '+' : '-'}{Math.abs(movement.quantity)}
-                                </span>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {movement.previousStock} → {movement.newStock}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+
+                {/* Services History Section */}
+                {serviceMovements.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 mb-3">
+                      <Briefcase className="h-4 w-4" />
+                      Services History
+                    </h3>
+                    {Object.entries(groupedServiceMovements).map(([dateLabel, dayMovements]) => (
+                      <div key={`service-${dateLabel}`}>
+                        <div className="sticky top-0 bg-background z-10 py-2">
+                          <span className="text-xs font-medium text-muted-foreground bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded">
+                            {dateLabel}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {dayMovements.map((movement) => (
+                            <Card key={movement.id} className="overflow-hidden border-purple-200 dark:border-purple-800">
+                              <CardContent className="p-3">
+                                <div className="flex items-center gap-3">
+                                  {/* Movement Type Icon */}
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                    movement.movementType === 'in' 
+                                      ? 'bg-green-100 dark:bg-green-900/30' 
+                                      : 'bg-red-100 dark:bg-red-900/30'
+                                  }`}>
+                                    {movement.movementType === 'in' ? (
+                                      <TrendingUp className="h-5 w-5 text-green-600" />
+                                    ) : (
+                                      <TrendingDown className="h-5 w-5 text-red-600" />
+                                    )}
+                                  </div>
+
+                                  {/* Movement Details */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                      <span className="font-medium text-sm truncate">
+                                        {getServiceName(movement.vendorCatalogueId)}
+                                      </span>
+                                      <Badge 
+                                        variant="outline"
+                                        className={`text-[10px] px-1.5 py-0 ${
+                                          movement.movementType === 'in' 
+                                            ? 'text-green-600 border-green-300' 
+                                            : 'text-red-600 border-red-300'
+                                        }`}
+                                      >
+                                        {movement.movementType.toUpperCase()}
+                                      </Badge>
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-purple-600 border-purple-300">
+                                        SERVICE
+                                      </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {movement.reason || 'No reason specified'}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {format(new Date(movement.createdAt), 'hh:mm a')}
+                                    </p>
+                                  </div>
+
+                                  {/* Quantity */}
+                                  <div className="text-right flex-shrink-0">
+                                    <span className={`text-lg font-bold ${
+                                      movement.movementType === 'in' ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                      {movement.movementType === 'in' ? '+' : '-'}{Math.abs(movement.quantity)}
+                                    </span>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {movement.previousStock} → {movement.newStock}
+                                    </p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -842,6 +1288,11 @@ export default function VendorStockTurnover() {
                             >
                               {alert.alertType?.replace('_', ' ').toUpperCase() || 'ALERT'}
                             </Badge>
+                            {(alert as any).itemType === 'service' && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-purple-600 border-purple-300">
+                                SERVICE
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-sm font-medium truncate">{alert.message}</p>
                           <p className="text-[10px] text-muted-foreground">
@@ -1152,6 +1603,208 @@ export default function VendorStockTurnover() {
         </SheetContent>
       </Sheet>
 
+      {/* Service Stock In Sheet */}
+      <Sheet open={serviceStockInSheetOpen} onOpenChange={setServiceStockInSheetOpen}>
+        <SheetContent side="bottom" className="h-auto max-h-[90vh] rounded-t-2xl">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <Plus className="h-4 w-4 text-green-600" />
+              </div>
+              Add Slots - {selectedService?.name}
+            </SheetTitle>
+            <SheetDescription>Add available slots/units for this service</SheetDescription>
+          </SheetHeader>
+          <Form {...stockInForm}>
+            <form onSubmit={stockInForm.handleSubmit(onServiceStockInSubmit)} className="space-y-4 pb-6">
+              <FormField
+                control={stockInForm.control}
+                name="quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quantity ({selectedService?.stockUnit || 'Slots'}) *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="Enter quantity" 
+                        {...field}
+                        className="h-12 rounded-xl text-lg font-semibold text-center"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={stockInForm.control}
+                name="reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reason *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-11 rounded-xl">
+                          <SelectValue placeholder="Select reason" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Added Slots">Added Slots</SelectItem>
+                        <SelectItem value="Booking Cancelled">Booking Cancelled</SelectItem>
+                        <SelectItem value="Schedule Extended">Schedule Extended</SelectItem>
+                        <SelectItem value="Adjustment">Adjustment</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={stockInForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Add any notes..." 
+                        {...field}
+                        className="rounded-xl"
+                        rows={2}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setServiceStockInSheetOpen(false)}
+                  className="flex-1 h-12 rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={serviceStockInMutation.isPending}
+                  className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700"
+                >
+                  {serviceStockInMutation.isPending ? "Adding..." : "Add Slots"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </SheetContent>
+      </Sheet>
+
+      {/* Service Stock Out Sheet */}
+      <Sheet open={serviceStockOutSheetOpen} onOpenChange={setServiceStockOutSheetOpen}>
+        <SheetContent side="bottom" className="h-auto max-h-[90vh] rounded-t-2xl">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <Minus className="h-4 w-4 text-red-600" />
+              </div>
+              Remove Slots - {selectedService?.name}
+            </SheetTitle>
+            <SheetDescription>
+              Remove slots/units. Current: {selectedService?.stock || 0} {selectedService?.stockUnit || 'slots'}
+            </SheetDescription>
+          </SheetHeader>
+          <Form {...stockOutForm}>
+            <form onSubmit={stockOutForm.handleSubmit(onServiceStockOutSubmit)} className="space-y-4 pb-6">
+              <FormField
+                control={stockOutForm.control}
+                name="quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quantity *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="Enter quantity" 
+                        {...field}
+                        max={selectedService?.stock || 0}
+                        className="h-12 rounded-xl text-lg font-semibold text-center"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={stockOutForm.control}
+                name="reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reason *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-11 rounded-xl">
+                          <SelectValue placeholder="Select reason" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Booked">Booked</SelectItem>
+                        <SelectItem value="Completed">Service Completed</SelectItem>
+                        <SelectItem value="Expired">Slots Expired</SelectItem>
+                        <SelectItem value="Schedule Reduced">Schedule Reduced</SelectItem>
+                        <SelectItem value="Adjustment">Adjustment</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={stockOutForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Add any notes..." 
+                        {...field}
+                        className="rounded-xl"
+                        rows={2}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setServiceStockOutSheetOpen(false)}
+                  className="flex-1 h-12 rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={serviceStockOutMutation.isPending}
+                  className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700"
+                >
+                  {serviceStockOutMutation.isPending ? "Removing..." : "Remove Slots"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </SheetContent>
+      </Sheet>
+
       {/* Set Reminder Dialog */}
       <Dialog open={setAlertDialogOpen} onOpenChange={setSetAlertDialogOpen}>
         <DialogContent className="w-[95vw] max-w-md rounded-2xl">
@@ -1160,10 +1813,10 @@ export default function VendorStockTurnover() {
               <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                 <Bell className="h-4 w-4 text-blue-600" />
               </div>
-              Set Reminder - {selectedProduct?.name}
+              Set Reminder - {selectedProduct?.name || selectedService?.name}
             </DialogTitle>
             <DialogDescription>
-              Configure stock alert levels
+              Configure stock alert levels for {itemType === "product" ? "product" : "service"}
             </DialogDescription>
           </DialogHeader>
           <Form {...setAlertForm}>

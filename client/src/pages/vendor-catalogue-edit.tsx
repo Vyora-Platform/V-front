@@ -14,6 +14,9 @@ import type { VendorCatalogue } from "@shared/schema";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 // TODO: Replace with actual vendor ID from auth
 export default function VendorCatalogueEdit() {
@@ -22,6 +25,21 @@ export default function VendorCatalogueEdit() {
   const [, navigate] = useLocation();
   const [, params] = useRoute("/vendor/catalogue/edit/:id");
   const serviceId = params?.id;
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Fetch service details
   const { data: service, isLoading } = useQuery<VendorCatalogue>({

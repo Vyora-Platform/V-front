@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Users, Clock, Calendar as CalendarIcon, UserCheck, UserX, 
   ArrowLeft, Timer, LogIn, LogOut, MoreHorizontal, Search,
-  CalendarDays, Coffee, History, ChevronDown, Check, X, Eye, ChevronRight
+  CalendarDays, Coffee, History, ChevronDown, Check, X, Eye, ChevronRight,
+  RefreshCw
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -50,9 +51,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 // Status type definitions
 type EmployeeStatus = "present" | "absent" | "checked-out" | "on-leave";
@@ -70,6 +82,21 @@ export default function VendorAttendance() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
   
   // Dialog states
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
@@ -91,25 +118,25 @@ export default function VendorAttendance() {
   };
 
   // Fetch employees
-  const { data: employees = [] } = useQuery<Employee[]>({
+  const { data: employees = [], refetch: refetchEmployees } = useQuery<Employee[]>({
     queryKey: [`/api/vendors/${vendorId}/employees`],
     enabled: !!vendorId,
   });
 
   // Fetch customers
-  const { data: customers = [] } = useQuery<Customer[]>({
+  const { data: customers = [], refetch: refetchCustomers } = useQuery<Customer[]>({
     queryKey: [`/api/vendors/${vendorId}/customers`],
     enabled: !!vendorId,
   });
 
   // Fetch employee attendance
-  const { data: employeeAttendance = [], isLoading: isLoadingEmployeeAttendance } = useQuery<Attendance[]>({
+  const { data: employeeAttendance = [], isLoading: isLoadingEmployeeAttendance, refetch: refetchEmployeeAttendance } = useQuery<Attendance[]>({
     queryKey: [`/api/vendors/${vendorId}/attendance`],
     enabled: !!vendorId,
   });
 
   // Fetch customer attendance
-  const { data: customerAttendance = [], isLoading: isLoadingCustomerAttendance } = useQuery<CustomerAttendance[]>({
+  const { data: customerAttendance = [], isLoading: isLoadingCustomerAttendance, refetch: refetchCustomerAttendance } = useQuery<CustomerAttendance[]>({
     queryKey: [`/api/vendors/${vendorId}/customer-attendance`],
     enabled: !!vendorId,
   });
@@ -459,17 +486,17 @@ export default function VendorAttendance() {
     switch (status) {
       case "present":
       case "visited":
-        return <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] px-1.5 py-0 h-5">Present</Badge>;
+        return <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 h-5 sm:h-6">Present</Badge>;
       case "absent":
-        return <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] px-1.5 py-0 h-5">Absent</Badge>;
+        return <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 h-5 sm:h-6">Absent</Badge>;
       case "not-visited":
-        return <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px] px-1.5 py-0 h-5">Not Visited</Badge>;
+        return <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 h-5 sm:h-6">Not Visited</Badge>;
       case "checked-out":
-        return <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0 h-5">Checked Out</Badge>;
+        return <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 h-5 sm:h-6">Checked Out</Badge>;
       case "on-leave":
-        return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] px-1.5 py-0 h-5">On Leave</Badge>;
+        return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 h-5 sm:h-6">On Leave</Badge>;
       default:
-        return <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px] px-1.5 py-0 h-5">Unknown</Badge>;
+        return <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 h-5 sm:h-6">Unknown</Badge>;
     }
   };
 
@@ -588,13 +615,25 @@ export default function VendorAttendance() {
       .slice(0, 50);
   };
 
+  // Refresh data
+  const handleRefresh = () => {
+    if (activeTab === "employees") {
+      refetchEmployees();
+      refetchEmployeeAttendance();
+    } else {
+      refetchCustomers();
+      refetchCustomerAttendance();
+    }
+    toast({ title: "Data refreshed" });
+  };
+
   if (!vendorId) return <LoadingSpinner />;
 
   return (
-    <div className="flex flex-col h-full w-full bg-background overflow-y-auto">
-      {/* Header */}
+    <div className="flex flex-col min-h-screen w-full bg-background">
+      {/* Header - Full Width */}
       <div className="bg-background border-b sticky top-0 z-10">
-        <div className="max-w-[1440px] mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <div className="w-full px-4 lg:px-6 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -605,95 +644,111 @@ export default function VendorAttendance() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-lg font-bold text-foreground">Attendance</h1>
-              <p className="text-xs text-muted-foreground">{format(new Date(), "EEEE, MMMM d, yyyy")}</p>
+              <h1 className="text-lg lg:text-xl font-bold text-foreground">Attendance</h1>
+              <p className="text-xs lg:text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d, yyyy")}</p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowHistory(!showHistory)}
-            className="gap-1.5 h-9"
-          >
-            <History className="h-4 w-4" />
-            <span className="hidden sm:inline">{showHistory ? "Hide History" : "History"}</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              className="gap-1.5 h-9"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHistory(!showHistory)}
+              className="gap-1.5 h-9"
+            >
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">{showHistory ? "Hide History" : "History"}</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="max-w-[1440px] mx-auto px-4 pt-3 pb-20 md:pb-6">
+      {/* Main Content - Full Screen */}
+      <div className="flex-1 w-full px-4 lg:px-6 py-4 lg:py-6 pb-24 md:pb-6">
         <Tabs value={activeTab} onValueChange={(v) => {
           setActiveTab(v as any);
           setSearchQuery("");
           setStatusFilter("all");
         }} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full max-w-md grid-cols-2 mb-4 lg:mb-6">
             <TabsTrigger value="employees" className="gap-2">
               <Users className="h-4 w-4" />
-              Employees
+              <span>Employees</span>
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{employees.length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="customers" className="gap-2">
               <Coffee className="h-4 w-4" />
-              Customers
+              <span>Customers</span>
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{customers.length}</Badge>
             </TabsTrigger>
           </TabsList>
 
           {/* Employees Tab */}
-          <TabsContent value="employees" className="mt-4 space-y-4">
-            {/* Stats Cards */}
-            <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
-              <div className="flex gap-3 min-w-max md:grid md:grid-cols-5">
-                <Card className="p-3 min-w-[100px] md:min-w-0 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-blue-200 dark:border-blue-800 rounded-xl">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
-                    <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{employeeStats.total}</p>
-                  </div>
-                </Card>
-                <Card className="p-3 min-w-[100px] md:min-w-0 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800 rounded-xl">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Present</p>
-                    <p className="text-xl font-bold text-green-700 dark:text-green-400">{employeeStats.present}</p>
-                  </div>
-                </Card>
-                <Card className="p-3 min-w-[100px] md:min-w-0 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 border-red-200 dark:border-red-800 rounded-xl">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Absent</p>
-                    <p className="text-xl font-bold text-red-700 dark:text-red-400">{employeeStats.absent}</p>
-                  </div>
-                </Card>
-                <Card className="p-3 min-w-[100px] md:min-w-0 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 border-amber-200 dark:border-amber-800 rounded-xl">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">On Leave</p>
-                    <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{employeeStats.onLeave}</p>
-                  </div>
-                </Card>
-                <Card className="p-3 min-w-[110px] md:min-w-0 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800 rounded-xl">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Hours</p>
-                    <p className="text-lg font-bold text-purple-700 dark:text-purple-400">{employeeStats.workingHours}</p>
-                  </div>
-                </Card>
-              </div>
+          <TabsContent value="employees" className="space-y-4 lg:space-y-6">
+            {/* Stats Cards - Full Width Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
+              <Card className="p-3 lg:p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-blue-200 dark:border-blue-800">
+                <div className="text-center">
+                  <Users className="h-5 w-5 lg:h-6 lg:w-6 text-blue-600 dark:text-blue-400 mx-auto mb-1" />
+                  <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider">Total</p>
+                  <p className="text-xl lg:text-2xl font-bold text-blue-700 dark:text-blue-400">{employeeStats.total}</p>
+                </div>
+              </Card>
+              <Card className="p-3 lg:p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800">
+                <div className="text-center">
+                  <UserCheck className="h-5 w-5 lg:h-6 lg:w-6 text-green-600 dark:text-green-400 mx-auto mb-1" />
+                  <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider">Present</p>
+                  <p className="text-xl lg:text-2xl font-bold text-green-700 dark:text-green-400">{employeeStats.present}</p>
+                </div>
+              </Card>
+              <Card className="p-3 lg:p-4 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 border-red-200 dark:border-red-800">
+                <div className="text-center">
+                  <UserX className="h-5 w-5 lg:h-6 lg:w-6 text-red-600 dark:text-red-400 mx-auto mb-1" />
+                  <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider">Absent</p>
+                  <p className="text-xl lg:text-2xl font-bold text-red-700 dark:text-red-400">{employeeStats.absent}</p>
+                </div>
+              </Card>
+              <Card className="p-3 lg:p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 border-amber-200 dark:border-amber-800">
+                <div className="text-center">
+                  <CalendarDays className="h-5 w-5 lg:h-6 lg:w-6 text-amber-600 dark:text-amber-400 mx-auto mb-1" />
+                  <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider">On Leave</p>
+                  <p className="text-xl lg:text-2xl font-bold text-amber-700 dark:text-amber-400">{employeeStats.onLeave}</p>
+                </div>
+              </Card>
+              <Card className="p-3 lg:p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800 col-span-2 sm:col-span-1">
+                <div className="text-center">
+                  <Timer className="h-5 w-5 lg:h-6 lg:w-6 text-purple-600 dark:text-purple-400 mx-auto mb-1" />
+                  <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider">Total Hours</p>
+                  <p className="text-lg lg:text-xl font-bold text-purple-700 dark:text-purple-400">{employeeStats.workingHours}</p>
+                </div>
+              </Card>
             </div>
 
-            {/* Filters */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <div className="relative flex-1 min-w-[180px]">
+            {/* Filters - Full Width */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search employees..."
+                  placeholder="Search employees by name or phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 text-sm"
+                  className="pl-9 h-10 lg:h-11 text-sm lg:text-base"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[120px] h-10 text-sm shrink-0">
+                <SelectTrigger className="w-full sm:w-[150px] lg:w-[180px] h-10 lg:h-11 text-sm lg:text-base">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="present">Present</SelectItem>
                   <SelectItem value="absent">Absent</SelectItem>
                   <SelectItem value="on-leave">On Leave</SelectItem>
@@ -702,10 +757,119 @@ export default function VendorAttendance() {
               </Select>
             </div>
 
-            {/* Employee List - Full Width Cards (1 per row on mobile, 2 on tablet, 3 on desktop) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pb-4">
+            {/* Desktop Table View */}
+            <div className="hidden lg:block">
+              <Card className="overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-[300px]">Employee</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Check In</TableHead>
+                      <TableHead>Check Out</TableHead>
+                      <TableHead>Working Hours</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredEmployees.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center">
+                          <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-muted-foreground">
+                            {employees.length === 0 ? "No employees found" : "No match found"}
+                          </p>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredEmployees.map(employee => {
+                        const status = getEmployeeStatus(employee.id);
+                        const attendance = getTodayEmployeeAttendance(employee.id);
+                        
+                        return (
+                          <TableRow 
+                            key={employee.id} 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setLocation(`/vendor/attendance/employee/${employee.id}`)}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar name={employee.name} size="md" />
+                                <div>
+                                  <p className="font-semibold">{employee.name}</p>
+                                  <p className="text-xs text-muted-foreground">{employee.role || "Staff"}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(status)}</TableCell>
+                            <TableCell>
+                              <span className="text-sm">
+                                {attendance?.checkInTime ? formatTimeDisplay(attendance.checkInTime) : "—"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm">
+                                {attendance?.checkOutTime ? formatTimeDisplay(attendance.checkOutTime) : "—"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm font-medium">
+                                {attendance ? calculateWorkingHours(attendance.checkInTime, attendance.checkOutTime) : "—"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
+                                {status === "absent" && (
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => handleCheckIn("employee", employee.id, employee.name)}
+                                  >
+                                    <LogIn className="h-4 w-4 mr-1.5" />
+                                    Check-in
+                                  </Button>
+                                )}
+                                {status === "present" && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleCheckOut("employee", employee.id)}
+                                  >
+                                    <LogOut className="h-4 w-4 mr-1.5" />
+                                    Check-out
+                                  </Button>
+                                )}
+                                {status === "absent" && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleMarkLeave(employee.id, employee.name)}
+                                  >
+                                    <CalendarDays className="h-4 w-4 mr-1.5" />
+                                    Leave
+                                  </Button>
+                                )}
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => setLocation(`/vendor/attendance/employee/${employee.id}`)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden space-y-3">
               {filteredEmployees.length === 0 ? (
-                <Card className="p-6 text-center col-span-full rounded-xl">
+                <Card className="p-6 text-center rounded-xl">
                   <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">
                     {employees.length === 0 ? "No employees found" : "No match found"}
@@ -715,68 +879,71 @@ export default function VendorAttendance() {
                 filteredEmployees.map(employee => {
                   const status = getEmployeeStatus(employee.id);
                   const attendance = getTodayEmployeeAttendance(employee.id);
-                  const leaveInfo = getEmployeeLeaveToday(employee.id);
                   
                   return (
                     <Card 
                       key={employee.id} 
                       className="overflow-hidden rounded-xl cursor-pointer hover:shadow-md transition-shadow border"
-                              onClick={() => setLocation(`/vendor/attendance/employee/${employee.id}`)}
-                            >
+                      onClick={() => setLocation(`/vendor/attendance/employee/${employee.id}`)}
+                    >
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          {/* Avatar */}
-                          <Avatar name={employee.name} size="md" />
-                          
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-sm truncate">{employee.name}</h3>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {employee.role || "Staff"}
+                        <div className="flex items-center justify-between gap-3">
+                          {/* Left: Avatar + Info */}
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <Avatar name={employee.name} size="md" />
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-semibold text-sm truncate">{employee.name}</h3>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {employee.role || "Staff"}
                               </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              {getStatusBadge(status)}
-                              {attendance && status !== "on-leave" && (
-                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {getStatusBadge(status)}
+                                {attendance && status !== "on-leave" && (
+                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
                                     <Timer className="h-3 w-3" />
                                     {calculateWorkingHours(attendance.checkInTime, attendance.checkOutTime)}
                                   </span>
-                              )}
+                                )}
+                              </div>
                             </div>
                           </div>
                           
-                          {/* Action Button */}
-                          <div className="flex-shrink-0">
+                          {/* Right: Action Button */}
+                          <div className="flex-shrink-0" onClick={e => e.stopPropagation()}>
                             {status === "absent" && (
-                                <Button 
-                                  size="sm" 
-                                onClick={(e) => { e.stopPropagation(); handleCheckIn("employee", employee.id, employee.name); }}
-                                className="h-9 px-4 text-xs"
-                                >
-                                <LogIn className="h-4 w-4 mr-1" />
-                                  Check-in
-                                </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" className="h-9 px-3 text-xs">
+                                    <LogIn className="h-4 w-4 mr-1.5" />
+                                    Check-in
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleCheckIn("employee", employee.id, employee.name)}>
+                                    <LogIn className="h-4 w-4 mr-2" />
+                                    Check-in Now
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleMarkLeave(employee.id, employee.name)}>
+                                    <CalendarDays className="h-4 w-4 mr-2" />
+                                    Mark Leave
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                             {status === "present" && (
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                onClick={(e) => { e.stopPropagation(); handleCheckOut("employee", employee.id); }}
-                                className="h-9 px-4 text-xs"
-                                >
-                                <LogOut className="h-4 w-4 mr-1" />
-                                  Check-out
-                                </Button>
-                            )}
-                            {(status === "on-leave" || status === "checked-out") && (
                               <Button 
                                 size="sm" 
-                                variant="ghost"
-                                className="h-9 px-4 text-xs"
+                                variant="outline"
+                                onClick={() => handleCheckOut("employee", employee.id)}
+                                className="h-9 px-3 text-xs whitespace-nowrap"
                               >
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
+                                <LogOut className="h-4 w-4 mr-1.5" />
+                                Check-out
                               </Button>
+                            )}
+                            {(status === "on-leave" || status === "checked-out") && (
+                              <ChevronRight className="h-5 w-5 text-muted-foreground" />
                             )}
                           </div>
                         </div>
@@ -789,9 +956,9 @@ export default function VendorAttendance() {
 
             {/* Employee History Section */}
             {showHistory && (
-              <Card className="mt-4 rounded-xl">
+              <Card className="rounded-xl">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <History className="h-4 w-4" />
                       Attendance History
@@ -810,7 +977,7 @@ export default function VendorAttendance() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <ScrollArea className="h-[300px]">
+                  <ScrollArea className="h-[300px] lg:h-[400px]">
                     <div className="space-y-2">
                       {getFilteredEmployeeHistory().map(record => (
                         <div key={record.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
@@ -845,48 +1012,49 @@ export default function VendorAttendance() {
           </TabsContent>
 
           {/* Customers Tab */}
-          <TabsContent value="customers" className="mt-4 space-y-4">
+          <TabsContent value="customers" className="space-y-4 lg:space-y-6">
             {/* Stats Cards */}
-            <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
-              <div className="flex gap-3 min-w-max md:grid md:grid-cols-3">
-                <Card className="p-3 min-w-[100px] md:min-w-0 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800 rounded-xl">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
-                    <p className="text-xl font-bold text-purple-700 dark:text-purple-400">{customerStats.total}</p>
-                  </div>
-                </Card>
-                <Card className="p-3 min-w-[100px] md:min-w-0 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800 rounded-xl">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Visited</p>
-                    <p className="text-xl font-bold text-green-700 dark:text-green-400">{customerStats.visitsToday}</p>
-                  </div>
-                </Card>
-                <Card className="p-3 min-w-[100px] md:min-w-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/30 border-gray-200 dark:border-gray-800 rounded-xl">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Not Visited</p>
-                    <p className="text-xl font-bold text-gray-700 dark:text-gray-400">{customerStats.notVisited}</p>
-                  </div>
-                </Card>
-              </div>
+            <div className="grid grid-cols-3 gap-3 lg:gap-4">
+              <Card className="p-3 lg:p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800">
+                <div className="text-center">
+                  <Users className="h-5 w-5 lg:h-6 lg:w-6 text-purple-600 dark:text-purple-400 mx-auto mb-1" />
+                  <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider">Total</p>
+                  <p className="text-xl lg:text-2xl font-bold text-purple-700 dark:text-purple-400">{customerStats.total}</p>
+                </div>
+              </Card>
+              <Card className="p-3 lg:p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800">
+                <div className="text-center">
+                  <UserCheck className="h-5 w-5 lg:h-6 lg:w-6 text-green-600 dark:text-green-400 mx-auto mb-1" />
+                  <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider">Visited</p>
+                  <p className="text-xl lg:text-2xl font-bold text-green-700 dark:text-green-400">{customerStats.visitsToday}</p>
+                </div>
+              </Card>
+              <Card className="p-3 lg:p-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/30 border-gray-200 dark:border-gray-800">
+                <div className="text-center">
+                  <UserX className="h-5 w-5 lg:h-6 lg:w-6 text-gray-600 dark:text-gray-400 mx-auto mb-1" />
+                  <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider">Not Visited</p>
+                  <p className="text-xl lg:text-2xl font-bold text-gray-700 dark:text-gray-400">{customerStats.notVisited}</p>
+                </div>
+              </Card>
             </div>
 
-            {/* Filters */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <div className="relative flex-1 min-w-[180px]">
+            {/* Filters - Full Width */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search customers..."
+                  placeholder="Search customers by name or phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 text-sm"
+                  className="pl-9 h-10 lg:h-11 text-sm lg:text-base"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[120px] h-10 text-sm shrink-0">
+                <SelectTrigger className="w-full sm:w-[150px] lg:w-[180px] h-10 lg:h-11 text-sm lg:text-base">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="visited">Visited</SelectItem>
                   <SelectItem value="not-visited">Not Visited</SelectItem>
                   <SelectItem value="checked-out">Checked Out</SelectItem>
@@ -894,10 +1062,109 @@ export default function VendorAttendance() {
               </Select>
             </div>
 
-            {/* Customer List - Full Width Cards (1 per row on mobile, 2 on tablet, full on desktop) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
+            {/* Desktop Table View */}
+            <div className="hidden lg:block">
+              <Card className="overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-[300px]">Customer</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Check In</TableHead>
+                      <TableHead>Check Out</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center">
+                          <Coffee className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-muted-foreground">
+                            {customers.length === 0 ? "No customers found" : "No match found"}
+                          </p>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredCustomers.map(customer => {
+                        const status = getCustomerStatus(customer.id);
+                        const attendance = getTodayCustomerAttendance(customer.id);
+                        
+                        return (
+                          <TableRow 
+                            key={customer.id} 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setLocation(`/vendor/attendance/customer/${customer.id}`)}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar name={customer.name} size="md" />
+                                <div>
+                                  <p className="font-semibold">{customer.name}</p>
+                                  <p className="text-xs text-muted-foreground">{customer.phone || "—"}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(status)}</TableCell>
+                            <TableCell>
+                              <span className="text-sm">
+                                {attendance?.checkInTime ? formatTimeDisplay(attendance.checkInTime) : "—"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm">
+                                {attendance?.checkOutTime ? formatTimeDisplay(attendance.checkOutTime) : "—"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm font-medium">
+                                {attendance ? calculateWorkingHours(attendance.checkInTime, attendance.checkOutTime) : "—"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
+                                {status === "not-visited" && (
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => handleCheckIn("customer", customer.id, customer.name)}
+                                  >
+                                    <LogIn className="h-4 w-4 mr-1.5" />
+                                    Check-in
+                                  </Button>
+                                )}
+                                {status === "visited" && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleCheckOut("customer", customer.id)}
+                                  >
+                                    <LogOut className="h-4 w-4 mr-1.5" />
+                                    Check-out
+                                  </Button>
+                                )}
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => setLocation(`/vendor/attendance/customer/${customer.id}`)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden space-y-3">
               {filteredCustomers.length === 0 ? (
-                <Card className="p-6 text-center col-span-full rounded-xl">
+                <Card className="p-6 text-center rounded-xl">
                   <Coffee className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">
                     {customers.length === 0 ? "No customers found" : "No match found"}
@@ -912,62 +1179,55 @@ export default function VendorAttendance() {
                     <Card 
                       key={customer.id} 
                       className="overflow-hidden rounded-xl cursor-pointer hover:shadow-md transition-shadow border"
-                              onClick={() => setLocation(`/vendor/attendance/customer/${customer.id}`)}
-                            >
+                      onClick={() => setLocation(`/vendor/attendance/customer/${customer.id}`)}
+                    >
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          {/* Avatar */}
-                          <Avatar name={customer.name} size="md" />
-                          
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-sm truncate">{customer.name}</h3>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {customer.phone || "—"}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              {getStatusBadge(status)}
-                              {attendance && (
-                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <div className="flex items-center justify-between gap-3">
+                          {/* Left: Avatar + Info */}
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <Avatar name={customer.name} size="md" />
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-semibold text-sm truncate">{customer.name}</h3>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {customer.phone || "—"}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {getStatusBadge(status)}
+                                {attendance && (
+                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
                                     <Timer className="h-3 w-3" />
                                     {calculateWorkingHours(attendance.checkInTime, attendance.checkOutTime)}
                                   </span>
-                              )}
+                                )}
+                              </div>
                             </div>
                           </div>
                           
-                          {/* Action Button */}
-                          <div className="flex-shrink-0">
+                          {/* Right: Action Button */}
+                          <div className="flex-shrink-0" onClick={e => e.stopPropagation()}>
                             {status === "not-visited" && (
-                                <Button 
-                                  size="sm" 
-                                onClick={(e) => { e.stopPropagation(); handleCheckIn("customer", customer.id, customer.name); }}
-                                className="h-9 px-4 text-xs"
-                                >
-                                <LogIn className="h-4 w-4 mr-1" />
-                                  Check-in
-                                </Button>
-                            )}
-                            {status === "visited" && (
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                onClick={(e) => { e.stopPropagation(); handleCheckOut("customer", customer.id); }}
-                                className="h-9 px-4 text-xs"
-                                >
-                                <LogOut className="h-4 w-4 mr-1" />
-                                  Check-out
-                                </Button>
-                            )}
-                            {status === "checked-out" && (
                               <Button 
                                 size="sm" 
-                                variant="ghost"
-                                className="h-9 px-4 text-xs"
+                                onClick={() => handleCheckIn("customer", customer.id, customer.name)}
+                                className="h-9 px-3 text-xs whitespace-nowrap"
                               >
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
+                                <LogIn className="h-4 w-4 mr-1.5" />
+                                Check-in
                               </Button>
+                            )}
+                            {status === "visited" && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleCheckOut("customer", customer.id)}
+                                className="h-9 px-3 text-xs whitespace-nowrap"
+                              >
+                                <LogOut className="h-4 w-4 mr-1.5" />
+                                Check-out
+                              </Button>
+                            )}
+                            {status === "checked-out" && (
+                              <ChevronRight className="h-5 w-5 text-muted-foreground" />
                             )}
                           </div>
                         </div>
@@ -980,9 +1240,9 @@ export default function VendorAttendance() {
 
             {/* Customer History Section */}
             {showHistory && (
-              <Card className="mt-4 rounded-xl">
+              <Card className="rounded-xl">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <History className="h-4 w-4" />
                       Visit History
@@ -1001,7 +1261,7 @@ export default function VendorAttendance() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <ScrollArea className="h-[300px]">
+                  <ScrollArea className="h-[300px] lg:h-[400px]">
                     <div className="space-y-2">
                       {getFilteredCustomerHistory().map(record => (
                         <div key={record.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
@@ -1079,16 +1339,17 @@ export default function VendorAttendance() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCheckInDialogOpen(false)}>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setCheckInDialogOpen(false)} className="w-full sm:w-auto">
               Cancel
             </Button>
             <Button 
               onClick={submitCheckIn}
               disabled={markEmployeeAttendanceMutation.isPending || markCustomerAttendanceMutation.isPending}
+              className="w-full sm:w-auto"
             >
               <Check className="h-4 w-4 mr-2" />
-              Confirm
+              Confirm Check-in
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1159,17 +1420,17 @@ export default function VendorAttendance() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
             <Button variant="outline" onClick={() => {
               setLeaveDialogOpen(false);
               resetLeaveForm();
-            }}>
+            }} className="w-full sm:w-auto">
               Cancel
             </Button>
             <Button 
               onClick={submitLeave}
               disabled={!leaveReason || createLeaveMutation.isPending}
-              className="bg-amber-600 hover:bg-amber-700"
+              className="bg-amber-600 hover:bg-amber-700 w-full sm:w-auto"
             >
               <Check className="h-4 w-4 mr-2" />
               Mark Leave

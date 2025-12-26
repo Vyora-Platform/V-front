@@ -1,12 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, FolderTree, Search, Filter, X, Layers } from "lucide-react";
+import { Plus, Edit, Trash2, FolderTree, Search, Filter, X, Layers, Lock } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +72,9 @@ export default function VendorCategories() {
   const vendorId = useVendorId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "master" | "custom">("all");
@@ -250,12 +256,22 @@ export default function VendorCategories() {
   });
 
   const handleCreateCategory = () => {
+    const actionCheck = canPerformAction('create');
+    if (!actionCheck.allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
     setEditingCategory(null);
     setCategoryForm({ name: "", logo: null });
     setCategoryDialogOpen(true);
   };
 
   const handleEditCategory = (category: Category) => {
+    const actionCheck = canPerformAction('update');
+    if (!actionCheck.allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
     setEditingCategory(category);
     setCategoryForm({ 
       name: category.name, 
@@ -265,12 +281,22 @@ export default function VendorCategories() {
   };
 
   const handleCreateSubcategory = () => {
+    const actionCheck = canPerformAction('create');
+    if (!actionCheck.allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
     setEditingSubcategory(null);
     setSubcategoryForm({ categoryId: "", name: "", logo: null });
     setSubcategoryDialogOpen(true);
   };
 
   const handleEditSubcategory = (subcategory: Subcategory) => {
+    const actionCheck = canPerformAction('update');
+    if (!actionCheck.allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
     setEditingSubcategory(subcategory);
     setSubcategoryForm({ 
       categoryId: subcategory.categoryId,
@@ -281,6 +307,11 @@ export default function VendorCategories() {
   };
 
   const handleDelete = (type: 'category' | 'subcategory', id: string, name: string) => {
+    const actionCheck = canPerformAction('delete');
+    if (!actionCheck.allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
     setDeletingItem({ type, id, name });
     setDeleteDialogOpen(true);
   };
@@ -304,10 +335,12 @@ export default function VendorCategories() {
           <Button onClick={handleCreateCategory} size="lg">
             <Plus className="mr-2 h-5 w-5" />
             Add Category
+            {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
           </Button>
           <Button onClick={handleCreateSubcategory} variant="outline" size="lg">
             <Plus className="mr-2 h-5 w-5" />
             Add Subcategory
+            {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
           </Button>
         </div>
       </div>
@@ -767,6 +800,17 @@ export default function VendorCategories() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action="create"
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          setLocation('/vendor/account');
+        }}
+      />
     </div>
   );
 }

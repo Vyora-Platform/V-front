@@ -19,6 +19,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
 import { ImageEditorDialog } from "@/components/ImageEditorDialog";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 // Download size options
 const downloadSizeOptions = [
@@ -50,6 +53,21 @@ export default function VendorGreetingCustomize() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   const [customText, setCustomText] = useState("");
   const [businessName, setBusinessName] = useState("My Business");

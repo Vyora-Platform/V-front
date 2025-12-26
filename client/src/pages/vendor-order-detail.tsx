@@ -1,16 +1,15 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { 
   ArrowLeft, Phone, Mail, MapPin, Package, Truck, 
-  IndianRupee, Clock, User, FileText, Copy, 
+  IndianRupee, Clock, User, Copy, 
   CheckCircle, XCircle, Timer, Box, Globe, Store,
-  Smartphone, Calendar, Printer, Share2, Edit,
-  MessageSquare, CreditCard, Banknote, Wallet
+  Smartphone, CreditCard, Banknote, Wallet, ChevronLeft, Lock
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -24,17 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import type { Order, OrderItem } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
 import { cn } from "@/lib/utils";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 
 export default function VendorOrderDetail() {
   const { vendorId } = useAuth();
@@ -42,10 +36,10 @@ export default function VendorOrderDetail() {
   const [, setLocation] = useLocation();
   const [, params] = useRoute("/vendor/orders/:id");
   const orderId = params?.id;
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
-  const [orderNotes, setOrderNotes] = useState("");
 
   // Fetch order details
   const { data: order, isLoading: orderLoading } = useQuery<Order>({
@@ -69,7 +63,6 @@ export default function VendorOrderDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/orders`] });
       toast({ title: "Order updated successfully" });
-      setShowUpdateModal(false);
     },
     onError: () => {
       toast({ title: "Failed to update order", variant: "destructive" });
@@ -111,12 +104,19 @@ export default function VendorOrderDetail() {
     toast({ title: "Copied to clipboard" });
   };
 
+  // Handle direct call - no redirection
+  const handleCall = () => {
+    if (order?.customerPhone) {
+      window.location.href = `tel:${order.customerPhone}`;
+    }
+  };
+
   const orderTimeline = [
-    { status: "pending", label: "Order Placed", time: order?.createdAt },
-    { status: "confirmed", label: "Order Confirmed", time: order?.status !== "pending" ? order?.updatedAt : null },
-    { status: "processing", label: "Processing", time: ["processing", "shipped", "delivered"].includes(order?.status || "") ? order?.updatedAt : null },
-    { status: "shipped", label: "Shipped", time: ["shipped", "delivered"].includes(order?.status || "") ? order?.updatedAt : null },
-    { status: "delivered", label: "Delivered", time: order?.deliveredAt },
+    { status: "pending", label: "Placed" },
+    { status: "confirmed", label: "Confirmed" },
+    { status: "processing", label: "Processing" },
+    { status: "shipped", label: "Shipped" },
+    { status: "delivered", label: "Delivered" },
   ];
 
   if (orderLoading || itemsLoading || !orderId) {
@@ -125,7 +125,7 @@ export default function VendorOrderDetail() {
 
   if (!order) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-6">
+      <div className="flex flex-col items-center justify-center min-h-screen p-6">
         <Package className="w-16 h-16 text-muted-foreground mb-4" />
         <h2 className="text-xl font-semibold mb-2">Order Not Found</h2>
         <p className="text-muted-foreground mb-4">This order doesn't exist or has been deleted.</p>
@@ -144,19 +144,22 @@ export default function VendorOrderDetail() {
   const PaymentIcon = paymentInfo.icon;
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
+    <div className="min-h-screen bg-background pb-32 md:pb-6">
+      {/* Header - Sticky */}
       <div className="sticky top-0 z-30 bg-background border-b">
-        <div className="flex items-center justify-between p-4">
+        <div className="flex items-center justify-between p-4 max-w-[800px] mx-auto">
           <div className="flex items-center gap-3">
-            <Link href="/vendor/orders">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-10 w-10"
+              onClick={() => setLocation("/vendor/orders")}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold">Order #{order.id.slice(-8).toUpperCase()}</h1>
+                <h1 className="text-lg font-bold">#{order.id.slice(-8).toUpperCase()}</h1>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(order.id)}>
                   <Copy className="h-3 w-3" />
                 </Button>
@@ -164,332 +167,306 @@ export default function VendorOrderDetail() {
               <p className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "PPP 'at' h:mm a")}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" className="hidden sm:flex">
-              <Printer className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" className="hidden sm:flex">
-              <Share2 className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-4xl mx-auto p-4 space-y-4">
-          {/* Status Card */}
-          <Card className="border-0 shadow-sm overflow-hidden">
-            <div className={cn("h-1", statusConfig.color)} />
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", statusConfig.bgColor)}>
-                    <StatusIcon className={cn("w-6 h-6", statusConfig.textColor)} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold">{statusConfig.label}</h2>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <SourceIcon className={cn("w-4 h-4", sourceInfo.color)} />
-                      <span>{sourceInfo.label}</span>
-                    </div>
-                  </div>
+      {/* Single Page Content */}
+      <div className="max-w-[800px] mx-auto p-4 space-y-4">
+        
+        {/* Status & Source Card */}
+        <Card className="border-0 shadow-sm overflow-hidden rounded-xl">
+          <div className={cn("h-1.5", statusConfig.color)} />
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <div className={cn("w-14 h-14 rounded-xl flex items-center justify-center", statusConfig.bgColor)}>
+                <StatusIcon className={cn("w-7 h-7", statusConfig.textColor)} />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-bold">{statusConfig.label}</h2>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <SourceIcon className={cn("w-4 h-4", sourceInfo.color)} />
+                  <span>{sourceInfo.label}</span>
                 </div>
-                
-                {order.status !== "delivered" && order.status !== "cancelled" && (
-                  <Dialog open={showUpdateModal} onOpenChange={setShowUpdateModal}>
-                    <DialogTrigger asChild>
-                      <Button size="sm">
-                        <Edit className="w-4 h-4 mr-2" />
-                        Update
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Update Order</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 pt-4">
-                        <div>
-                          <Label>Order Status</Label>
-                          <Select
-                            value={order.status}
-                            onValueChange={(status) => updateOrderMutation.mutate({ status })}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="confirmed">Confirmed</SelectItem>
-                              <SelectItem value="processing">Processing</SelectItem>
-                              <SelectItem value="shipped">Shipped</SelectItem>
-                              <SelectItem value="delivered">Delivered</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div>
-                          <Label>Tracking Number</Label>
-                          <div className="flex gap-2 mt-1">
-                            <Input
-                              placeholder="Enter tracking number"
-                              value={trackingNumber || order.trackingNumber || ""}
-                              onChange={(e) => setTrackingNumber(e.target.value)}
-                            />
-                            <Button 
-                              onClick={() => updateOrderMutation.mutate({ trackingNumber })}
-                              disabled={!trackingNumber}
-                            >
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <Label>Payment Status</Label>
-                          <Select
-                            value={order.paymentStatus || "pending"}
-                            onValueChange={(paymentStatus) => updateOrderMutation.mutate({ paymentStatus })}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="paid">Paid</SelectItem>
-                              <SelectItem value="refunded">Refunded</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+              </div>
+            </div>
+
+            {/* Timeline - Compact */}
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                {orderTimeline.map((step, idx) => {
+                  const currentIdx = orderTimeline.findIndex(s => s.status === order.status);
+                  const isCompleted = currentIdx >= idx;
+                  const isCancelled = order.status === "cancelled";
+                  
+                  return (
+                    <div key={step.status} className="flex flex-col items-center flex-1">
+                      <div className={cn(
+                        "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
+                        isCancelled ? "bg-red-100 text-red-500" :
+                        isCompleted ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                      )}>
+                        {isCompleted ? <CheckCircle className="w-4 h-4" /> : idx + 1}
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
-
-              {/* Timeline */}
-              <div className="mt-6 pt-4 border-t">
-                <div className="flex items-center justify-between overflow-x-auto pb-2">
-                  {orderTimeline.map((step, idx) => {
-                    const isCompleted = orderTimeline.findIndex(s => s.status === order.status) >= idx;
-                    const isCurrent = step.status === order.status;
-                    
-                    return (
-                      <div key={step.status} className="flex flex-col items-center flex-1 min-w-[60px]">
-                        <div className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
-                          isCompleted ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
-                        )}>
-                          {isCompleted ? <CheckCircle className="w-4 h-4" /> : idx + 1}
-                        </div>
-                        <p className={cn(
-                          "text-[10px] mt-1 text-center",
-                          isCurrent ? "font-bold text-foreground" : "text-muted-foreground"
-                        )}>
-                          {step.label}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Order Amount */}
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="text-3xl font-bold">₹{order.totalAmount.toLocaleString()}</p>
-                </div>
-                <Badge 
-                  className={cn(
-                    "h-8 px-3",
-                    order.paymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" :
-                    order.paymentStatus === "refunded" ? "bg-red-100 text-red-700" :
-                    "bg-amber-100 text-amber-700"
-                  )}
-                >
-                  <PaymentIcon className="w-4 h-4 mr-2" />
-                  {order.paymentStatus === "paid" ? "Paid" : order.paymentStatus === "refunded" ? "Refunded" : "Payment Pending"}
-                </Badge>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t">
-                <div>
-                  <p className="text-xs text-muted-foreground">Subtotal</p>
-                  <p className="font-semibold">₹{order.subtotal.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Delivery</p>
-                  <p className="font-semibold">₹{order.deliveryCharges.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Payment Method</p>
-                  <p className="font-semibold text-sm">{paymentInfo.label}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Customer Info */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Customer Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">{order.customerName}</p>
-                  {order.customerId && (
-                    <p className="text-xs text-muted-foreground">Customer ID: {order.customerId.slice(-8)}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={`tel:${order.customerPhone}`}>
-                      <Phone className="w-4 h-4 mr-1" />
-                      Call
-                    </a>
-                  </Button>
-                  {order.customerEmail && (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={`mailto:${order.customerEmail}`}>
-                        <Mail className="w-4 h-4 mr-1" />
-                        Email
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30">
-                <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm">{order.deliveryAddress}</p>
-                  <p className="text-sm text-muted-foreground">{order.city}, {order.state} - {order.pincode}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Tracking Info */}
-          {order.trackingNumber && (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-cyan-100 dark:bg-cyan-900/20 flex items-center justify-center">
-                      <Truck className="w-5 h-5 text-cyan-600" />
+                      <p className="text-[9px] mt-1 text-center text-muted-foreground">
+                        {step.label}
+                      </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Tracking Number</p>
-                      <p className="font-semibold">{order.trackingNumber}</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => copyToClipboard(order.trackingNumber!)}>
-                    <Copy className="w-4 h-4 mr-1" />
-                    Copy
-                  </Button>
-                </div>
-                {order.estimatedDelivery && (
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t text-sm">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span>Estimated Delivery: {format(new Date(order.estimatedDelivery), "PPP")}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Order Items */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Order Items ({orderItems.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+        {/* Amount Card */}
+        <Card className="border-0 shadow-sm rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Amount</p>
+                <p className="text-3xl font-bold">₹{order.totalAmount.toLocaleString()}</p>
+              </div>
+              <Badge 
+                className={cn(
+                  "h-8 px-3",
+                  order.paymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" :
+                  order.paymentStatus === "refunded" ? "bg-red-100 text-red-700" :
+                  "bg-amber-100 text-amber-700"
+                )}
+              >
+                <PaymentIcon className="w-4 h-4 mr-2" />
+                {order.paymentStatus === "paid" ? "Paid" : order.paymentStatus === "refunded" ? "Refunded" : "Unpaid"}
+              </Badge>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Subtotal</p>
+                <p className="font-semibold">₹{order.subtotal.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Delivery</p>
+                <p className="font-semibold">₹{order.deliveryCharges.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Method</p>
+                <p className="font-semibold text-sm">{paymentInfo.label.split(' ')[0]}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Customer Card */}
+        <Card className="border-0 shadow-sm rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">{order.customerName}</p>
+                <p className="text-xs text-muted-foreground">{order.customerPhone}</p>
+              </div>
+            </div>
+            
+            {/* Address */}
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30">
+              <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p>{order.deliveryAddress}</p>
+                <p className="text-muted-foreground">{order.city}, {order.state} - {order.pincode}</p>
+              </div>
+            </div>
+            
+            {/* Email if available */}
+            {order.customerEmail && (
+              <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+                <Mail className="w-4 h-4" />
+                <span>{order.customerEmail}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Order Items */}
+        <Card className="border-0 shadow-sm rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Package className="w-4 h-4" />
+              <h3 className="font-semibold">Items ({orderItems.length})</h3>
+            </div>
+            
+            <div className="space-y-3">
               {orderItems.map((item) => (
                 <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
                     <Package className="w-6 h-6 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{item.productName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.productBrand && `${item.productBrand} · `}{item.productUnit}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Qty: {item.quantity} × ₹{item.pricePerUnit}
+                      {item.productBrand && `${item.productBrand} · `}{item.quantity} × ₹{item.pricePerUnit}
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <p className="font-bold">₹{item.totalPrice.toLocaleString()}</p>
                   </div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tracking */}
+        {order.trackingNumber && (
+          <Card className="border-0 shadow-sm rounded-xl">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-100 dark:bg-cyan-900/20 flex items-center justify-center">
+                    <Truck className="w-5 h-5 text-cyan-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Tracking</p>
+                    <p className="font-semibold">{order.trackingNumber}</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => copyToClipboard(order.trackingNumber!)}>
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              {order.estimatedDelivery && (
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t text-sm">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span>Est. Delivery: {format(new Date(order.estimatedDelivery), "PPP")}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
+        )}
 
-          {/* Notes */}
-          {order.notes && (
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Order Notes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">{order.notes}</p>
-              </CardContent>
-            </Card>
-          )}
+        {/* Update Tracking Number (if shipped) */}
+        {order.status === "shipped" && !order.trackingNumber && (
+          <Card className="border-0 shadow-sm rounded-xl">
+            <CardContent className="p-4">
+              <Label className="text-sm">Add Tracking Number</Label>
+              <div className="flex gap-2 mt-2">
+                <Input
+                  placeholder="Enter tracking number"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  className="h-11"
+                />
+                <Button 
+                  onClick={() => {
+                    const actionCheck = canPerformAction('update');
+                    if (!actionCheck.allowed) {
+                      setShowUpgradeModal(true);
+                      return;
+                    }
+                    if (trackingNumber) {
+                      updateOrderMutation.mutate({ trackingNumber });
+                      setTrackingNumber("");
+                    }
+                  }}
+                  disabled={!trackingNumber}
+                  className="h-11"
+                >
+                  Save
+                  {!isPro && <Lock className="w-3.5 h-3.5 ml-1 opacity-60" />}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Notes */}
+        {order.notes && (
+          <Card className="border-0 shadow-sm rounded-xl">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground mb-1">Order Notes</p>
+              <p className="text-sm">{order.notes}</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Fixed Bottom Action Bar - Three CTAs */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t z-40">
+        <div className="max-w-[800px] mx-auto">
+          <div className="flex items-center gap-2">
+            {/* Call Now Button - Direct call, no redirection */}
+            <Button
+              variant="default"
+              className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-base font-semibold"
+              onClick={handleCall}
+            >
+              <Phone className="w-5 h-5 mr-2" />
+              Call Now
+            </Button>
+            
+            {/* Order Status Dropdown */}
+            <Select 
+              value={order.status} 
+              onValueChange={(value) => {
+                const actionCheck = canPerformAction('update');
+                if (!actionCheck.allowed) {
+                  setShowUpgradeModal(true);
+                  return;
+                }
+                updateOrderMutation.mutate({ status: value });
+              }}
+            >
+              <SelectTrigger className="flex-1 h-12 text-sm font-medium">
+                <SelectValue placeholder="Order Status" />
+                {!isPro && <Lock className="w-3.5 h-3.5 ml-1 opacity-60" />}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="shipped">Shipped</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Payment Status Dropdown */}
+            <Select 
+              value={order.paymentStatus || "pending"} 
+              onValueChange={(value) => {
+                const actionCheck = canPerformAction('update');
+                if (!actionCheck.allowed) {
+                  setShowUpgradeModal(true);
+                  return;
+                }
+                updateOrderMutation.mutate({ paymentStatus: value });
+              }}
+            >
+              <SelectTrigger className="flex-1 h-12 text-sm font-medium">
+                <SelectValue placeholder="Payment" />
+                {!isPro && <Lock className="w-3.5 h-3.5 ml-1 opacity-60" />}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Unpaid</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="refunded">Refunded</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
-      {/* Bottom Action Bar (Mobile) */}
-      <div className="sticky bottom-0 p-4 bg-background border-t md:hidden">
-        {order.status !== "delivered" && order.status !== "cancelled" ? (
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={() => setShowUpdateModal(true)}
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              Update Order
-            </Button>
-            <Button 
-              variant="default" 
-              className="flex-1"
-              asChild
-            >
-              <a href={`tel:${order.customerPhone}`}>
-                <Phone className="w-4 h-4 mr-2" />
-                Call Customer
-              </a>
-            </Button>
-          </div>
-        ) : (
-          <Button variant="outline" className="w-full" asChild>
-            <Link href="/vendor/orders">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Orders
-            </Link>
-          </Button>
-        )}
-      </div>
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action="update"
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          setLocation('/vendor/account');
+        }}
+      />
     </div>
   );
 }
-
-
-

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit2, Trash2, Package, Search, ArrowLeft } from "lucide-react";
+import { Edit2, Trash2, Package, Search, ArrowLeft, Lock } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertVendorProductSchema, type VendorProduct, type InsertVendorProduct } from "@shared/schema";
@@ -17,11 +17,15 @@ import { useToast } from "@/hooks/use-toast";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 
 export default function VendorMyProducts() {
   const { vendorId } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [editingProduct, setEditingProduct] = useState<VendorProduct | null>(null);
@@ -160,18 +164,34 @@ export default function VendorMyProducts() {
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => setEditingProduct(product)}
+                      onClick={() => {
+                        const actionCheck = canPerformAction('update');
+                        if (!actionCheck.allowed) {
+                          setShowUpgradeModal(true);
+                          return;
+                        }
+                        setEditingProduct(product);
+                      }}
                       data-testid={`button-edit-${product.id}`}
                     >
                       <Edit2 className="w-4 h-4" />
+                      {!isPro && <Lock className="w-3 h-3 ml-0.5 opacity-60" />}
                     </Button>
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => deleteMutation.mutate(product.id)}
+                      onClick={() => {
+                        const actionCheck = canPerformAction('delete');
+                        if (!actionCheck.allowed) {
+                          setShowUpgradeModal(true);
+                          return;
+                        }
+                        deleteMutation.mutate(product.id);
+                      }}
                       data-testid={`button-delete-${product.id}`}
                     >
                       <Trash2 className="w-4 h-4" />
+                      {!isPro && <Lock className="w-3 h-3 ml-0.5 opacity-60" />}
                     </Button>
                   </div>
                 </div>
@@ -224,12 +244,31 @@ export default function VendorMyProducts() {
           {editingProduct && (
             <EditProductForm
               product={editingProduct}
-              onSubmit={(data) => updateMutation.mutate({ id: editingProduct.id, data })}
+              onSubmit={(data) => {
+                const actionCheck = canPerformAction('update');
+                if (!actionCheck.allowed) {
+                  setShowUpgradeModal(true);
+                  return;
+                }
+                updateMutation.mutate({ id: editingProduct.id, data });
+              }}
               isPending={updateMutation.isPending}
+              isPro={isPro}
             />
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action="update"
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          setLocation('/vendor/account');
+        }}
+      />
     </div>
   );
 }
@@ -238,9 +277,10 @@ interface EditProductFormProps {
   product: VendorProduct;
   onSubmit: (data: Partial<InsertVendorProduct>) => void;
   isPending: boolean;
+  isPro?: boolean;
 }
 
-function EditProductForm({ product, onSubmit, isPending }: EditProductFormProps) {
+function EditProductForm({ product, onSubmit, isPending, isPro = false }: EditProductFormProps) {
   const form = useForm<Partial<InsertVendorProduct>>({
     resolver: zodResolver(insertVendorProductSchema.partial()),
     defaultValues: {
@@ -357,6 +397,7 @@ function EditProductForm({ product, onSubmit, isPending }: EditProductFormProps)
         <div className="flex justify-end gap-2">
           <Button type="submit" disabled={isPending} data-testid="button-submit">
             {isPending ? "Saving..." : "Update Product"}
+            {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
           </Button>
         </div>
       </form>

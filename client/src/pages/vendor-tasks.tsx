@@ -37,6 +37,9 @@ import type { Task, Employee, Customer, Supplier } from "@shared/schema";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 export default function VendorTasks() {
   const { vendorId } = useAuth();
@@ -48,6 +51,21 @@ export default function VendorTasks() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { toast } = useToast();
   const mainContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Fetch tasks
   const { data: tasks = [], isLoading } = useQuery<Task[]>({

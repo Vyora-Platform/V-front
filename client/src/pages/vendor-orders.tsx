@@ -6,16 +6,15 @@ import { Input } from "@/components/ui/input";
 import { 
   ShoppingCart, Phone, MapPin, Package, Truck, 
   IndianRupee, Clock, ArrowLeft, Search, Filter,
-  TrendingUp, TrendingDown, Eye, ChevronRight,
-  Globe, Store, Smartphone, Calendar, X,
-  Download, RefreshCw, MoreVertical, CheckCircle,
-  XCircle, AlertCircle, Timer, Box
+  Eye, ChevronRight, Globe, Store, Smartphone, 
+  Calendar, X, RefreshCw, CheckCircle,
+  XCircle, Timer, Box
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, isToday, isYesterday, subDays, startOfWeek, startOfMonth } from "date-fns";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import {
   Select,
   SelectContent,
@@ -23,21 +22,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import type { Order } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 import { LoadingSpinner } from "@/components/AuthGuard";
 import { cn } from "@/lib/utils";
+import { Lock } from "lucide-react";
 
 export default function VendorOrders() {
   const { vendorId } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  
+  // Pro subscription check
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<'update'>('update');
   
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -147,7 +148,7 @@ export default function VendorOrders() {
       case "shipped": return { color: "bg-cyan-500", bgColor: "bg-cyan-50 dark:bg-cyan-900/20", textColor: "text-cyan-700 dark:text-cyan-400", icon: Truck };
       case "delivered": return { color: "bg-emerald-500", bgColor: "bg-emerald-50 dark:bg-emerald-900/20", textColor: "text-emerald-700 dark:text-emerald-400", icon: CheckCircle };
       case "cancelled": return { color: "bg-red-500", bgColor: "bg-red-50 dark:bg-red-900/20", textColor: "text-red-700 dark:text-red-400", icon: XCircle };
-      default: return { color: "bg-gray-500", bgColor: "bg-gray-50", textColor: "text-gray-700", icon: AlertCircle };
+      default: return { color: "bg-gray-500", bgColor: "bg-gray-50", textColor: "text-gray-700", icon: Package };
     }
   };
 
@@ -179,6 +180,45 @@ export default function VendorOrders() {
 
   const hasActiveFilters = searchQuery || statusFilter !== "all" || sourceFilter !== "all" || paymentFilter !== "all" || dateFilter !== "all";
 
+  // Handle direct call - no redirection
+  const handleCall = (e: React.MouseEvent, phone: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    window.location.href = `tel:${phone}`;
+  };
+
+  // Handle status update
+  const handleStatusChange = (e: React.MouseEvent, orderId: string, newStatus: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // PRO SUBSCRIPTION CHECK
+    const actionCheck = canPerformAction('update');
+    if (!actionCheck.allowed) {
+      setBlockedAction('update');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    updateOrderMutation.mutate({ id: orderId, updates: { status: newStatus } });
+  };
+
+  // Handle payment status update
+  const handlePaymentChange = (e: React.MouseEvent, orderId: string, newPaymentStatus: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // PRO SUBSCRIPTION CHECK
+    const actionCheck = canPerformAction('update');
+    if (!actionCheck.allowed) {
+      setBlockedAction('update');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    updateOrderMutation.mutate({ id: orderId, updates: { paymentStatus: newPaymentStatus } });
+  };
+
   if (isLoading || !vendorId) {
     return <LoadingSpinner />;
   }
@@ -205,10 +245,6 @@ export default function VendorOrders() {
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => refetch()} className="h-10 w-10">
               <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" className="hidden sm:flex h-10 px-4">
-              <Download className="h-4 w-4 mr-2" />
-              Export
             </Button>
           </div>
         </div>
@@ -319,13 +355,12 @@ export default function VendorOrders() {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1">
-        {/* Stats Cards - 2 per row on mobile, 6 on desktop */}
+      <div className="flex-1 pb-20 md:pb-6">
+        {/* Stats Cards - Horizontal scroll on mobile, full width grid on desktop */}
         <div className="px-4 md:px-6 py-4 max-w-[1440px] mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+          <div className="flex gap-3 overflow-x-auto pb-2 md:pb-0 md:grid md:grid-cols-3 lg:grid-cols-6 scrollbar-hide">
             {/* Today's Orders */}
-            <Card className="border-0 shadow-md bg-gradient-to-br from-blue-500 to-blue-600 text-white overflow-hidden relative rounded-xl min-h-[100px]">
-              <div className="absolute top-0 right-0 w-16 h-16 rounded-full bg-white/10 -mr-4 -mt-4" />
+            <Card className="shrink-0 min-w-[140px] md:min-w-0 border-0 shadow-md bg-gradient-to-br from-blue-500 to-blue-600 text-white overflow-hidden relative rounded-xl">
               <CardContent className="p-4 relative">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -333,15 +368,14 @@ export default function VendorOrders() {
                   </div>
                   <div>
                     <p className="text-xl md:text-2xl font-bold">{stats.todayOrders}</p>
-                    <p className="text-xs text-white/80">Today's Orders</p>
+                    <p className="text-xs text-white/80">Today</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Today's Revenue */}
-            <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden relative rounded-xl min-h-[100px]">
-              <div className="absolute top-0 right-0 w-16 h-16 rounded-full bg-white/10 -mr-4 -mt-4" />
+            <Card className="shrink-0 min-w-[140px] md:min-w-0 border-0 shadow-md bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden relative rounded-xl">
               <CardContent className="p-4 relative">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -349,14 +383,14 @@ export default function VendorOrders() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xl md:text-2xl font-bold truncate">₹{stats.todayRevenue.toLocaleString()}</p>
-                    <p className="text-xs text-white/80">Today's Revenue</p>
+                    <p className="text-xs text-white/80">Revenue</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
             
             {/* Pending */}
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 rounded-xl min-h-[100px]">
+            <Card className="shrink-0 min-w-[140px] md:min-w-0 border-0 shadow-sm bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 rounded-xl">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
@@ -371,7 +405,7 @@ export default function VendorOrders() {
             </Card>
             
             {/* Processing */}
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-xl min-h-[100px]">
+            <Card className="shrink-0 min-w-[140px] md:min-w-0 border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-xl">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center shrink-0">
@@ -386,7 +420,7 @@ export default function VendorOrders() {
             </Card>
             
             {/* Shipped */}
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-cyan-50 to-cyan-100/50 dark:from-cyan-900/20 dark:to-cyan-800/10 rounded-xl min-h-[100px]">
+            <Card className="shrink-0 min-w-[140px] md:min-w-0 border-0 shadow-sm bg-gradient-to-br from-cyan-50 to-cyan-100/50 dark:from-cyan-900/20 dark:to-cyan-800/10 rounded-xl">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-cyan-500 flex items-center justify-center shrink-0">
@@ -401,7 +435,7 @@ export default function VendorOrders() {
             </Card>
             
             {/* Delivered */}
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/10 rounded-xl min-h-[100px]">
+            <Card className="shrink-0 min-w-[140px] md:min-w-0 border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/10 rounded-xl">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
@@ -447,93 +481,196 @@ export default function VendorOrders() {
               )}
             </div>
           ) : (
-            <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredOrders.map((order) => {
-              const statusConfig = getStatusConfig(order.status);
-              const StatusIcon = statusConfig.icon;
-              const SourceIcon = getSourceIcon(order.source);
-              
-              return (
-                <Link key={order.id} href={`/vendor/orders/${order.id}`}>
-                  <Card className="border-0 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99] rounded-xl">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        {/* Status Indicator */}
-                        <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0", statusConfig.bgColor)}>
-                          <StatusIcon className={cn("w-5 h-5", statusConfig.textColor)} />
-                        </div>
-                        
-                        {/* Order Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-semibold text-sm truncate">{order.customerName}</h3>
-                                <Badge variant="outline" className="text-[10px] h-5 px-1.5">
-                                  <SourceIcon className="w-3 h-3 mr-1" />
-                                  {getSourceLabel(order.source)}
-                                </Badge>
+            // Desktop: 1 card per row, Mobile: full width cards
+            <div className="grid gap-4 grid-cols-1">
+              {filteredOrders.map((order) => {
+                const statusConfig = getStatusConfig(order.status);
+                const StatusIcon = statusConfig.icon;
+                const SourceIcon = getSourceIcon(order.source);
+                
+                return (
+                  <Card 
+                    key={order.id} 
+                    className="border-0 shadow-sm hover:shadow-md transition-all rounded-xl overflow-hidden"
+                  >
+                    <CardContent className="p-0">
+                      {/* Card Header - Clickable for navigation */}
+                      <div 
+                        className="p-4 cursor-pointer active:bg-muted/30"
+                        onClick={() => setLocation(`/vendor/orders/${order.id}`)}
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Status Indicator */}
+                          <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0", statusConfig.bgColor)}>
+                            <StatusIcon className={cn("w-5 h-5", statusConfig.textColor)} />
+                          </div>
+                          
+                          {/* Order Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h3 className="font-semibold text-sm truncate">{order.customerName}</h3>
+                                  <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                                    <SourceIcon className="w-3 h-3 mr-1" />
+                                    {getSourceLabel(order.source)}
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  #{order.id.slice(-8).toUpperCase()}
+                                </p>
                               </div>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                #{order.id.slice(-8).toUpperCase()}
-                              </p>
+                              <div className="text-right shrink-0">
+                                <p className="font-bold text-base">₹{order.totalAmount.toLocaleString()}</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {format(new Date(order.createdAt), "dd MMM, h:mm a")}
+                                </p>
+                              </div>
                             </div>
-                            <div className="text-right shrink-0">
-                              <p className="font-bold text-base">₹{order.totalAmount.toLocaleString()}</p>
-                              <p className="text-[11px] text-muted-foreground">
-                                {format(new Date(order.createdAt), "dd MMM, h:mm a")}
-                              </p>
+                            
+                            {/* Quick Info */}
+                            <div className="flex items-center gap-3 mt-2.5 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {order.customerPhone}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {order.city}
+                              </span>
                             </div>
-                          </div>
-                          
-                          {/* Quick Info */}
-                          <div className="flex items-center gap-3 mt-2.5 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Phone className="w-3 h-3" />
-                              {order.customerPhone}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {order.city}
-                            </span>
-                          </div>
-                          
-                          {/* Status Badges */}
-                          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                            <Badge className={cn("text-[10px] h-5", statusConfig.bgColor, statusConfig.textColor)}>
-                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                            </Badge>
-                            <Badge 
-                              variant="outline" 
-                              className={cn(
-                                "text-[10px] h-5",
-                                order.paymentStatus === "paid" ? "border-emerald-500 text-emerald-600" :
-                                order.paymentStatus === "refunded" ? "border-red-500 text-red-600" :
-                                "border-amber-500 text-amber-600"
-                              )}
-                            >
-                              {order.paymentStatus === "paid" ? "Paid" : order.paymentStatus === "refunded" ? "Refunded" : "Unpaid"}
-                            </Badge>
-                            {order.trackingNumber && (
-                              <Badge variant="outline" className="text-[10px] h-5">
-                                <Truck className="w-3 h-3 mr-1" />
-                                {order.trackingNumber}
+                            
+                            {/* Status Badges */}
+                            <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                              <Badge className={cn("text-[10px] h-5", statusConfig.bgColor, statusConfig.textColor)}>
+                                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                               </Badge>
-                            )}
+                              <Badge 
+                                variant="outline" 
+                                className={cn(
+                                  "text-[10px] h-5",
+                                  order.paymentStatus === "paid" ? "border-emerald-500 text-emerald-600" :
+                                  order.paymentStatus === "refunded" ? "border-red-500 text-red-600" :
+                                  "border-amber-500 text-amber-600"
+                                )}
+                              >
+                                {order.paymentStatus === "paid" ? "Paid" : order.paymentStatus === "refunded" ? "Refunded" : "Unpaid"}
+                              </Badge>
+                              {order.trackingNumber && (
+                                <Badge variant="outline" className="text-[10px] h-5">
+                                  <Truck className="w-3 h-3 mr-1" />
+                                  {order.trackingNumber}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
+                          
+                          <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 self-center hidden md:block" />
                         </div>
-                        
-                        <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 self-center" />
+                      </div>
+                      
+                      {/* Action Buttons - Separated from card click area */}
+                      <div className="px-4 pb-4 pt-0">
+                        <div className="flex items-center gap-2 pt-3 border-t">
+                          {/* Call Now Button - Direct call, no redirection */}
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700"
+                            onClick={(e) => handleCall(e, order.customerPhone)}
+                          >
+                            <Phone className="w-4 h-4 mr-2" />
+                            Call Now
+                          </Button>
+                          
+                          {/* Order Status Dropdown */}
+                          <Select 
+                            value={order.status} 
+                            onValueChange={(value) => {
+                              const actionCheck = canPerformAction('update');
+                              if (!actionCheck.allowed) {
+                                setBlockedAction('update');
+                                setShowUpgradeModal(true);
+                                return;
+                              }
+                              updateOrderMutation.mutate({ id: order.id, updates: { status: value } });
+                            }}
+                          >
+                            <SelectTrigger 
+                              className="flex-1 h-10" 
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <SelectValue placeholder="Status" />
+                              {!isPro && <Lock className="w-3 h-3 ml-1 opacity-60" />}
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="confirmed">Confirmed</SelectItem>
+                              <SelectItem value="processing">Processing</SelectItem>
+                              <SelectItem value="shipped">Shipped</SelectItem>
+                              <SelectItem value="delivered">Delivered</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          {/* Payment Status Dropdown */}
+                          <Select 
+                            value={order.paymentStatus || "pending"} 
+                            onValueChange={(value) => {
+                              const actionCheck = canPerformAction('update');
+                              if (!actionCheck.allowed) {
+                                setBlockedAction('update');
+                                setShowUpgradeModal(true);
+                                return;
+                              }
+                              updateOrderMutation.mutate({ id: order.id, updates: { paymentStatus: value } });
+                            }}
+                          >
+                            <SelectTrigger 
+                              className="flex-1 h-10" 
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <SelectValue placeholder="Payment" />
+                              {!isPro && <Lock className="w-3 h-3 ml-1 opacity-60" />}
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Unpaid</SelectItem>
+                              <SelectItem value="paid">Paid</SelectItem>
+                              <SelectItem value="refunded">Refunded</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          {/* View Details Button - Desktop only */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-10 hidden md:flex"
+                            onClick={() => setLocation(`/vendor/orders/${order.id}`)}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
-                </Link>
-              );
-            })}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      {/* Pro Subscription Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action={blockedAction}
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          window.location.href = '/vendor/account';
+        }}
+      />
     </div>
   );
 }

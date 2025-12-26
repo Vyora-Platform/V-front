@@ -190,17 +190,22 @@ export function LayoutSelector({
           ))}
         </div>
 
-        {/* Layout Preview Dialog */}
+        {/* Layout Preview Dialog - Matches Published Website */}
         <Dialog open={!!previewLayout} onOpenChange={() => setPreviewLayout(null)}>
           <DialogContent className="max-w-[95vw] max-h-[95vh] w-full p-0 overflow-hidden">
-            <DialogHeader className="px-6 py-4 border-b">
-              <DialogTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5 text-blue-600" />
-                {previewLayout?.name} - Layout Preview
-                <Badge variant="secondary" className="ml-2">{previewLayout?.businessType}</Badge>
+            <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b bg-gradient-to-r from-gray-50 to-gray-100">
+              <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-5 w-5 text-blue-600" />
+                  <span className="text-base sm:text-lg">{previewLayout?.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs">{previewLayout?.businessType}</Badge>
+                  <Badge className="text-xs bg-green-100 text-green-700">Matches Published Site</Badge>
+                </div>
               </DialogTitle>
             </DialogHeader>
-            <div className="overflow-y-auto" style={{ maxHeight: 'calc(95vh - 100px)' }}>
+            <div className="overflow-y-auto bg-white" style={{ maxHeight: 'calc(95vh - 140px)' }}>
               {previewLayout && (
                 <LayoutPreview 
                   layout={previewLayout} 
@@ -210,15 +215,17 @@ export function LayoutSelector({
                 />
               )}
             </div>
-            <div className="px-6 py-4 border-t bg-muted/50 flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">
-                Click "Select This Layout" to apply this design to your website
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t bg-gradient-to-r from-gray-50 to-white flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
+              <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
+                This preview shows how your published website will look
               </p>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setPreviewLayout(null)}>
+              <div className="flex gap-2 justify-center sm:justify-end">
+                <Button variant="outline" size="sm" className="h-9 sm:h-10" onClick={() => setPreviewLayout(null)}>
                   Close
                 </Button>
                 <Button 
+                  size="sm"
+                  className="h-9 sm:h-10"
                   onClick={() => {
                     if (previewLayout) {
                       onLayoutChange(previewLayout.id);
@@ -721,43 +728,62 @@ function LayoutPreview({
 
   return (
     <div className="bg-white min-h-screen font-sans">
-      {/* ===== HEADER ===== */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+      {/* ===== HEADER - Matches Published Website ===== */}
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+        <div className="w-full px-4 md:px-6 lg:px-12">
+          <div className="flex items-center justify-between h-16 md:h-20">
+            {/* Logo Section - Same as Published */}
+            <div className="flex items-center gap-3 md:gap-4">
               {logo ? (
-                <img src={logo} alt={businessName} className="h-10 w-auto object-contain" />
+                <img src={logo} alt={businessName} className="h-10 w-10 md:h-14 md:w-14 rounded-xl object-cover shadow-md" />
               ) : (
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold"
-                    style={{ backgroundColor: primary }}
-                  >
-                    {businessName.charAt(0)}
-                  </div>
-                  <span className="text-xl font-bold text-gray-900">{businessName}</span>
+                <div 
+                  className="h-10 w-10 md:h-14 md:w-14 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-2xl shadow-md"
+                  style={{ backgroundColor: primary }}
+                >
+                  {businessName.charAt(0)}
                 </div>
               )}
+              <div className="hidden sm:block">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <h1 className="font-bold text-lg md:text-xl lg:text-2xl text-gray-900">{businessName}</h1>
+                  {/* VYORA Verified Badge */}
+                  <div className="flex items-center gap-1.5 px-2 md:px-3 py-1 rounded-full" style={{ backgroundColor: primary + '15' }}>
+                    <Check className="h-3.5 w-3.5 md:h-4 md:w-4" style={{ color: primary }} />
+                    <span className="text-[10px] md:text-xs font-semibold" style={{ color: primary }}>Verified</span>
+                  </div>
+                </div>
+                {tagline && <p className="text-xs md:text-sm text-gray-500 mt-0.5 max-w-md line-clamp-1">{tagline}</p>}
+              </div>
             </div>
             
-            <nav className="hidden lg:flex items-center gap-8">
-              {layout.layout.showProducts && <a href="#" className="text-sm text-gray-600 hover:text-gray-900">Products</a>}
-              {layout.layout.showServices && <a href="#" className="text-sm text-gray-600 hover:text-gray-900">Services</a>}
-              <a href="#" className="text-sm text-gray-600 hover:text-gray-900">About</a>
-              <a href="#" className="text-sm text-gray-600 hover:text-gray-900">Contact</a>
+            {/* Desktop Navigation - Centered with Background */}
+            <nav className="hidden lg:flex items-center gap-1 bg-gray-50 rounded-full px-2 py-1.5">
+              {layout.layout.showProducts && <a href="#" className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all">Products</a>}
+              {layout.layout.showServices && <a href="#" className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all">Services</a>}
+              <a href="#" className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all">About</a>
+              <a href="#" className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded-full transition-all">Contact</a>
             </nav>
             
-            <Button 
-              size="sm" 
-              className="rounded-full px-6 font-medium shadow-sm"
-              style={{ backgroundColor: secondary, color: 'white' }}
-            >
-              {layout.layout.ctaStyle === 'add-to-cart' ? 'Shop Now' :
-               layout.layout.ctaStyle === 'book-appointment' ? 'Book Now' :
-               layout.layout.ctaStyle === 'request-quote' ? 'Get Quote' :
-               'Contact Us'}
-            </Button>
+            {/* Right Actions */}
+            <div className="flex items-center gap-3">
+              {/* Business Status Indicator */}
+              <div className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 text-green-700">
+                <span className="w-2.5 h-2.5 rounded-full animate-pulse bg-green-500"></span>
+                <span className="text-sm font-semibold">Open Now</span>
+              </div>
+              
+              <Button 
+                size="sm" 
+                className="rounded-full px-5 h-10 font-semibold text-sm shadow-md hover:shadow-lg transition-all"
+                style={{ backgroundColor: primary, color: 'white' }}
+              >
+                {layout.layout.ctaStyle === 'add-to-cart' ? 'Shop Now' :
+                 layout.layout.ctaStyle === 'book-appointment' ? 'Book Now' :
+                 layout.layout.ctaStyle === 'request-quote' ? 'Get Quote' :
+                 'Contact Us'}
+              </Button>
+            </div>
           </div>
         </div>
       </header>

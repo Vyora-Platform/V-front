@@ -1,6 +1,5 @@
-import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Home, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function NotFound() {
@@ -17,15 +16,8 @@ export default function NotFound() {
           <p className="text-muted-foreground mb-6">
             The page you're looking for doesn't exist or has been moved.
           </p>
-          <div className="flex gap-2 justify-center">
-            <Link href="/vendor/dashboard">
-              <Button data-testid="button-home">
-                <Home className="h-4 w-4 mr-2" />
-                Go to Dashboard
-              </Button>
-            </Link>
+          <div className="flex justify-center">
             <Button 
-              variant="outline" 
               onClick={() => window.history.back()}
               data-testid="button-back"
             >

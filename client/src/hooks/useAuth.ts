@@ -19,7 +19,9 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [vendorId, setVendorId] = useState<string | null>(() => {
-    return localStorage.getItem('vendorId') || localStorage.getItem('userId');
+    // IMPORTANT: Don't fallback to userId - vendorId is different!
+    // vendorId is only set after onboarding is complete
+    return localStorage.getItem('vendorId');
   });
 
   const [userId, setUserId] = useState<string | null>(() => {
@@ -36,7 +38,8 @@ export function useAuth() {
       try {
         const token = localStorage.getItem('token');
         const storedUserId = localStorage.getItem('userId');
-        const storedVendorId = localStorage.getItem('vendorId') || storedUserId;
+        // IMPORTANT: Don't fallback to userId - vendorId is only set after onboarding
+        const storedVendorId = localStorage.getItem('vendorId');
         const storedUserRole = localStorage.getItem('userRole');
 
         console.log('🔍 [useAuth] Checking auth from localStorage:', {

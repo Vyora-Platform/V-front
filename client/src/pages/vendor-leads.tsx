@@ -56,6 +56,9 @@ import { format, formatDistanceToNow, isToday } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
 import { getApiUrl } from "@/lib/config";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 export default function VendorLeads() {
   const { vendorId } = useAuth();
@@ -70,6 +73,21 @@ export default function VendorLeads() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { toast } = useToast();
+
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Fetch leads
   const { data: leads = [], isLoading, refetch } = useQuery<Lead[]>({
@@ -329,9 +347,14 @@ export default function VendorLeads() {
             <Button variant="ghost" size="icon" onClick={() => refetch()} className="h-10 w-10">
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button onClick={handleAddNew} size="sm" className="bg-blue-600 hover:bg-blue-700 h-10 px-4">
+            <Button 
+              onClick={() => handleProAction('create', handleAddNew)} 
+              size="sm" 
+              className="bg-blue-600 hover:bg-blue-700 h-10 px-4"
+            >
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline ml-1.5">Add Lead</span>
+              {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
             </Button>
           </div>
         </div>
@@ -470,9 +493,14 @@ export default function VendorLeads() {
                 <p className="text-muted-foreground text-sm text-center">
                   {searchQuery ? "No leads found" : "No leads yet"}
                 </p>
-                <Button onClick={handleAddNew} size="sm" className="mt-4 bg-blue-600 h-10 px-5">
+                <Button 
+                  onClick={() => handleProAction('create', handleAddNew)} 
+                  size="sm" 
+                  className="mt-4 bg-blue-600 h-10 px-5"
+                >
                   <Plus className="h-4 w-4 mr-1.5" />
                   Add Lead
+                  {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
                 </Button>
               </CardContent>
             </Card>
@@ -483,15 +511,16 @@ export default function VendorLeads() {
                   key={lead.id}
                   lead={lead}
                   employees={employees}
-                  onEdit={handleEdit}
-                  onDelete={deleteMutation.mutate}
-                  onStatusChange={(status) => statusMutation.mutate({ id: lead.id, status })}
+                  onEdit={(l) => handleProAction('update', () => handleEdit(l))}
+                  onDelete={(id) => handleProAction('delete', () => deleteMutation.mutate(id))}
+                  onStatusChange={(status) => handleProAction('update', () => statusMutation.mutate({ id: lead.id, status }))}
                   onViewDetails={handleViewDetails}
                   Avatar={Avatar}
                   StatusBadge={StatusBadge}
                   PriorityBadge={PriorityBadge}
                   SourceBadge={SourceBadge}
                   vendorId={vendorId}
+                  isPro={isPro}
                 />
               ))}
             </div>
@@ -513,6 +542,8 @@ export default function VendorLeads() {
         onSubmit={leadMutation.mutate}
         isPending={leadMutation.isPending}
         vendorId={vendorId}
+        isPro={isPro}
+        handleProAction={handleProAction}
       />
 
       {/* Lead Detail Dialog */}
@@ -521,13 +552,22 @@ export default function VendorLeads() {
         onOpenChange={setIsDetailOpen}
         lead={selectedLead}
         employees={employees}
-        onEdit={handleEdit}
-        onStatusChange={(status) => selectedLead && statusMutation.mutate({ id: selectedLead.id, status })}
+        onEdit={(l) => handleProAction('update', () => handleEdit(l))}
+        onStatusChange={(status) => handleProAction('update', () => selectedLead && statusMutation.mutate({ id: selectedLead.id, status }))}
         Avatar={Avatar}
         StatusBadge={StatusBadge}
         PriorityBadge={PriorityBadge}
         SourceBadge={SourceBadge}
         vendorId={vendorId}
+        isPro={isPro}
+        handleProAction={handleProAction}
+      />
+
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        blockedAction={blockedAction}
       />
     </div>
   );
@@ -546,6 +586,7 @@ function LeadCard({
   PriorityBadge,
   SourceBadge,
   vendorId,
+  isPro,
 }: {
   lead: Lead;
   employees: Employee[];
@@ -558,6 +599,7 @@ function LeadCard({
   PriorityBadge: any;
   SourceBadge: any;
   vendorId: string;
+  isPro?: boolean;
 }) {
   const assignedEmployee = employees.find((e) => e.id === lead.assignedEmployeeId);
   const createdDate = new Date(lead.createdAt);
@@ -678,27 +720,33 @@ function LeadCard({
               <DropdownMenuItem onClick={() => onEdit(lead)}>
                 <Edit2 className="h-4 w-4 mr-2" />
                 Edit
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onStatusChange("new")}>
                 <Sparkles className="h-4 w-4 mr-2 text-cyan-600" />
                 New
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onStatusChange("contacted")}>
                 <PhoneCall className="h-4 w-4 mr-2 text-amber-600" />
                 Contacted
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onStatusChange("interested")}>
                 <Star className="h-4 w-4 mr-2 text-purple-600" />
                 Interested
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onStatusChange("converted")}>
                 <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-600" />
                 Converted
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onStatusChange("lost")}>
                 <XCircle className="h-4 w-4 mr-2 text-red-600" />
                 Lost
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
@@ -711,6 +759,7 @@ function LeadCard({
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
+                {!isPro && <Lock className="w-3 h-3 ml-auto opacity-60" />}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -733,6 +782,8 @@ function LeadDetailDialog({
   PriorityBadge,
   SourceBadge,
   vendorId,
+  isPro,
+  handleProAction,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -745,8 +796,50 @@ function LeadDetailDialog({
   PriorityBadge: any;
   SourceBadge: any;
   vendorId: string;
+  isPro?: boolean;
+  handleProAction?: (action: string, callback: () => void) => void;
 }) {
   const { toast } = useToast();
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [editingInterest, setEditingInterest] = useState(false);
+  const [editingAssignee, setEditingAssignee] = useState(false);
+  const [notesValue, setNotesValue] = useState("");
+  const [interestValue, setInterestValue] = useState("");
+  const [assigneeValue, setAssigneeValue] = useState<string | null>(null);
+
+  // Reset values when lead changes
+  useEffect(() => {
+    if (lead) {
+      setNotesValue(lead.notes || "");
+      setInterestValue(lead.interestDescription || "");
+      setAssigneeValue(lead.assignedEmployeeId || null);
+    }
+  }, [lead]);
+  
+  // Update field mutation
+  const updateFieldMutation = useMutation({
+    mutationFn: async (data: { notes?: string; interestDescription?: string; assignedEmployeeId?: string | null }) => {
+      if (!lead) throw new Error("No lead selected");
+      return apiRequest("PATCH", `/api/leads/${lead.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "leads"] });
+      setEditingNotes(false);
+      setEditingInterest(false);
+      setEditingAssignee(false);
+      toast({
+        title: "Updated",
+        description: "Lead information updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
   
   // Convert Lead mutation - MUST be before any conditional returns
   const convertMutation = useMutation({
@@ -792,11 +885,31 @@ function LeadDetailDialog({
 
   const assignedEmployee = employees.find((e) => e.id === lead.assignedEmployeeId);
 
+  const handleSaveNotes = () => {
+    updateFieldMutation.mutate({ notes: notesValue });
+  };
+
+  const handleSaveInterest = () => {
+    updateFieldMutation.mutate({ interestDescription: interestValue });
+  };
+
+  const handleSaveAssignee = () => {
+    updateFieldMutation.mutate({ assignedEmployeeId: assigneeValue });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="w-full h-full max-w-full max-h-full md:max-w-lg md:h-auto md:max-h-[90vh] overflow-y-auto rounded-none md:rounded-lg p-4 md:p-6 fixed inset-0 md:inset-auto md:top-[50%] md:left-[50%] md:translate-x-[-50%] md:translate-y-[-50%]">
         <DialogHeader className="pb-3">
           <div className="flex items-start gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+              className="md:hidden flex-shrink-0 h-9 w-9"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
             <Avatar name={lead.name} size="lg" />
             <div className="flex-1 min-w-0">
               <DialogTitle className="text-lg truncate">{lead.name}</DialogTitle>
@@ -843,7 +956,7 @@ function LeadDetailDialog({
           </div>
 
           {/* Contact Info */}
-          <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+          <div className="space-y-2 p-3 bg-gray-50 dark:bg-muted/30 rounded-lg">
             <div className="flex items-center gap-2 text-sm">
               <Phone className="h-4 w-4 text-gray-400" />
               <span>{lead.phone}</span>
@@ -862,45 +975,202 @@ function LeadDetailDialog({
             )}
           </div>
 
+          {/* Assigned To - Editable */}
+          <div className="p-3 bg-gray-50 dark:bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                <User className="h-3 w-3" />
+                Assigned To
+              </p>
+              {!editingAssignee && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingAssignee(true)}
+                  className="h-7 px-2 text-xs"
+                >
+                  <Edit2 className="h-3 w-3 mr-1" />
+                  Change
+                </Button>
+              )}
+            </div>
+            {editingAssignee ? (
+              <div className="space-y-2">
+                <Select value={assigneeValue || "unassigned"} onValueChange={(val) => setAssigneeValue(val === "unassigned" ? null : val)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {employees
+                      .filter((emp) => emp.status === "active")
+                      .map((emp) => (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          {emp.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveAssignee}
+                    disabled={updateFieldMutation.isPending}
+                    className="flex-1 h-8"
+                  >
+                    {updateFieldMutation.isPending ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setAssigneeValue(lead.assignedEmployeeId || null);
+                      setEditingAssignee(false);
+                    }}
+                    className="flex-1 h-8"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm font-medium">{assignedEmployee?.name || "Unassigned"}</p>
+            )}
+          </div>
+
           {/* Details Grid */}
           <div className="grid grid-cols-2 gap-2">
-            {assignedEmployee && (
-              <div className="p-2 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-500">Assigned To</p>
-                <p className="text-sm font-medium truncate">{assignedEmployee.name}</p>
-              </div>
-            )}
             {lead.estimatedBudget && (
-              <div className="p-2 bg-gray-50 rounded-lg">
+              <div className="p-2 bg-gray-50 dark:bg-muted/30 rounded-lg">
                 <p className="text-xs text-gray-500">Budget</p>
                 <p className="text-sm font-medium">₹{lead.estimatedBudget.toLocaleString()}</p>
               </div>
             )}
             {lead.nextFollowUpDate && (
-              <div className="p-2 bg-gray-50 rounded-lg">
+              <div className="p-2 bg-gray-50 dark:bg-muted/30 rounded-lg">
                 <p className="text-xs text-gray-500">Follow-up</p>
                 <p className="text-sm font-medium">{format(new Date(lead.nextFollowUpDate), "MMM d")}</p>
               </div>
             )}
-            <div className="p-2 bg-gray-50 rounded-lg">
+            <div className="p-2 bg-gray-50 dark:bg-muted/30 rounded-lg">
               <p className="text-xs text-gray-500">Source</p>
               <p className="text-sm font-medium capitalize">{lead.source.replace("_", " ")}</p>
             </div>
           </div>
 
-          {/* Interest & Notes */}
-          {lead.interestDescription && (
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="text-xs text-blue-600 font-medium mb-1">Interest</p>
-              <p className="text-sm text-gray-700">{lead.interestDescription}</p>
+          {/* Interest - Editable */}
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
+                <Star className="h-3 w-3" />
+                Interest
+              </p>
+              {!editingInterest && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingInterest(true)}
+                  className="h-7 px-2 text-xs"
+                >
+                  <Edit2 className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+              )}
             </div>
-          )}
-          {lead.notes && (
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-xs text-gray-500 font-medium mb-1">Notes</p>
-              <p className="text-sm text-gray-700">{lead.notes}</p>
+            {editingInterest ? (
+              <div className="space-y-2">
+                <Textarea
+                  value={interestValue}
+                  onChange={(e) => setInterestValue(e.target.value)}
+                  placeholder="What are they interested in?"
+                  rows={3}
+                  className="resize-none"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveInterest}
+                    disabled={updateFieldMutation.isPending}
+                    className="flex-1 h-8"
+                  >
+                    {updateFieldMutation.isPending ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setInterestValue(lead.interestDescription || "");
+                      setEditingInterest(false);
+                    }}
+                    className="flex-1 h-8"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                {lead.interestDescription || "No interest information added yet. Click Edit to add."}
+              </p>
+            )}
+          </div>
+
+          {/* Notes - Editable */}
+          <div className="p-3 bg-gray-50 dark:bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                Notes
+              </p>
+              {!editingNotes && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingNotes(true)}
+                  className="h-7 px-2 text-xs"
+                >
+                  <Edit2 className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+              )}
             </div>
-          )}
+            {editingNotes ? (
+              <div className="space-y-2">
+                <Textarea
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  placeholder="Add notes about this lead..."
+                  rows={3}
+                  className="resize-none"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveNotes}
+                    disabled={updateFieldMutation.isPending}
+                    className="flex-1 h-8"
+                  >
+                    {updateFieldMutation.isPending ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setNotesValue(lead.notes || "");
+                      setEditingNotes(false);
+                    }}
+                    className="flex-1 h-8"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                {lead.notes || "No notes added yet. Click Edit to add."}
+              </p>
+            )}
+          </div>
 
           {/* Communication History */}
           <CommunicationHistory leadId={lead.id} />
@@ -912,15 +1182,23 @@ function LeadDetailDialog({
         <DialogFooter className="flex-col sm:flex-row gap-2 pt-4 border-t mt-4">
           <Button variant="outline" onClick={() => onEdit(lead)} className="w-full sm:w-auto">
             <Edit2 className="h-4 w-4 mr-1" />
-            Edit
+            Edit All
+            {!isPro && <Lock className="w-3 h-3 ml-1.5 opacity-60" />}
           </Button>
           <Button 
-            onClick={() => convertMutation.mutate()}
+            onClick={() => {
+              if (handleProAction) {
+                handleProAction('update', () => convertMutation.mutate());
+              } else {
+                convertMutation.mutate();
+              }
+            }}
             disabled={convertMutation.isPending || lead.status === "converted"}
             className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
           >
             <CheckCircle2 className="h-4 w-4 mr-1" />
             {convertMutation.isPending ? "Converting..." : lead.status === "converted" ? "Converted" : "Convert"}
+            {!isPro && <Lock className="w-3 h-3 ml-1.5 opacity-60" />}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -995,6 +1273,8 @@ function LeadDialog({
   onSubmit,
   isPending,
   vendorId,
+  isPro,
+  handleProAction,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1005,6 +1285,8 @@ function LeadDialog({
   onSubmit: (data: z.infer<typeof insertLeadSchema>) => void;
   isPending: boolean;
   vendorId: string;
+  isPro?: boolean;
+  handleProAction?: (action: string, callback: () => void) => void;
 }) {
   const formSchema = insertLeadSchema.extend({
     name: z.string().min(1, "Name is required"),
@@ -1049,8 +1331,16 @@ function LeadDialog({
   }, [lead, form, vendorId]);
 
   const handleSubmit = (data: z.infer<typeof formSchema>) => {
-    onSubmit(data);
-    form.reset();
+    const performSubmit = () => {
+      onSubmit(data);
+      form.reset();
+    };
+
+    if (handleProAction) {
+      handleProAction(lead ? 'update' : 'create', performSubmit);
+    } else {
+      performSubmit();
+    }
   };
 
   return (
@@ -1245,6 +1535,7 @@ function LeadDialog({
               </Button>
               <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700">
                 {isPending ? "Saving..." : lead ? "Update" : "Add Lead"}
+                {isPro === false && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
               </Button>
             </DialogFooter>
           </form>

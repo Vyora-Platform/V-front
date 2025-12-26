@@ -11,8 +11,9 @@ import {
   FileText, Trash2, Send, Check, X, Clock, ArrowLeft, 
   User, Calendar, IndianRupee, Package, Wrench, 
   Download, Share2, CheckCircle2, XCircle, Mail, Phone, MapPin,
-  Receipt, Building2, Hash, Copy, ExternalLink, MessageCircle
+  Receipt, Building2, Hash, Copy, ExternalLink
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import { format } from "date-fns";
 import type { Quotation, Customer } from "@shared/schema";
 
@@ -115,15 +116,17 @@ export default function VendorQuotationDetail() {
     });
   };
 
-  const getStatusConfig = (status: string) => {
+  const getStatusConfig = (status: string, isRequest: boolean = false) => {
     switch (status) {
       case "draft":
         return { 
-          color: "bg-slate-100 text-slate-700 border-slate-200", 
-          icon: Clock, 
-          label: "Draft",
-          gradient: "from-slate-500 to-slate-600",
-          bgColor: "bg-slate-50"
+          color: isRequest 
+            ? "bg-amber-100 text-amber-700 border-amber-200" 
+            : "bg-blue-100 text-blue-700 border-blue-200", 
+          icon: isRequest ? Clock : FileText, 
+          label: isRequest ? "Pending" : "Created",
+          gradient: isRequest ? "from-amber-500 to-amber-600" : "from-blue-500 to-blue-600",
+          bgColor: isRequest ? "bg-amber-50" : "bg-blue-50"
         };
       case "sent":
         return { 
@@ -190,7 +193,13 @@ export default function VendorQuotationDetail() {
         <h3 className="text-lg font-semibold text-slate-700 mb-2">Quotation Not Found</h3>
         <p className="text-slate-500 text-center mb-6">The quotation you're looking for doesn't exist</p>
         <Button 
-          onClick={() => setLocation("/vendor/quotations")}
+          onClick={() => {
+            if (window.history.length > 1) {
+              window.history.back();
+            } else {
+              setLocation("/vendor/quotations");
+            }
+          }}
           className="rounded-full bg-indigo-600 hover:bg-indigo-700"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -200,7 +209,8 @@ export default function VendorQuotationDetail() {
     );
   }
 
-  const statusConfig = getStatusConfig(quotation.status);
+  const isRequest = (quotation.source || "manual") === "miniwebsite";
+  const statusConfig = getStatusConfig(quotation.status, isRequest);
   const StatusIcon = statusConfig.icon;
 
   // Separate items by type
@@ -224,7 +234,14 @@ export default function VendorQuotationDetail() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setLocation("/vendor/quotations")}
+              onClick={() => {
+                // Use history back for standard e-commerce UX
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  setLocation("/vendor/quotations");
+                }
+              }}
               className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -335,10 +352,10 @@ export default function VendorQuotationDetail() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 rounded-lg"
+                    className="flex-1 rounded-lg text-green-600 border-green-200 hover:bg-green-50"
                     onClick={() => window.open(`https://wa.me/${customer.phone?.replace(/\D/g, '')}`, '_blank')}
                   >
-                    <MessageCircle className="h-4 w-4 mr-2" />
+                    <FaWhatsapp className="h-4 w-4 mr-2" />
                     WhatsApp
                   </Button>
                 </div>

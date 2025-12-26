@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { getApiUrl } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,10 @@ import {
   User, Calendar, IndianRupee, Package, Wrench, ChevronRight, 
   MoreVertical, Eye, Download, Share2, CheckCircle2,
   AlertCircle, XCircle, Mail, Phone, MapPin, ShoppingBag, Receipt,
-  Building2, Hash, Percent, PlusCircle, MessageCircle, Globe, Edit
+  Building2, Hash, Percent, PlusCircle, Globe, Edit,
+  UserPlus, Image as ImageIcon, AlertTriangle
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import { format } from "date-fns";
 import type { Quotation, Customer, VendorCatalogue, VendorProduct } from "@shared/schema";
 import {
@@ -31,6 +34,9 @@ import {
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 // Extended type for quotation with items
 type QuotationWithItems = Quotation & {
@@ -76,6 +82,21 @@ export default function VendorQuotations() {
   const { toast } = useToast();
   const mainContainerRef = useRef<HTMLDivElement>(null);
   
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
+  
   // Handle URL tab parameter (e.g., /vendor/quotations?tab=requests)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -94,8 +115,13 @@ export default function VendorQuotations() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.append("status", statusFilter);
-      const url = `/api/vendors/${vendorId}/quotations${params.toString() ? `?${params.toString()}` : ""}`;
-      const response = await fetch(url);
+      const url = getApiUrl(`/api/vendors/${vendorId}/quotations${params.toString() ? `?${params.toString()}` : ""}`);
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(url, { headers });
       if (!response.ok) throw new Error("Failed to fetch quotations");
       return response.json();
     },
@@ -107,9 +133,9 @@ export default function VendorQuotations() {
     enabled: !!vendorId,
   });
 
-  // Separate quotations by source
-  const createdQuotations = quotations.filter(q => q.source !== "miniwebsite");
-  const requestedQuotations = quotations.filter(q => q.source === "miniwebsite");
+  // Separate quotations by source (handle null/undefined source as 'manual')
+  const createdQuotations = quotations.filter(q => (q.source || "manual") !== "miniwebsite");
+  const requestedQuotations = quotations.filter(q => (q.source || "manual") === "miniwebsite");
 
   // Calculate stats for current tab
   const currentQuotations = activeTab === "created" ? createdQuotations : requestedQuotations;
@@ -156,14 +182,16 @@ export default function VendorQuotations() {
     setShowCreateDialog(true);
   };
 
-  const getStatusConfig = (status: string) => {
+  const getStatusConfig = (status: string, isRequest: boolean = false) => {
     switch (status) {
       case "draft":
         return { 
-          color: "bg-slate-100 text-slate-700 border-slate-200", 
-          icon: Clock, 
-          label: "Draft",
-          gradient: "from-slate-500 to-slate-600"
+          color: isRequest 
+            ? "bg-amber-100 text-amber-700 border-amber-200" 
+            : "bg-blue-100 text-blue-700 border-blue-200", 
+          icon: isRequest ? Clock : FileText, 
+          label: isRequest ? "Pending" : "Created",
+          gradient: isRequest ? "from-amber-500 to-amber-600" : "from-blue-500 to-blue-600"
         };
       case "sent":
         return { 
@@ -215,7 +243,14 @@ export default function VendorQuotations() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setLocation("/vendor/dashboard")}
+              onClick={() => {
+                // Use history back for standard e-commerce UX
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  setLocation("/vendor/dashboard");
+                }
+              }}
               className="shrink-0 md:hidden"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -227,8 +262,10 @@ export default function VendorQuotations() {
           </div>
           <Button
             onClick={() => {
+              handleProAction('create', () => {
               setPrefilledCustomerId(null);
               setShowCreateDialog(true);
+              });
             }}
             size="sm"
             className="gap-1.5"
@@ -236,6 +273,7 @@ export default function VendorQuotations() {
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">New Quotation</span>
             <span className="sm:hidden">New</span>
+            {!isPro && <Lock className="w-3.5 h-3.5 ml-1 opacity-60" />}
           </Button>
         </div>
 
@@ -269,14 +307,14 @@ export default function VendorQuotations() {
                 </div>
               </div>
             </Card>
-            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/30 dark:to-slate-800/30 border-slate-200 dark:border-slate-800 rounded-xl">
+            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/30 dark:to-indigo-800/30 border-indigo-200 dark:border-indigo-800 rounded-xl">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-slate-500/20">
-                  <Clock className="h-4 w-4 text-slate-600" />
+                <div className="p-1.5 rounded-lg bg-indigo-500/20">
+                  <FileText className="h-4 w-4 text-indigo-600" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Draft</p>
-                  <p className="text-lg font-bold text-slate-700 dark:text-slate-400">{stats.draft}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{activeTab === "requests" ? "Pending" : "Created"}</p>
+                  <p className="text-lg font-bold text-indigo-700 dark:text-indigo-400">{stats.draft}</p>
                 </div>
               </div>
             </Card>
@@ -348,7 +386,7 @@ export default function VendorQuotations() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="draft">{activeTab === "requests" ? "Pending" : "Created"}</SelectItem>
                 <SelectItem value="sent">Sent</SelectItem>
                 <SelectItem value="accepted">Accepted</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
@@ -385,9 +423,13 @@ export default function VendorQuotations() {
                   : "Create your first quotation to get started"}
               </p>
               {!searchQuery && statusFilter === 'all' && (
-                <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+                <Button 
+                  onClick={() => handleProAction('create', () => setShowCreateDialog(true))} 
+                  className="gap-2"
+                >
                   <Plus className="h-4 w-4" />
                   Create Quotation
+                  {!isPro && <Lock className="w-3.5 h-3.5 ml-1 opacity-60" />}
                 </Button>
               )}
             </div>
@@ -395,9 +437,9 @@ export default function VendorQuotations() {
             <div className="space-y-3">
               {filteredQuotations.map(quotation => {
                 const customer = customers.find(c => c.id === quotation.customerId);
-                const statusConfig = getStatusConfig(quotation.status);
+                const isRequest = (quotation.source || "manual") === "miniwebsite";
+                const statusConfig = getStatusConfig(quotation.status, isRequest);
                 const StatusIcon = statusConfig.icon;
-                const isRequest = quotation.source === "miniwebsite";
 
                 return (
                   <Card 
@@ -515,13 +557,13 @@ export default function VendorQuotations() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-8 px-3 text-xs gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                  className="h-8 px-3 text-xs gap-1.5 text-green-600 border-green-200 hover:bg-green-50"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleWhatsApp(customer.phone!, quotation.quotationNumber, customer.name);
                                   }}
                                 >
-                                  <MessageCircle className="h-3.5 w-3.5" />
+                                  <FaWhatsapp className="h-3.5 w-3.5" />
                                   <span className="hidden sm:inline">WhatsApp</span>
                                 </Button>
                               </>
@@ -568,6 +610,13 @@ export default function VendorQuotations() {
           queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "quotations"] });
         }}
       />
+
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action={blockedAction}
+      />
     </div>
   );
 }
@@ -599,6 +648,14 @@ function CreateQuotationDialog({
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
+  
+  // Walk-in customer state
+  const [isAddingNewCustomer, setIsAddingNewCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
+  const [newCustomerEmail, setNewCustomerEmail] = useState("");
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [serviceSearchQuery, setServiceSearchQuery] = useState("");
 
   // Additional charges state
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([]);
@@ -618,6 +675,40 @@ function CreateQuotationDialog({
     enabled: open,
   });
 
+  // Mutation to create new customer
+  const createCustomerMutation = useMutation({
+    mutationFn: async (data: { name: string; phone: string; email?: string }) => {
+      const response = await apiRequest("POST", `/api/vendors/${vendorId}/customers`, {
+        vendorId,
+        name: data.name,
+        phone: data.phone,
+        email: data.email || null,
+        customerType: "walk-in",
+        status: "active",
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "customers"] });
+      setCustomerId(data.id);
+      setIsAddingNewCustomer(false);
+      setNewCustomerName("");
+      setNewCustomerPhone("");
+      setNewCustomerEmail("");
+      toast({
+        title: "Customer Created",
+        description: "New walk-in customer added successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create customer.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Reset form when dialog opens/closes
   useEffect(() => {
     if (!open) {
@@ -633,6 +724,12 @@ function CreateQuotationDialog({
       setNewChargeName("");
       setNewChargeAmount("");
       setNewChargeTax("18");
+      setIsAddingNewCustomer(false);
+      setNewCustomerName("");
+      setNewCustomerPhone("");
+      setNewCustomerEmail("");
+      setProductSearchQuery("");
+      setServiceSearchQuery("");
     } else if (prefilledCustomerId) {
       // Pre-fill customer if coming from a request
       setCustomerId(prefilledCustomerId);
@@ -738,10 +835,10 @@ function CreateQuotationDialog({
       const totalAmount = subtotal + chargesTotal;
       const totalTax = additionalCharges.reduce((sum, c) => sum + c.taxAmount, 0);
 
-      const quotationData = {
+      const quotationData: Record<string, any> = {
         vendorId,
         customerId,
-        quotationNumber: "", // Will be auto-generated
+        // quotationNumber will be auto-generated by server
         quotationDate: new Date().toISOString(),
         validUntil: validUntil.toISOString(),
         status: "draft",
@@ -898,91 +995,201 @@ function CreateQuotationDialog({
         <div className="flex-1 overflow-y-auto p-4">
           {step === "customer" && (
             <div className="space-y-4">
-            <div className="space-y-2">
-                <Label className="text-sm font-medium">Select Customer *</Label>
-              <Select value={customerId} onValueChange={setCustomerId}>
-                  <SelectTrigger className="h-12 rounded-xl">
-                    <SelectValue placeholder="Choose a customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map(customer => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <User className="h-4 w-4 text-primary" />
+              {/* Customer Selection Mode */}
+              {!isAddingNewCustomer ? (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Select Customer *</Label>
+                    <Select value={customerId} onValueChange={(val) => {
+                      if (val === "new") {
+                        setIsAddingNewCustomer(true);
+                        setCustomerId("");
+                      } else {
+                        setCustomerId(val);
+                      }
+                    }}>
+                      <SelectTrigger className="h-12 rounded-xl">
+                        <SelectValue placeholder="Choose a customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* Walk-in / New Customer Option */}
+                        <SelectItem value="new" className="border-b">
+                          <div className="flex items-center gap-2 text-primary">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <UserPlus className="h-4 w-4 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium">+ Add Walk-in Customer</p>
+                              <p className="text-xs text-muted-foreground">Create new customer</p>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        {customers.map(customer => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="h-4 w-4 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{customer.name}</p>
+                                <p className="text-xs text-slate-500">{customer.phone}</p>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedCustomer && (
+                    <Card className="bg-primary/5 border-primary/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
+                            <span className="text-primary-foreground font-bold text-lg">
+                              {selectedCustomer.name.charAt(0).toUpperCase()}
+                            </span>
                           </div>
                           <div>
-                            <p className="font-medium">{customer.name}</p>
-                            <p className="text-xs text-slate-500">{customer.phone}</p>
+                            <h3 className="font-semibold">{selectedCustomer.name}</h3>
+                            <p className="text-sm text-muted-foreground">{selectedCustomer.phone}</p>
                           </div>
                         </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              </div>
-
-              {selectedCustomer && (
-                <Card className="bg-primary/5 border-primary/20">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
-                        <span className="text-primary-foreground font-bold text-lg">
-                          {selectedCustomer.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold">{selectedCustomer.name}</h3>
-                        <p className="text-sm text-muted-foreground">{selectedCustomer.phone}</p>
-                      </div>
+                        {selectedCustomer.email && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                            <Mail className="h-4 w-4" />
+                            <span>{selectedCustomer.email}</span>
+                          </div>
+                        )}
+                        {selectedCustomer.address && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span>{selectedCustomer.address}</span>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              ) : (
+                /* Add New Walk-in Customer Form */
+                <Card className="border-2 border-dashed border-primary/40">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <UserPlus className="h-5 w-5 text-primary" />
+                        Add Walk-in Customer
+                      </CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddingNewCustomer(false);
+                          setNewCustomerName("");
+                          setNewCustomerPhone("");
+                          setNewCustomerEmail("");
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    {selectedCustomer.email && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                        <Mail className="h-4 w-4" />
-                        <span>{selectedCustomer.email}</span>
-                      </div>
-                    )}
-                    {selectedCustomer.address && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <MapPin className="h-4 w-4" />
-                        <span>{selectedCustomer.address}</span>
-                      </div>
-                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Customer Name *</Label>
+                      <Input
+                        value={newCustomerName}
+                        onChange={(e) => setNewCustomerName(e.target.value)}
+                        placeholder="Enter customer name"
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Phone Number *</Label>
+                      <Input
+                        type="tel"
+                        value={newCustomerPhone}
+                        onChange={(e) => setNewCustomerPhone(e.target.value)}
+                        placeholder="+91 98765 43210"
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Email (Optional)</Label>
+                      <Input
+                        type="email"
+                        value={newCustomerEmail}
+                        onChange={(e) => setNewCustomerEmail(e.target.value)}
+                        placeholder="customer@email.com"
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+                    <Button
+                      onClick={() => {
+                        if (!newCustomerName.trim()) {
+                          toast({ title: "Name is required", variant: "destructive" });
+                          return;
+                        }
+                        if (!newCustomerPhone.trim()) {
+                          toast({ title: "Phone is required", variant: "destructive" });
+                          return;
+                        }
+                        createCustomerMutation.mutate({
+                          name: newCustomerName.trim(),
+                          phone: newCustomerPhone.trim(),
+                          email: newCustomerEmail.trim() || undefined,
+                        });
+                      }}
+                      disabled={createCustomerMutation.isPending}
+                      className="w-full h-11 rounded-xl"
+                    >
+                      {createCustomerMutation.isPending ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Add Customer & Continue
+                        </>
+                      )}
+                    </Button>
                   </CardContent>
                 </Card>
               )}
 
-            <div className="space-y-2">
+              <div className="space-y-2">
                 <Label className="text-sm font-medium">Valid For (Days)</Label>
-              <Input
-                type="number"
-                value={validDays}
-                onChange={(e) => setValidDays(parseInt(e.target.value) || 7)}
+                <Input
+                  type="number"
+                  value={validDays}
+                  onChange={(e) => setValidDays(parseInt(e.target.value) || 7)}
                   className="h-12 rounded-xl"
-              />
-            </div>
+                />
+              </div>
 
-            <div className="space-y-2">
+              <div className="space-y-2">
                 <Label className="text-sm font-medium">Notes (Optional)</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any notes for this quotation..."
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add any notes for this quotation..."
                   className="rounded-xl resize-none"
                   rows={3}
-              />
-            </div>
+                />
+              </div>
 
-            <div className="space-y-2">
+              <div className="space-y-2">
                 <Label className="text-sm font-medium">Terms & Conditions (Optional)</Label>
-              <Textarea
-                value={termsAndConditions}
-                onChange={(e) => setTermsAndConditions(e.target.value)}
-                placeholder="Payment terms, delivery terms, etc..."
+                <Textarea
+                  value={termsAndConditions}
+                  onChange={(e) => setTermsAndConditions(e.target.value)}
+                  placeholder="Payment terms, delivery terms, etc..."
                   className="rounded-xl resize-none"
                   rows={3}
-              />
-            </div>
+                />
+              </div>
             </div>
           )}
 
@@ -991,136 +1198,249 @@ function CreateQuotationDialog({
               {/* Products Section */}
               {products.filter(p => p.isActive).length > 0 && (
                 <div>
-                  <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                    <Package className="h-5 w-5 text-primary" />
-                    Products ({products.filter(p => p.isActive).length})
-                  </h3>
-                  <div className="space-y-2">
-                    {products.filter(p => p.isActive).map(product => {
-                      const isSelected = selectedProducts.includes(product.id);
-                      return (
-                        <Card 
-                          key={product.id}
-                          className={`border cursor-pointer transition-all ${
-                            isSelected ? "border-primary bg-primary/5" : "border-muted hover:border-primary/50"
-                          }`}
-                          onClick={() => toggleProduct(product.id)}
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
-                                isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
-                              }`}>
-                                {product.icon || "📦"}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-medium text-slate-800 truncate">{product.name}</h4>
-                                <p className="text-sm text-slate-500">₹{parseFloat(product.price.toString()).toLocaleString('en-IN')}</p>
-                              </div>
-                              {isSelected ? (
-                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                  <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-lg"
-                                    onClick={() => updateQuantity(product.id, (itemQuantities[product.id] || 1) - 1)}
-                                  >
-                                    -
-              </Button>
-                                  <span className="w-8 text-center font-medium">{itemQuantities[product.id] || 1}</span>
-              <Button 
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-lg"
-                                    onClick={() => updateQuantity(product.id, (itemQuantities[product.id] || 1) + 1)}
-                                  >
-                                    +
-              </Button>
-          </div>
-        ) : (
-                                <div className="w-6 h-6 rounded-full border-2 border-slate-300" />
-                              )}
-            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                      <Package className="h-5 w-5 text-primary" />
+                      Products ({products.filter(p => p.isActive).length})
+                    </h3>
                   </div>
-                      </div>
-                )}
+                  {/* Product Search */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search products..."
+                      value={productSearchQuery}
+                      onChange={(e) => setProductSearchQuery(e.target.value)}
+                      className="pl-9 h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {products
+                      .filter(p => p.isActive)
+                      .filter(p => 
+                        !productSearchQuery || 
+                        p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
+                        p.category?.toLowerCase().includes(productSearchQuery.toLowerCase())
+                      )
+                      .map(product => {
+                        const isSelected = selectedProducts.includes(product.id);
+                        const productImage = product.images && product.images.length > 0 ? product.images[0] : null;
+                        const stockLeft = product.stock || 0;
+                        const isLowStock = stockLeft > 0 && stockLeft <= 10;
+                        const isOutOfStock = stockLeft <= 0;
+                        
+                        return (
+                          <Card 
+                            key={product.id}
+                            className={`border cursor-pointer transition-all ${
+                              isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-muted hover:border-primary/50"
+                            } ${isOutOfStock ? "opacity-60" : ""}`}
+                            onClick={() => !isOutOfStock && toggleProduct(product.id)}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex items-center gap-3">
+                                {/* Product Image */}
+                                <div className={`w-14 h-14 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 ${
+                                  isSelected ? "ring-2 ring-primary" : "bg-muted"
+                                }`}>
+                                  {productImage ? (
+                                    <img 
+                                      src={productImage} 
+                                      alt={product.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                      <ImageIcon className="h-6 w-6 text-slate-400" />
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-medium text-slate-800 truncate">{product.name}</h4>
+                                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                    <span className="text-sm font-semibold text-primary">
+                                      ₹{parseFloat(product.price.toString()).toLocaleString('en-IN')}
+                                    </span>
+                                    {product.unit && (
+                                      <span className="text-xs text-muted-foreground">/{product.unit}</span>
+                                    )}
+                                  </div>
+                                  {/* Stock Info */}
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {isOutOfStock ? (
+                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5">
+                                        <XCircle className="h-3 w-3 mr-1" />
+                                        Out of Stock
+                                      </Badge>
+                                    ) : isLowStock ? (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-amber-50 text-amber-700 border-amber-200">
+                                        <AlertTriangle className="h-3 w-3 mr-1" />
+                                        Low Stock: {stockLeft}
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-green-50 text-green-700 border-green-200">
+                                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                                        In Stock: {stockLeft}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {isSelected && !isOutOfStock ? (
+                                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 rounded-lg"
+                                      onClick={() => updateQuantity(product.id, (itemQuantities[product.id] || 1) - 1)}
+                                    >
+                                      -
+                                    </Button>
+                                    <span className="w-8 text-center font-medium">{itemQuantities[product.id] || 1}</span>
+                                    <Button 
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 rounded-lg"
+                                      onClick={() => updateQuantity(product.id, (itemQuantities[product.id] || 1) + 1)}
+                                    >
+                                      +
+                                    </Button>
+                                  </div>
+                                ) : !isOutOfStock ? (
+                                  <div className="w-6 h-6 rounded-full border-2 border-slate-300 flex-shrink-0" />
+                                ) : null}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
                 
               {/* Services Section */}
-                {services.length > 0 && (
+              {services.length > 0 && (
                 <div>
-                  <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                    <Wrench className="h-5 w-5 text-purple-600" />
-                    Services ({services.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {services.map(service => {
-                      const isSelected = selectedServices.includes(service.id);
-                      return (
-                        <Card 
-                          key={service.id}
-                          className={`border cursor-pointer transition-all ${
-                            isSelected ? "border-purple-500 bg-purple-50" : "border-slate-200 hover:border-purple-200"
-                          }`}
-                          onClick={() => toggleService(service.id)}
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                isSelected ? "bg-purple-600" : "bg-slate-100"
-                              }`}>
-                                <Wrench className={`h-5 w-5 ${isSelected ? "text-white" : "text-slate-600"}`} />
-                      </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-medium text-slate-800 truncate">{service.name}</h4>
-                                <p className="text-sm text-slate-500">₹{parseFloat(service.price.toString()).toLocaleString('en-IN')}</p>
-                              </div>
-                              {isSelected ? (
-                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                  <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-lg"
-                                    onClick={() => updateQuantity(service.id, (itemQuantities[service.id] || 1) - 1)}
-                                  >
-                                    -
-                                  </Button>
-                                  <span className="w-8 text-center font-medium">{itemQuantities[service.id] || 1}</span>
-                                  <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-lg"
-                                    onClick={() => updateQuantity(service.id, (itemQuantities[service.id] || 1) + 1)}
-                                  >
-                                    +
-                                  </Button>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                      <Wrench className="h-5 w-5 text-purple-600" />
+                      Services ({services.length})
+                    </h3>
+                  </div>
+                  {/* Service Search */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search services..."
+                      value={serviceSearchQuery}
+                      onChange={(e) => setServiceSearchQuery(e.target.value)}
+                      className="pl-9 h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {services
+                      .filter(s => 
+                        !serviceSearchQuery || 
+                        s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+                        s.category?.toLowerCase().includes(serviceSearchQuery.toLowerCase())
+                      )
+                      .map(service => {
+                        const isSelected = selectedServices.includes(service.id);
+                        const serviceImage = service.images && service.images.length > 0 ? service.images[0] : null;
+                        
+                        return (
+                          <Card 
+                            key={service.id}
+                            className={`border cursor-pointer transition-all ${
+                              isSelected ? "border-purple-500 bg-purple-50 ring-1 ring-purple-500" : "border-slate-200 hover:border-purple-200"
+                            }`}
+                            onClick={() => toggleService(service.id)}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex items-center gap-3">
+                                {/* Service Image */}
+                                <div className={`w-14 h-14 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 ${
+                                  isSelected ? "ring-2 ring-purple-500" : "bg-slate-100"
+                                }`}>
+                                  {serviceImage ? (
+                                    <img 
+                                      src={serviceImage} 
+                                      alt={service.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className={`w-full h-full flex items-center justify-center ${
+                                      isSelected ? "bg-purple-600" : "bg-gradient-to-br from-purple-100 to-purple-200"
+                                    }`}>
+                                      <Wrench className={`h-6 w-6 ${isSelected ? "text-white" : "text-purple-500"}`} />
+                                    </div>
+                                  )}
                                 </div>
-                              ) : (
-                                <div className="w-6 h-6 rounded-full border-2 border-slate-300" />
-                              )}
-                            </div>
-              </CardContent>
-            </Card>
-                      );
-                    })}
-                            </div>
+                                
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-medium text-slate-800 truncate">{service.name}</h4>
+                                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                    <span className="text-sm font-semibold text-purple-600">
+                                      ₹{parseFloat(service.price.toString()).toLocaleString('en-IN')}
+                                    </span>
+                                    {service.duration && (
+                                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {service.duration} mins
+                                      </span>
+                                    )}
+                                  </div>
+                                  {service.category && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 mt-1 bg-purple-50 text-purple-700 border-purple-200">
+                                      {service.category}
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                {isSelected ? (
+                                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 rounded-lg"
+                                      onClick={() => updateQuantity(service.id, (itemQuantities[service.id] || 1) - 1)}
+                                    >
+                                      -
+                                    </Button>
+                                    <span className="w-8 text-center font-medium">{itemQuantities[service.id] || 1}</span>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 rounded-lg"
+                                      onClick={() => updateQuantity(service.id, (itemQuantities[service.id] || 1) + 1)}
+                                    >
+                                      +
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full border-2 border-slate-300 flex-shrink-0" />
+                                )}
                               </div>
-                            )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
 
               {products.filter(p => p.isActive).length === 0 && services.length === 0 && (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <ShoppingBag className="h-8 w-8 text-slate-400" />
-                              </div>
+                  </div>
                   <h3 className="font-semibold text-slate-700 mb-2">No items in catalogue</h3>
                   <p className="text-slate-500 text-sm">Add products or services to your catalogue first</p>
-                          </div>
-                              )}
-                            </div>
-                          )}
+                </div>
+              )}
+            </div>
+          )}
 
           {step === "charges" && (
             <div className="space-y-4">
@@ -1255,26 +1575,35 @@ function CreateQuotationDialog({
               </Card>
 
               {/* Items Summary */}
-          <Card>
+              <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-slate-600">
                     Items ({selectedProducts.length + selectedServices.length})
                   </CardTitle>
-            </CardHeader>
+                </CardHeader>
                 <CardContent className="pt-0 space-y-2">
                   {selectedProducts.map(productId => {
                     const product = products.find(p => p.id === productId);
                     if (!product) return null;
                     const qty = itemQuantities[productId] || 1;
+                    const productImage = product.images && product.images.length > 0 ? product.images[0] : null;
                     return (
                       <div key={productId} className="flex items-center justify-between py-2 border-b last:border-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">{product.icon || "📦"}</span>
-                <div>
+                          <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                            {productImage ? (
+                              <img src={productImage} alt={product.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-lg">
+                                {product.icon || "📦"}
+                              </div>
+                            )}
+                          </div>
+                          <div>
                             <p className="font-medium text-sm">{product.name}</p>
                             <p className="text-xs text-slate-500">Qty: {qty} × ₹{parseFloat(product.price.toString()).toLocaleString('en-IN')}</p>
-                </div>
-                </div>
+                          </div>
+                        </div>
                         <p className="font-semibold">₹{(qty * parseFloat(product.price.toString())).toLocaleString('en-IN')}</p>
                       </div>
                     );
@@ -1283,23 +1612,30 @@ function CreateQuotationDialog({
                     const service = services.find(s => s.id === serviceId);
                     if (!service) return null;
                     const qty = itemQuantities[serviceId] || 1;
+                    const serviceImage = service.images && service.images.length > 0 ? service.images[0] : null;
                     return (
                       <div key={serviceId} className="flex items-center justify-between py-2 border-b last:border-0">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center">
-                            <Wrench className="h-3 w-3 text-purple-600" />
-                </div>
-                <div>
+                          <div className="w-10 h-10 rounded-lg overflow-hidden bg-purple-100 flex-shrink-0">
+                            {serviceImage ? (
+                              <img src={serviceImage} alt={service.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Wrench className="h-4 w-4 text-purple-600" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
                             <p className="font-medium text-sm">{service.name}</p>
                             <p className="text-xs text-slate-500">Qty: {qty} × ₹{parseFloat(service.price.toString()).toLocaleString('en-IN')}</p>
-                </div>
-              </div>
+                          </div>
+                        </div>
                         <p className="font-semibold">₹{(qty * parseFloat(service.price.toString())).toLocaleString('en-IN')}</p>
                       </div>
                     );
                   })}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
               {/* Additional Charges Summary */}
               {additionalCharges.length > 0 && (
@@ -1364,11 +1700,17 @@ function CreateQuotationDialog({
           {step === "customer" && (
             <Button 
               onClick={() => setStep("items")}
-              disabled={!customerId}
+              disabled={!customerId || isAddingNewCustomer}
               className="w-full h-12 rounded-xl"
             >
-              Continue to Add Items
-              <ChevronRight className="h-5 w-5 ml-2" />
+              {isAddingNewCustomer ? (
+                "Save Customer First"
+              ) : (
+                <>
+                  Continue to Add Items
+                  <ChevronRight className="h-5 w-5 ml-2" />
+                </>
+              )}
             </Button>
           )}
 

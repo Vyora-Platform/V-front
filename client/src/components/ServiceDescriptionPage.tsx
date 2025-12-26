@@ -50,6 +50,13 @@ import {
   XCircle,
   AlertCircle,
   RefreshCw,
+  Award,
+  Truck,
+  Gift,
+  Layers,
+  ListChecks,
+  LayoutList,
+  DollarSign,
 } from "lucide-react";
 
 interface ServiceDescriptionPageProps {
@@ -212,6 +219,42 @@ export default function ServiceDescriptionPage({
   const exclusions = service.exclusions || [];
   const policies = service.policies || [];
   const inventoryItems = service.inventoryItems || [];
+  
+  // Additional service details
+  const benefits = service.benefits || [];
+  const features = service.features || [];
+  const highlights = service.highlights || [];
+  const tags = service.tags || [];
+  const tagline = service.tagline || "";
+  const promotionalCaption = service.promotionalCaption || "";
+  const packageName = service.packageName || "";
+  const packageType = service.packageType || "";
+  const packageDuration = service.packageDuration || "";
+  const packageSessions = service.packageSessions || 0;
+  const freeTrialAvailable = service.freeTrialAvailable || false;
+  const homeCollectionAvailable = service.homeCollectionAvailable || false;
+  const homeCollectionCharges = service.homeCollectionCharges || 0;
+
+  // Additional form fields
+  const deliveryModes = service.deliveryModes || [];
+  const homeServiceChargeType = service.homeServiceChargeType || "free";
+  const homeServiceCharges = service.homeServiceCharges || [];
+  const pricingType = service.pricingType || "per-service";
+  const priceMin = service.priceMin;
+  const priceMax = service.priceMax;
+  const packagePricing = service.packagePricing || [];
+  const inventoryType = service.inventoryType || "unlimited";
+  const customTimeSlots = service.customTimeSlots || [];
+  const timeSlotDuration = service.timeSlotDuration || "30";
+  const durationType = service.durationType;
+  const durationValue = service.durationValue;
+  const durationUnit = service.durationUnit;
+  const durationMin = service.durationMin;
+  const durationMax = service.durationMax;
+  const sessionCount = service.sessionCount;
+  const customUnit = service.customUnit;
+  const sampleType = service.sampleType;
+  const tat = service.tat;
 
   const allAmenities = [...amenities, ...customAmenities.map((a: string) => ({ custom: true, label: a }))];
   const displayedAmenities = showAllAmenities ? allAmenities : allAmenities.slice(0, 8);
@@ -229,7 +272,7 @@ export default function ServiceDescriptionPage({
     <div className="min-h-screen bg-gray-50 dark:bg-background flex flex-col">
       {/* Compact Sticky Header */}
       <div className="sticky top-0 z-50 bg-white dark:bg-background border-b shadow-sm">
-        <div className="flex items-center justify-between px-4 py-2.5 max-w-6xl mx-auto">
+        <div className="flex items-center justify-between px-4 py-2.5 max-w-7xl mx-auto">
           <button
             onClick={onClose}
             className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -263,17 +306,17 @@ export default function ServiceDescriptionPage({
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto pb-24 lg:pb-6">
-        {/* Hero Image Section - Reduced Height */}
+        {/* Hero Image Section */}
         <div className="relative bg-gray-900">
           {hasImages ? (
-            <div className="relative aspect-[16/10] md:aspect-[21/9] max-h-[35vh] md:max-h-[40vh] overflow-hidden">
+            <div className="relative aspect-[16/10] md:aspect-[16/9] md:min-h-[50vh] md:max-h-[60vh] max-h-[35vh] overflow-hidden">
               <img
                 src={images[currentImageIndex]}
                 alt={service.name}
                 className="w-full h-full object-cover"
               />
-              {/* Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              {/* Gradient Overlay - subtle on desktop */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent md:from-black/20" />
               
               {/* Navigation Arrows */}
               {images.length > 1 && (
@@ -309,81 +352,80 @@ export default function ServiceDescriptionPage({
                   ))}
                 </div>
               )}
-
-              {/* Category & Rating Badge on Image */}
-              <div className="absolute top-3 left-3 flex flex-wrap gap-2">
-                <Badge className="bg-white/90 text-gray-800 hover:bg-white shadow-sm backdrop-blur-sm border-0 text-xs font-medium">
-                  {service.category}
-                </Badge>
-                {service.subcategory && (
-                  <Badge variant="outline" className="bg-white/90 text-gray-700 border-0 backdrop-blur-sm text-xs">
-                    {service.subcategory}
-                  </Badge>
-                )}
-              </div>
-
-              {/* Verified Badge */}
-              <div className="absolute top-3 right-3">
-                <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1 px-2 py-1 shadow-lg text-xs">
-                  <BadgeCheck className="h-3.5 w-3.5" />
-                  Verified
-                </Badge>
-              </div>
-
-              {/* Title & Rating on Image (Mobile) */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 md:hidden">
-                <h1 className="text-xl font-bold text-white mb-2 line-clamp-2 drop-shadow-lg">
-                  {service.name}
-                </h1>
-                <div className="flex items-center gap-3 text-white/90 text-sm">
-                  <div className="flex items-center gap-1 bg-black/30 backdrop-blur-sm rounded-full px-2 py-0.5">
-                    <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
-                    <span className="font-semibold">4.8</span>
-                    <span className="text-white/70">(2.5K)</span>
-                  </div>
-                  {duration && (
-                    <div className="flex items-center gap-1 bg-black/30 backdrop-blur-sm rounded-full px-2 py-0.5">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>{duration}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           ) : (
-            <div className="aspect-[16/10] md:aspect-[21/9] max-h-[35vh] flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 relative overflow-hidden">
+            <div className="aspect-[16/10] md:aspect-[16/9] md:min-h-[50vh] md:max-h-[60vh] max-h-[35vh] flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 relative overflow-hidden">
               <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at 30% 30%, ${primaryColor}, transparent 50%)` }} />
               <div className="text-center relative z-10">
                 <div className="text-7xl mb-3">{service.icon || "💼"}</div>
-                <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1 px-2 py-1 text-xs">
-                  <BadgeCheck className="h-3.5 w-3.5" />
-                  Verified
-                </Badge>
               </div>
             </div>
           )}
         </div>
 
+        {/* Mobile Service Title & Pricing - Below Image */}
+        <div className="md:hidden bg-white dark:bg-card px-4 py-4 border-b">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2 line-clamp-2">
+            {service.name}
+          </h1>
+          
+          {/* Pricing */}
+          <div className="flex items-baseline gap-2 flex-wrap mb-3">
+            <span className="text-2xl font-bold" style={{ color: primaryColor }}>
+              ₹{hasDiscount ? offerPrice : basePrice}
+            </span>
+            {hasDiscount && (
+              <>
+                <span className="text-base text-gray-400 line-through">₹{basePrice}</span>
+                <Badge className="bg-red-500 text-white text-[10px] h-5">
+                  {discountPercent}% OFF
+                </Badge>
+              </>
+            )}
+            {getPricingTypeDisplay() && (
+              <span className="text-xs text-gray-500">/ {getPricingTypeDisplay()}</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            {duration && (
+              <div className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                <span>{duration}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1">
+              <MapPin className="h-4 w-4" />
+              <span>
+                {service.deliveryModes?.includes("home-service") 
+                  ? "Home & Business" 
+                  : "Business Location"}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Main Content Grid */}
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 lg:gap-6">
+        <div className="max-w-7xl mx-auto px-0 lg:px-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 lg:gap-8">
             {/* Left Column - Service Details */}
             <div className="lg:col-span-2 bg-white dark:bg-card lg:bg-transparent">
               {/* Service Header - Desktop */}
               <div className="hidden md:block p-6 pb-4 bg-white dark:bg-card lg:rounded-xl lg:mt-4 lg:shadow-sm lg:border">
                 <div className="space-y-3">
-                  <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    {service.name}
-                  </h1>
+                  <div className="flex items-start justify-between gap-4">
+                    <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                      {service.name}
+                    </h1>
+                    {/* Vyora Verified Badge - Desktop */}
+                    <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1.5 px-3 py-1.5 shadow-sm shrink-0">
+                      <BadgeCheck className="h-4 w-4" />
+                      Vyora Verified
+                    </Badge>
+                  </div>
                   
-                  {/* Rating & Location */}
+                  {/* Location & Duration */}
                   <div className="flex flex-wrap items-center gap-3 text-sm">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30">
-                      <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                      <span className="font-semibold text-amber-700 dark:text-amber-400">4.8</span>
-                      <span className="text-gray-500">(2.5K reviews)</span>
-                    </div>
-                    <span className="text-gray-300">•</span>
                     <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
                       <MapPin className="h-4 w-4" />
                       <span>
@@ -426,19 +468,93 @@ export default function ServiceDescriptionPage({
                       </p>
                     </CardContent>
                   </Card>
-                  {service.inventoryType === "limited" && inventoryItems.length > 0 && (
-                    <Card className="border-0 shadow-sm">
-                      <CardContent className="p-3 text-center">
-                        <Package className="h-5 w-5 mx-auto mb-1 text-emerald-600" />
-                        <p className="text-[10px] text-gray-500 mb-0.5">Stock</p>
-                        <p className="text-xs font-semibold text-emerald-600">
-                          {inventoryItems.filter((i: any) => i.available).length} left
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
+                  {/* Vyora Verified Card */}
+                  <Card className="border-0 shadow-sm bg-emerald-50 dark:bg-emerald-900/20">
+                    <CardContent className="p-3 text-center">
+                      <BadgeCheck className="h-5 w-5 mx-auto mb-1 text-emerald-600" />
+                      <p className="text-[10px] text-gray-500 mb-0.5">Status</p>
+                      <p className="text-xs font-semibold text-emerald-600">Vyora Verified</p>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
+
+              {/* Availability Section - Mobile Priority (Above About) */}
+              {(availableDays.length > 0 || timeSlots.length > 0 || customTimeSlots.length > 0) && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Calendar className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Availability
+                      </h2>
+                      
+                      {/* Available Days */}
+                      {availableDays.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-gray-500 mb-2">Available Days</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ALL_DAYS.map((day) => (
+                              <div
+                                key={day}
+                                className={`w-10 h-10 rounded-lg text-xs font-semibold flex items-center justify-center transition-all ${
+                                  availableDays.includes(day)
+                                    ? "text-white shadow-sm"
+                                    : "bg-gray-100 dark:bg-gray-800 text-gray-400 line-through"
+                                }`}
+                                style={availableDays.includes(day) ? { backgroundColor: primaryColor } : {}}
+                              >
+                                {DAY_ABBREVIATIONS[day]}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Time Slots */}
+                      {timeSlots.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-gray-500 mb-2">Available Time Slots</p>
+                          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                            {timeSlots.map((slot: string, index: number) => (
+                              <Badge 
+                                key={index} 
+                                variant="outline" 
+                                className="text-xs font-normal py-1.5 px-3"
+                                style={{ borderColor: `${primaryColor}40`, color: primaryColor }}
+                              >
+                                <Clock className="h-3 w-3 mr-1.5" />
+                                {slot}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Custom Time Slots */}
+                      {customTimeSlots.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-2">Custom Time Slots</p>
+                          <div className="flex flex-wrap gap-2">
+                            {customTimeSlots.map((slot: string, index: number) => (
+                              <Badge 
+                                key={index} 
+                                variant="secondary" 
+                                className="text-xs font-normal py-1.5 px-3"
+                              >
+                                <Clock className="h-3 w-3 mr-1.5" />
+                                {slot}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
               {/* About This Service - Collapsible */}
               {(description || shortDescription) && (
@@ -495,6 +611,432 @@ export default function ServiceDescriptionPage({
                 </div>
               )}
 
+              {/* Tagline & Promotional Caption */}
+              {(tagline || promotionalCaption) && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden bg-gradient-to-r from-primary/5 to-primary/10">
+                    <CardContent className="p-4">
+                      {tagline && (
+                        <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                          ✨ {tagline}
+                        </p>
+                      )}
+                      {promotionalCaption && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+                          {promotionalCaption}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Service Duration Details */}
+              {durationType && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Clock className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Duration Details
+                      </h2>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                          <p className="text-xs text-gray-500 mb-0.5">Duration Type</p>
+                          <p className="font-semibold text-gray-900 dark:text-white capitalize">{durationType}</p>
+                        </div>
+                        {durationValue && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Duration</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{durationValue} {durationUnit}</p>
+                          </div>
+                        )}
+                        {durationType === "variable" && durationMin && durationMax && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Duration Range</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{durationMin} - {durationMax} {durationUnit}</p>
+                          </div>
+                        )}
+                        {durationType === "session" && sessionCount && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Sessions</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{sessionCount} sessions</p>
+                          </div>
+                        )}
+                        {durationType === "project" && durationMin && durationMax && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Project Duration</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{durationMin} - {durationMax} days</p>
+                          </div>
+                        )}
+                        {customUnit && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Service Unit</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{customUnit}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Delivery Modes */}
+              {deliveryModes.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <MapPin className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Service Location
+                      </h2>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {deliveryModes.includes("business-location") && (
+                          <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                              <Building2 className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-white text-sm">At Business Location</p>
+                              <p className="text-xs text-gray-500">Visit our location</p>
+                            </div>
+                          </div>
+                        )}
+                        {deliveryModes.includes("home-service") && (
+                          <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                              <Home className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-blue-900 dark:text-blue-100 text-sm">Home Service Available</p>
+                              <p className="text-xs text-blue-700 dark:text-blue-300">
+                                {homeServiceChargeType === "free" ? "Free home service" : "Additional charges apply"}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Home Service Charges */}
+                      {deliveryModes.includes("home-service") && homeServiceChargeType === "paid" && homeServiceCharges.length > 0 && (
+                        <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+                          <p className="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-2">Home Service Charges:</p>
+                          <div className="space-y-1">
+                            {homeServiceCharges.map((charge: any, index: number) => (
+                              <div key={index} className="flex justify-between text-sm">
+                                <span className="text-amber-700 dark:text-amber-300">{charge.label}</span>
+                                <span className="font-medium text-amber-800 dark:text-amber-200">₹{charge.amount} ({charge.taxSlab}% GST)</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Pricing Details */}
+              {(pricingType !== "per-service" || priceMin || priceMax || packagePricing.length > 0) && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <CreditCard className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Pricing Details
+                      </h2>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">{getPricingTypeDisplay() || "Per Service"}</Badge>
+                          {service.gstIncluded && (
+                            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">GST Included ({service.taxPercentage}%)</Badge>
+                          )}
+                          {!service.gstIncluded && service.taxPercentage > 0 && (
+                            <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">+ {service.taxPercentage}% GST</Badge>
+                          )}
+                        </div>
+                        
+                        {/* Price Range */}
+                        {pricingType === "price-range" && priceMin && priceMax && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Price Range</p>
+                            <p className="font-semibold text-gray-900 dark:text-white text-lg">₹{priceMin} - ₹{priceMax}</p>
+                          </div>
+                        )}
+
+                        {/* Package Pricing */}
+                        {packagePricing.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Package Options:</p>
+                            <div className="grid gap-2">
+                              {packagePricing.map((pkg: any, index: number) => (
+                                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                                  <div>
+                                    <p className="font-medium text-gray-900 dark:text-white text-sm">{pkg.name}</p>
+                                    <p className="text-xs text-gray-500">{pkg.sessions} sessions</p>
+                                  </div>
+                                  <p className="font-bold text-lg" style={{ color: primaryColor }}>₹{pkg.price}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Inventory Information */}
+              {inventoryType === "limited" && inventoryItems.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Package className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Available Units
+                      </h2>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {inventoryItems.map((item: any, index: number) => (
+                          <div 
+                            key={index} 
+                            className={`p-3 rounded-xl border ${
+                              item.available 
+                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200" 
+                                : "bg-gray-100 dark:bg-gray-800/50 border-gray-200 opacity-60"
+                            }`}
+                          >
+                            <p className="font-medium text-sm text-gray-900 dark:text-white">{item.name}</p>
+                            <p className="text-xs text-gray-500">{item.identifier}</p>
+                            {item.variants && item.variants.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {item.variants.map((v: any, vi: number) => (
+                                  <Badge key={vi} variant="secondary" className="text-[10px] py-0">
+                                    {v.name}: {v.value}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                            <Badge 
+                              className={`mt-2 text-[10px] ${
+                                item.available 
+                                  ? "bg-emerald-500 text-white" 
+                                  : "bg-gray-400 text-white"
+                              }`}
+                            >
+                              {item.available ? "Available" : "Unavailable"}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Sample Type & TAT (Legacy fields) */}
+              {(sampleType || tat) && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Info className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Additional Information
+                      </h2>
+                      <div className="grid grid-cols-2 gap-3">
+                        {sampleType && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Sample Type</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{sampleType}</p>
+                          </div>
+                        )}
+                        {tat && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Turnaround Time</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{tat}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Package Information */}
+              {(packageName || packageType || packageDuration || packageSessions > 0) && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Gift className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Package Details
+                      </h2>
+                      <div className="grid grid-cols-2 gap-3">
+                        {packageName && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Package Name</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{packageName}</p>
+                          </div>
+                        )}
+                        {packageType && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Package Type</p>
+                            <p className="font-semibold text-gray-900 dark:text-white capitalize">{packageType}</p>
+                          </div>
+                        )}
+                        {packageDuration && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Duration</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{packageDuration}</p>
+                          </div>
+                        )}
+                        {packageSessions > 0 && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <p className="text-xs text-gray-500 mb-0.5">Sessions</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{packageSessions} sessions</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Service Highlights */}
+              {highlights.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Award className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Service Highlights
+                      </h2>
+                      <ul className="space-y-2">
+                        {highlights.map((item: string, index: number) => (
+                          <li key={index} className="flex items-start gap-3">
+                            <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                              <Star className="h-3 w-3" style={{ color: primaryColor }} />
+                            </div>
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Benefits */}
+              {benefits.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/30">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        </div>
+                        Benefits
+                      </h2>
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {benefits.map((item: string, index: number) => (
+                          <div key={index} className="flex items-start gap-2 p-2.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Features */}
+              {features.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <ListChecks className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Features
+                      </h2>
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {features.map((item: string, index: number) => (
+                          <div key={index} className="flex items-start gap-2 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <Check className="h-4 w-4 shrink-0 mt-0.5" style={{ color: primaryColor }} />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Home Collection / Delivery Available */}
+              {homeCollectionAvailable && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden bg-blue-50 dark:bg-blue-900/20">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                          <Truck className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-blue-900 dark:text-blue-100">
+                            Home Collection Available
+                          </h3>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            {homeCollectionCharges > 0 
+                              ? `Additional charges: ₹${homeCollectionCharges}`
+                              : "Free home collection available"
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Free Trial Available */}
+              {freeTrialAvailable && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/40 flex items-center justify-center shrink-0">
+                          <Gift className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-green-900 dark:text-green-100">
+                            Free Trial Available
+                          </h3>
+                          <p className="text-sm text-green-700 dark:text-green-300">
+                            Try before you commit - Free trial offered!
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
               {/* What's Included / Not Included */}
               {(inclusions.length > 0 || exclusions.length > 0) && (
                 <div className="px-4 pb-4 lg:px-0 lg:mt-4">
@@ -544,7 +1086,7 @@ export default function ServiceDescriptionPage({
                 </div>
               )}
 
-              {/* Amenities Section */}
+              {/* Amenities Section - Always show if amenities exist */}
               {allAmenities.length > 0 && (
                 <div className="px-4 pb-4 lg:px-0 lg:mt-4">
                   <Card className="border-0 shadow-sm lg:border overflow-hidden">
@@ -553,9 +1095,9 @@ export default function ServiceDescriptionPage({
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
                           <Sparkles className="h-4 w-4" style={{ color: primaryColor }} />
                         </div>
-                        Amenities & Facilities
+                        Amenities & Facilities ({allAmenities.length})
                       </h2>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         {displayedAmenities.map((amenity: any, index: number) => {
                           const isCustom = typeof amenity === 'object' && amenity.custom;
                           const amenityId = isCustom ? null : amenity;
@@ -565,12 +1107,12 @@ export default function ServiceDescriptionPage({
                           return (
                             <div
                               key={index}
-                              className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                              className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border border-gray-100 dark:border-gray-700"
                             >
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${primaryColor}15` }}>
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${primaryColor}15` }}>
                                 <Icon className="h-4 w-4" style={{ color: primaryColor }} />
                               </div>
-                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300 line-clamp-1">{label}</span>
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
                             </div>
                           );
                         })}
@@ -587,6 +1129,91 @@ export default function ServiceDescriptionPage({
                             <>Show {allAmenities.length - 8} More <ChevronDown className="h-4 w-4" /></>
                           )}
                         </button>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Availability Section - Main Content (Desktop Only - Mobile shown above) */}
+              {(availableDays.length > 0 || timeSlots.length > 0 || customTimeSlots.length > 0) && (
+                <div className="hidden md:block px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Calendar className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Availability
+                      </h2>
+                      
+                      {/* Available Days */}
+                      {availableDays.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-gray-500 mb-2">Available Days</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ALL_DAYS.map((day) => (
+                              <div
+                                key={day}
+                                className={`w-10 h-10 rounded-lg text-xs font-semibold flex items-center justify-center transition-all ${
+                                  availableDays.includes(day)
+                                    ? "text-white shadow-sm"
+                                    : "bg-gray-100 dark:bg-gray-800 text-gray-400 line-through"
+                                }`}
+                                style={availableDays.includes(day) ? { backgroundColor: primaryColor } : {}}
+                              >
+                                {DAY_ABBREVIATIONS[day]}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Time Slots */}
+                      {timeSlots.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-gray-500 mb-2">Time Slots</p>
+                          <div className="flex flex-wrap gap-2">
+                            {timeSlots.map((slot: string, index: number) => (
+                              <Badge 
+                                key={index} 
+                                variant="outline" 
+                                className="text-xs font-normal py-1.5 px-3"
+                                style={{ borderColor: `${primaryColor}40`, color: primaryColor }}
+                              >
+                                <Clock className="h-3 w-3 mr-1.5" />
+                                {slot}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Custom Time Slots */}
+                      {customTimeSlots.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-2">Custom Time Slots</p>
+                          <div className="flex flex-wrap gap-2">
+                            {customTimeSlots.map((slot: string, index: number) => (
+                              <Badge 
+                                key={index} 
+                                variant="secondary" 
+                                className="text-xs font-normal py-1.5 px-3"
+                              >
+                                <Clock className="h-3 w-3 mr-1.5" />
+                                {slot}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Time Slot Duration */}
+                      {timeSlotDuration && (
+                        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                          <p className="text-xs text-gray-500 mb-0.5">Slot Duration</p>
+                          <p className="font-semibold text-gray-900 dark:text-white">{timeSlotDuration} minutes</p>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -632,6 +1259,33 @@ export default function ServiceDescriptionPage({
                             <h4 className="font-semibold text-sm text-gray-800 dark:text-white mb-1">{policy.title}</h4>
                             <p className="text-xs text-gray-600 dark:text-gray-400">{policy.content}</p>
                           </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Tags / Related Topics */}
+              {tags.length > 0 && (
+                <div className="px-4 pb-4 lg:px-0 lg:mt-4">
+                  <Card className="border-0 shadow-sm lg:border overflow-hidden">
+                    <CardContent className="p-4">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Tag className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        Related Topics
+                      </h2>
+                      <div className="flex flex-wrap gap-2">
+                        {tags.map((tag: string, index: number) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-default"
+                          >
+                            <Tag className="w-3 h-3" />
+                            {tag}
+                          </span>
                         ))}
                       </div>
                     </CardContent>

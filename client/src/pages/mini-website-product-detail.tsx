@@ -248,6 +248,20 @@ export default function MiniWebsiteProductDetail() {
     icon: product.icon || undefined,
     requiresPrescription: product.requiresPrescription || false,
     isActive: product.isActive,
+    // Warranty & Guarantee
+    hasWarranty: (product as any).hasWarranty || false,
+    warrantyDuration: (product as any).warrantyDuration || undefined,
+    warrantyUnit: (product as any).warrantyUnit || undefined,
+    hasGuarantee: (product as any).hasGuarantee || false,
+    guaranteeDuration: (product as any).guaranteeDuration || undefined,
+    guaranteeUnit: (product as any).guaranteeUnit || undefined,
+    // Tags
+    tags: (product as any).tags || [],
+  };
+
+  // Handle back navigation
+  const handleBack = () => {
+    setLocation(`/${subdomain}/products`);
   };
 
   return (
@@ -259,7 +273,14 @@ export default function MiniWebsiteProductDetail() {
             {/* Back Button & Logo */}
             <div className="flex items-center gap-2 md:gap-4">
               <button
-                onClick={() => setLocation(`/${subdomain}/products`)}
+                onClick={() => {
+                  // Standard e-commerce back navigation - go back to previous page if available
+                  if (window.history.length > 1) {
+                    window.history.back();
+                  } else {
+                    setLocation(`/${subdomain}/products`);
+                  }
+                }}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -464,6 +485,7 @@ export default function MiniWebsiteProductDetail() {
         showStock={true}
         onAddToCart={ecommerce.mode !== 'quotation' ? handleAddToCart : undefined}
         onRequestQuote={ecommerce.mode === 'quotation' || ecommerce.mode === 'both' ? handleRequestQuote : undefined}
+        onBack={handleBack}
         mode="page"
       />
 

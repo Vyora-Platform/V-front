@@ -69,10 +69,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('vendorId', vendor.id);
         localStorage.setItem('userRole', 'vendor');
         
+        // Store selected categories for product form filtering
+        if (vendor.selectedCategories && Array.isArray(vendor.selectedCategories)) {
+          localStorage.setItem('vendorSelectedCategories', JSON.stringify(vendor.selectedCategories));
+        }
+        if (vendor.selectedSubcategories && Array.isArray(vendor.selectedSubcategories)) {
+          localStorage.setItem('vendorSelectedSubcategories', JSON.stringify(vendor.selectedSubcategories));
+        }
+        
         console.log('✅ [Auth] localStorage set:', {
           userId: vendor.userId || supabaseUserId,
           vendorId: vendor.id,
-          userRole: 'vendor'
+          userRole: 'vendor',
+          selectedCategories: vendor.selectedCategories,
         });
       } else {
         console.warn('⚠️ [Auth] No vendor found for user, setting userId only');

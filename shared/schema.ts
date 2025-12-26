@@ -47,6 +47,8 @@ export const INDUSTRY_CATEGORIES = {
 } as const;
 
 // Vendors table - business information
+// NOTE: selectedCategories, selectedSubcategories, referredBy are stored in localStorage on client
+// These can be added to the database later via migration: migrations/add_vendor_categories.sql
 export const vendors = pgTable("vendors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
@@ -438,6 +440,14 @@ export const vendorCatalogues = pgTable("vendor_catalogues", {
   serviceType: text("service_type").notNull().default("one-time"),
   icon: text("icon").notNull(),
   
+  // Duration Fields
+  durationType: text("duration_type").default("fixed"), // 'fixed', 'variable', 'long', 'session', 'project'
+  durationValue: text("duration_value"),
+  durationUnit: text("duration_unit").default("minutes"), // 'minutes', 'hours', 'days', 'weeks', 'months'
+  durationMin: text("duration_min"),
+  durationMax: text("duration_max"),
+  sessionCount: text("session_count"),
+  
   // Description & Details
   shortDescription: text("short_description"),
   detailedDescription: text("detailed_description"),
@@ -452,12 +462,27 @@ export const vendorCatalogues = pgTable("vendor_catalogues", {
   // Pricing & Availability
   price: integer("price").notNull(), // Vendor's base price
   offerPrice: integer("offer_price"), // Vendor's offer price
+  pricingType: text("pricing_type").default("per-service"), // 'per-service', 'price-range', 'hourly', 'daily', 'weekly', 'monthly', 'per-session', 'per-person', 'package'
+  priceMin: integer("price_min"),
+  priceMax: integer("price_max"),
+  packagePricing: json("package_pricing").$type<Array<{name: string, sessions: number, price: number}>>().default([]),
   taxPercentage: integer("tax_percentage").default(0),
   gstIncluded: boolean("gst_included").default(false),
   availableDays: text("available_days").array().default(sql`ARRAY[]::text[]`),
   availableTimeSlots: text("available_time_slots").array().default(sql`ARRAY[]::text[]`),
+  timeSlotDuration: text("time_slot_duration").default("30"), // in minutes
+  customTimeSlots: text("custom_time_slots").array().default(sql`ARRAY[]::text[]`),
   bookingRequired: boolean("booking_required").default(false),
   freeTrialAvailable: boolean("free_trial_available").default(false),
+  
+  // Delivery Modes
+  deliveryModes: text("delivery_modes").array().default(sql`ARRAY['business-location']::text[]`), // 'business-location', 'home-service'
+  homeServiceChargeType: text("home_service_charge_type").default("free"), // 'free', 'paid'
+  homeServiceCharges: json("home_service_charges").$type<Array<{label: string, amount: number, taxSlab: string}>>().default([]),
+  
+  // Inventory Type
+  inventoryType: text("inventory_type").default("unlimited"), // 'limited', 'unlimited'
+  inventoryItems: json("inventory_items").$type<Array<{name: string, identifier: string, variants: Array<{name: string, value: string}>, available: boolean}>>().default([]),
   
   // Package Details
   packageName: text("package_name"),
@@ -472,6 +497,11 @@ export const vendorCatalogues = pgTable("vendor_catalogues", {
   tagline: text("tagline"),
   promotionalCaption: text("promotional_caption"),
   
+  // Amenities & Policies
+  amenities: text("amenities").array().default(sql`ARRAY[]::text[]`),
+  customAmenities: text("custom_amenities").array().default(sql`ARRAY[]::text[]`),
+  policies: json("policies").$type<Array<{title: string, content: string}>>().default([]),
+  
   // Linked Modules
   linkedOffers: text("linked_offers").array().default(sql`ARRAY[]::text[]`),
   linkedProducts: text("linked_products").array().default(sql`ARRAY[]::text[]`),
@@ -483,6 +513,11 @@ export const vendorCatalogues = pgTable("vendor_catalogues", {
   homeCollectionAvailable: boolean("home_collection_available").notNull().default(false),
   homeCollectionCharges: integer("home_collection_charges").default(0),
   discountPercentage: integer("discount_percentage").default(0),
+  
+  // Stock Management (for services with inventory tracking - e.g., limited slots, consumables)
+  stock: integer("stock").notNull().default(0), // Available slots/units
+  stockUnit: text("stock_unit").default("slots"), // 'slots', 'sessions', 'units', etc.
+  trackStock: boolean("track_stock").notNull().default(false), // Whether to track stock for this service
   
   // Meta
   isActive: boolean("is_active").notNull().default(true),
@@ -702,9 +737,12 @@ export const employees = pgTable("employees", {
   employmentType: text("employment_type").notNull().default("full-time"), // 'full-time', 'part-time', 'contract'
   
   // Work Schedule
-  shiftStartTime: text("shift_start_time"), // '09:00 AM'
-  shiftEndTime: text("shift_end_time"), // '06:00 PM'
+  shiftStartTime: text("shift_start_time"), // '09:00'
+  shiftStartPeriod: text("shift_start_period"), // 'AM' or 'PM'
+  shiftEndTime: text("shift_end_time"), // '06:00'
+  shiftEndPeriod: text("shift_end_period"), // 'AM' or 'PM'
   workingDays: text("working_days").array().default(sql`ARRAY['Monday','Tuesday','Wednesday','Thursday','Friday']::text[]`),
+  workDaysPerMonth: integer("work_days_per_month"), // Number of working days per month
   
   // Documents
   idProofType: text("id_proof_type"), // 'aadhar', 'pan', 'passport', 'driving_license'
@@ -730,6 +768,14 @@ export const insertEmployeeSchema = createInsertSchema(employees).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  // Make fields with defaults optional for the insert schema
+  joiningDate: z.union([z.string(), z.date()]).transform(val => val ? new Date(val) : undefined).optional().nullable(),
+  workingDays: z.array(z.string()).optional().nullable(),
+  permissions: z.array(z.string()).optional().nullable(),
+  employmentType: z.string().optional().default("full-time"),
+  status: z.string().optional().default("active"),
+  basicSalary: z.number().optional().default(0),
 });
 
 export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
@@ -970,7 +1016,7 @@ export const coupons = pgTable("coupons", {
   applicableOn: text("applicable_on").notNull().default("all"), // 'all', 'pos_only', 'online_only', 'miniwebsite_only'
   
   // Product/Service Application
-  applicationType: text("application_type").notNull().default("all"), // 'all', 'specific_services', 'specific_products', 'specific_category'
+  applicationType: text("application_type").notNull().default("all"), // 'all', 'all_products', 'all_services', 'specific_services', 'specific_products', 'specific_category'
   applicableServices: text("applicable_services").array().default(sql`ARRAY[]::text[]`), // Array of vendorCatalogueIds
   applicableProducts: text("applicable_products").array().default(sql`ARRAY[]::text[]`), // Array of vendorProductIds
   applicableCategories: text("applicable_categories").array().default(sql`ARRAY[]::text[]`), // Array of category names
@@ -1152,6 +1198,15 @@ export const vendorProducts = pgTable("vendor_products", {
   requiresPrescription: boolean("requires_prescription").default(false),
   isActive: boolean("is_active").notNull().default(true),
   discountPercentage: integer("discount_percentage").default(0),
+  
+  // Warranty & Guarantee
+  hasWarranty: boolean("has_warranty").default(false),
+  warrantyDuration: integer("warranty_duration"), // Duration number
+  warrantyUnit: text("warranty_unit"), // 'days', 'months', 'years'
+  hasGuarantee: boolean("has_guarantee").default(false),
+  guaranteeDuration: integer("guarantee_duration"), // Duration number
+  guaranteeUnit: text("guarantee_unit"), // 'days', 'months', 'years'
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1400,7 +1455,8 @@ export const expenses = pgTable("expenses", {
   // Payment Details
   paymentType: text("payment_type").notNull(), // 'cash', 'upi', 'bank_transfer', 'card', 'cheque', 'other'
   paidTo: text("paid_to"), // Person or business name
-  status: text("status").notNull().default("paid"), // 'paid', 'pending'
+  status: text("status").notNull().default("paid"), // 'paid', 'unpaid', 'partially_paid'
+  paidAmount: integer("paid_amount").default(0), // Amount paid so far (for partially_paid status)
   
   // Supplier Link
   supplierId: varchar("supplier_id").references(() => suppliers.id), // Optional link to supplier
@@ -1516,7 +1572,8 @@ export type CustomerTask = typeof customerTasks.$inferSelect;
 export const ledgerTransactions = pgTable("ledger_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
-  customerId: varchar("customer_id").references(() => customers.id), // Optional - some transactions may not be customer-specific
+  customerId: varchar("customer_id").references(() => customers.id), // Optional - for customer transactions
+  supplierId: varchar("supplier_id").references(() => suppliers.id), // Optional - for supplier transactions
   
   // Transaction basics
   type: text("type").notNull(), // 'in' (received/credit) or 'out' (paid/debit)
@@ -1545,6 +1602,12 @@ export const ledgerTransactions = pgTable("ledger_transactions", {
   
   // Attachments and verification
   attachments: text("attachments").array().default(sql`ARRAY[]::text[]`), // Receipt images, bills, etc.
+  
+  // POS Sale tracking - exclude paid amounts from balance calculation
+  // When true, this transaction is shown in ledger but NOT counted in net balance
+  // Used for POS paid amounts (product exchange) - only due/credit amounts affect balance
+  excludeFromBalance: boolean("exclude_from_balance").default(false),
+  isPOSSale: boolean("is_pos_sale").default(false), // Marks if transaction originated from POS
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -2227,11 +2290,13 @@ export type StockConfig = typeof stockConfigs.$inferSelect;
 export const stockAlerts = pgTable("stock_alerts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
-  vendorProductId: varchar("vendor_product_id").notNull().references(() => vendorProducts.id),
+  vendorProductId: varchar("vendor_product_id").references(() => vendorProducts.id), // Nullable - for products
+  vendorCatalogueId: varchar("vendor_catalogue_id").references(() => vendorCatalogues.id), // For services
+  itemType: text("item_type").notNull().default("product"), // 'product' or 'service'
   batchId: varchar("batch_id").references(() => stockBatches.id),
   
   // Alert details
-  alertType: text("alert_type").notNull(), // 'low_stock', 'out_of_stock', 'expiring_soon', 'expired', 'reorder_suggested'
+  alertType: text("alert_type").notNull(), // 'low_stock', 'out_of_stock', 'expiring_soon', 'expired', 'reorder_suggested', 'reminder_set'
   severity: text("severity").notNull().default("medium"), // 'low', 'medium', 'high', 'critical'
   message: text("message").notNull(),
   
@@ -2256,6 +2321,63 @@ export const insertStockAlertSchema = createInsertSchema(stockAlerts).omit({
 
 export type InsertStockAlert = z.infer<typeof insertStockAlertSchema>;
 export type StockAlert = typeof stockAlerts.$inferSelect;
+
+// Service Stock Movements table - immutable log of all service stock changes
+export const serviceStockMovements = pgTable("service_stock_movements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  vendorCatalogueId: varchar("vendor_catalogue_id").notNull().references(() => vendorCatalogues.id),
+  
+  // Movement details
+  movementType: text("movement_type").notNull(), // 'in', 'out', 'adjustment', 'booking', 'cancellation'
+  quantity: integer("quantity").notNull(), // Positive for in, negative for out
+  previousStock: integer("previous_stock").notNull(), // Stock before movement
+  newStock: integer("new_stock").notNull(), // Stock after movement
+  
+  // Reference and reason
+  referenceType: text("reference_type"), // 'booking', 'manual', 'adjustment'
+  referenceId: varchar("reference_id"), // ID of related booking, etc.
+  reason: text("reason"), // Booked, Cancelled, Added slots, etc.
+  notes: text("notes"),
+  
+  // Tracking
+  performedBy: varchar("performed_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertServiceStockMovementSchema = createInsertSchema(serviceStockMovements).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertServiceStockMovement = z.infer<typeof insertServiceStockMovementSchema>;
+export type ServiceStockMovement = typeof serviceStockMovements.$inferSelect;
+
+// Service Stock Configs table - per-service alert settings
+export const serviceStockConfigs = pgTable("service_stock_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorCatalogueId: varchar("vendor_catalogue_id").notNull().references(() => vendorCatalogues.id).unique(),
+  
+  // Alert thresholds
+  minimumStock: integer("minimum_stock").notNull().default(5), // Low stock alert threshold
+  reorderPoint: integer("reorder_point").notNull().default(10), // Suggested reorder point
+  
+  // Notification preferences
+  enableLowStockAlerts: boolean("enable_low_stock_alerts").notNull().default(true),
+  notificationChannels: text("notification_channels").array().default(sql`ARRAY['dashboard']::text[]`),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertServiceStockConfigSchema = createInsertSchema(serviceStockConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertServiceStockConfig = z.infer<typeof insertServiceStockConfigSchema>;
+export type ServiceStockConfig = typeof serviceStockConfigs.$inferSelect;
 
 // Poster Categories table - admin-managed categories for organizing posters
 export const posterCategories = pgTable("poster_categories", {

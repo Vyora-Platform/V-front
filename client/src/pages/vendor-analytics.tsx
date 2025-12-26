@@ -54,11 +54,29 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 export default function VendorAnalytics() {
   const [period, setPeriod] = useState("today");
   const [activeTab, setActiveTab] = useState("overview");
   const { vendorId } = useAuth();
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Fetch real analytics data
   const { data: analytics, isLoading, refetch, isFetching } = useQuery({
@@ -356,7 +374,7 @@ export default function VendorAnalytics() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-6">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b">
         <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 max-w-[1440px] mx-auto">
           <div className="flex items-center gap-3">
             <Link href="/vendor/dashboard">

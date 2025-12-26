@@ -339,8 +339,14 @@ export default function MiniWebsiteCheckout() {
         <header className="sticky top-0 z-50 bg-white border-b border-gray-100">
           <div className="flex items-center h-14 px-4">
             <button 
-              onClick={() => setLocation(`/${subdomain}`)}
-              className="w-10 h-10 flex items-center justify-center -ml-2"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  setLocation(`/${subdomain}`);
+                }
+              }}
+              className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full hover:bg-gray-100 transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -370,8 +376,15 @@ export default function MiniWebsiteCheckout() {
       <header className="sticky top-0 z-50 bg-white border-b border-gray-100">
         <div className="flex items-center h-14 px-4">
           <button 
-            onClick={() => setLocation(`/${subdomain}`)}
-            className="w-10 h-10 flex items-center justify-center -ml-2"
+            onClick={() => {
+              // Standard e-commerce back navigation - go back to previous page if available
+              if (window.history.length > 1) {
+                window.history.back();
+              } else {
+                setLocation(`/${subdomain}`);
+              }
+            }}
+            className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full hover:bg-gray-100 transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>

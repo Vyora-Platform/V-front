@@ -8,7 +8,8 @@ import {
   Calendar as CalendarIcon, Phone, Mail, User, Clock, IndianRupee, FileText, Plus, ArrowLeft,
   Search, Filter, TrendingUp, TrendingDown, CheckCircle, XCircle, AlertCircle,
   MoreVertical, Eye, Edit, Trash2, ChevronRight, CalendarDays,
-  Timer, DollarSign, Sparkles, Building2, Smartphone, Monitor, MapPin, UserPlus
+  Timer, DollarSign, Sparkles, Building2, Smartphone, Monitor, MapPin, UserPlus,
+  UserCheck, ChevronDown, Stethoscope
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -55,10 +56,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Appointment, Customer, VendorCatalogue, Vendor } from "@shared/schema";
+import type { Appointment, Customer, VendorCatalogue, Vendor, Employee } from "@shared/schema";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 // Time slot options
 const TIME_SLOTS = [
@@ -92,6 +96,21 @@ export default function VendorAppointments() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [deleteAppointmentId, setDeleteAppointmentId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"all" | "today" | "upcoming" | "analytics">("all");
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Form state
   const [customerType, setCustomerType] = useState<"existing" | "walkin">("walkin");
@@ -111,6 +130,7 @@ export default function VendorAppointments() {
     notes: "",
     consultationFee: "",
     paymentStatus: "pending" as "pending" | "paid" | "refunded",
+    assignedTo: "",
   });
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([]);
   const [newChargeName, setNewChargeName] = useState("");
@@ -139,6 +159,18 @@ export default function VendorAppointments() {
     queryKey: [`/api/vendors/${vendorId}`],
     enabled: !!vendorId,
   });
+
+  // Fetch employees for assignment
+  const { data: employees = [] } = useQuery<Employee[]>({
+    queryKey: [`/api/vendors/${vendorId}/employees`],
+    enabled: !!vendorId,
+  });
+
+  // Create employee map for quick lookup
+  const employeeMap = employees.reduce((acc, emp) => {
+    acc[emp.id] = emp;
+    return acc;
+  }, {} as Record<string, Employee>);
 
   // Create appointment mutation
   const createMutation = useMutation({
@@ -188,6 +220,21 @@ export default function VendorAppointments() {
     },
   });
 
+  // Update payment status mutation
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({ id, paymentStatus }: { id: string; paymentStatus: string }) => {
+      const response = await apiRequest("PATCH", `/api/appointments/${id}`, { paymentStatus });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/appointments`] });
+      toast({ title: "Payment status updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update payment status", variant: "destructive" });
+    },
+  });
+
   const resetForm = () => {
     setCustomerType("walkin");
     setSelectedCustomerId("");
@@ -206,6 +253,7 @@ export default function VendorAppointments() {
       notes: "",
       consultationFee: "",
       paymentStatus: "pending",
+      assignedTo: "",
     });
     setAdditionalCharges([]);
   };
@@ -469,6 +517,7 @@ Thank you for choosing us! 🙏`;
       totalAmount: totalAmount || null,
       status: "pending",
       paymentStatus: formData.paymentStatus,
+      assignedTo: formData.assignedTo && formData.assignedTo !== "none" ? formData.assignedTo : null,
       source: "manual",
     };
 
@@ -802,6 +851,40 @@ Thank you for choosing us! 🙏`;
               </div>
             </Card>
 
+            {/* Assign To Employee */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <UserCheck className="h-3.5 w-3.5" />
+                Assign To
+              </Label>
+              <Select 
+                value={formData.assignedTo} 
+                onValueChange={(v) => setFormData({ ...formData, assignedTo: v })}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Select employee (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">Unassigned</span>
+                  </SelectItem>
+                  {employees.filter(e => e.status === 'active').map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                          {employee.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col">
+                          <span>{employee.name}</span>
+                          <span className="text-xs text-muted-foreground">{employee.role}</span>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Payment Status */}
             <div className="space-y-2">
               <Label>Payment Status</Label>
@@ -1042,8 +1125,10 @@ Thank you for choosing us! 🙏`;
               handleCall={handleCall}
               handleWhatsApp={handleWhatsApp}
               updateStatusMutation={updateStatusMutation}
+              updatePaymentStatusMutation={updatePaymentStatusMutation}
               setDeleteAppointmentId={setDeleteAppointmentId}
               setLocation={setLocation}
+              employeeMap={employeeMap}
             />
           </TabsContent>
 
@@ -1059,8 +1144,10 @@ Thank you for choosing us! 🙏`;
               handleCall={handleCall}
               handleWhatsApp={handleWhatsApp}
               updateStatusMutation={updateStatusMutation}
+              updatePaymentStatusMutation={updatePaymentStatusMutation}
               setDeleteAppointmentId={setDeleteAppointmentId}
               setLocation={setLocation}
+              employeeMap={employeeMap}
             />
           </TabsContent>
 
@@ -1076,8 +1163,10 @@ Thank you for choosing us! 🙏`;
               handleCall={handleCall}
               handleWhatsApp={handleWhatsApp}
               updateStatusMutation={updateStatusMutation}
+              updatePaymentStatusMutation={updatePaymentStatusMutation}
               setDeleteAppointmentId={setDeleteAppointmentId}
               setLocation={setLocation}
+              employeeMap={employeeMap}
             />
           </TabsContent>
 
@@ -1223,8 +1312,10 @@ interface AppointmentsListProps {
   handleCall: (phone: string) => void;
   handleWhatsApp: (appointment: Appointment) => void;
   updateStatusMutation: any;
+  updatePaymentStatusMutation: any;
   setDeleteAppointmentId: (id: string) => void;
   setLocation: (path: string) => void;
+  employeeMap: Record<string, Employee>;
 }
 
 function AppointmentsList({
@@ -1238,8 +1329,10 @@ function AppointmentsList({
   handleCall,
   handleWhatsApp,
   updateStatusMutation,
+  updatePaymentStatusMutation,
   setDeleteAppointmentId,
   setLocation,
+  employeeMap,
 }: AppointmentsListProps) {
   if (appointments.length === 0) {
     return (
@@ -1255,137 +1348,243 @@ function AppointmentsList({
 
   return (
     <div className="space-y-3">
-      {appointments.map((appointment) => (
-        <Card 
-          key={appointment.id} 
-          className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-          onClick={() => setLocation(`/vendor/appointments/${appointment.id}`)}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <Avatar name={appointment.patientName} />
+      {appointments.map((appointment) => {
+        const assignedEmployee = appointment.assignedTo ? employeeMap[appointment.assignedTo] : null;
+        
+        return (
+          <Card 
+            key={appointment.id} 
+            className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => setLocation(`/vendor/appointments/${appointment.id}`)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Avatar name={appointment.patientName} />
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-foreground truncate">{appointment.patientName}</h3>
-                      {getVisitTypeBadge(appointment.visitType)}
-                      {getSourceBadge((appointment as any).source)}
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate mt-0.5">
-                      {appointment.purpose}
-                    </p>
-                  </div>
-                  
-                  <div className="text-right flex-shrink-0">
-                    {appointment.consultationFee && (
-                      <p className="font-bold text-lg flex items-center justify-end">
-                        <IndianRupee className="h-4 w-4" />
-                        {appointment.consultationFee.toLocaleString()}
+                <div className="flex-1 min-w-0">
+                  {/* Header Row */}
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-foreground">{appointment.patientName}</h3>
+                        {getSourceBadge((appointment as any).source)}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {appointment.purpose}
                       </p>
+                    </div>
+                    
+                    {/* Amount */}
+                    <div className="text-right flex-shrink-0">
+                      {(appointment.totalAmount || appointment.consultationFee) && (
+                        <p className="font-bold text-lg flex items-center justify-end">
+                          <IndianRupee className="h-4 w-4" />
+                          {(appointment.totalAmount || appointment.consultationFee || 0).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Details Grid - One info per line */}
+                  <div className="space-y-1.5 text-sm border-t pt-3 mb-3">
+                    {/* Date */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <CalendarIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{getDateLabel(new Date(appointment.appointmentDate))}</span>
+                    </div>
+                    
+                    {/* Time */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{appointment.appointmentTime}</span>
+                    </div>
+
+                    {/* Phone */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{appointment.patientPhone}</span>
+                    </div>
+
+                    {/* Visit Type */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Stethoscope className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>Visit Type:</span>
+                      {getVisitTypeBadge(appointment.visitType)}
+                    </div>
+
+                    {/* Doctor */}
+                    {appointment.doctorName && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <User className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>Doctor: {appointment.doctorName}</span>
+                      </div>
                     )}
-                    <div className="flex gap-1.5 mt-1">
+
+                    {/* Department */}
+                    {appointment.department && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>Department: {appointment.department}</span>
+                      </div>
+                    )}
+
+                    {/* Assigned To */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <UserCheck className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{assignedEmployee ? assignedEmployee.name : "Unassigned"}</span>
+                      {assignedEmployee && (
+                        <Badge variant="outline" className="text-[10px] ml-1">
+                          {assignedEmployee.role}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Appointment Status */}
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-muted-foreground">Status:</span>
                       <Badge className={`${getStatusColor(appointment.status)} text-[10px] px-1.5 py-0 h-5 border`}>
-                        {appointment.status}
+                        {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
                       </Badge>
+                    </div>
+
+                    {/* Payment Status */}
+                    <div className="flex items-center gap-2">
+                      <IndianRupee className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-muted-foreground">Payment:</span>
                       <Badge className={`${getPaymentStatusColor(appointment.paymentStatus || "pending")} text-[10px] px-1.5 py-0 h-5 border`}>
-                        {appointment.paymentStatus || "pending"}
+                        {(appointment.paymentStatus || "pending").charAt(0).toUpperCase() + (appointment.paymentStatus || "pending").slice(1)}
                       </Badge>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <CalendarIcon className="h-3.5 w-3.5" />
-                    <span>{getDateLabel(new Date(appointment.appointmentDate))}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>{appointment.appointmentTime}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCall(appointment.patientPhone);
-                    }}
-                    className="flex-1 h-9 gap-1.5 text-xs"
-                  >
-                    <Phone className="h-4 w-4 text-blue-600" />
-                    <span className="hidden sm:inline">Call Customer</span>
-                    <span className="sm:hidden">Call</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleWhatsApp(appointment);
-                    }}
-                    className="flex-1 h-9 gap-1.5 text-xs bg-green-50 hover:bg-green-100 border-green-200"
-                  >
-                    <FaWhatsapp className="h-4 w-4 text-green-600" />
-                    <span className="hidden sm:inline">Send Reminder</span>
-                    <span className="sm:hidden">WhatsApp</span>
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="outline" size="sm" className="h-9 w-9 p-0">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={() => setLocation(`/vendor/appointments/${appointment.id}`)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      {appointment.status === "pending" && (
-                        <>
-                          <DropdownMenuItem 
-                            onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: "confirmed" })}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2 text-blue-600" />
-                            Confirm
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: "cancelled" })}
-                          >
-                            <XCircle className="h-4 w-4 mr-2 text-red-600" />
-                            Cancel
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                      {appointment.status === "confirmed" && (
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCall(appointment.patientPhone);
+                      }}
+                      className="h-9 gap-1.5 text-xs"
+                    >
+                      <Phone className="h-4 w-4 text-blue-600" />
+                      <span className="hidden sm:inline">Call</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleWhatsApp(appointment);
+                      }}
+                      className="h-9 gap-1.5 text-xs bg-green-50 hover:bg-green-100 border-green-200"
+                    >
+                      <FaWhatsapp className="h-4 w-4 text-green-600" />
+                      <span className="hidden sm:inline">Reminder</span>
+                    </Button>
+                    
+                    {/* Appointment Status Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="hidden sm:inline">Appointment Status</span>
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Appointment Status</div>
+                        <DropdownMenuItem 
+                          onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: "pending" })}
+                          disabled={appointment.status === "pending"}
+                        >
+                          <div className="h-2 w-2 rounded-full bg-amber-500 mr-2" />
+                          Pending
+                          {appointment.status === "pending" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: "confirmed" })}
+                          disabled={appointment.status === "confirmed"}
+                        >
+                          <div className="h-2 w-2 rounded-full bg-blue-500 mr-2" />
+                          Confirmed
+                          {appointment.status === "confirmed" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: "completed" })}
+                          disabled={appointment.status === "completed"}
                         >
-                          <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                          Mark Complete
+                          <div className="h-2 w-2 rounded-full bg-green-500 mr-2" />
+                          Completed
+                          {appointment.status === "completed" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => setDeleteAppointmentId(appointment.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <DropdownMenuItem 
+                          onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: "cancelled" })}
+                          disabled={appointment.status === "cancelled"}
+                        >
+                          <div className="h-2 w-2 rounded-full bg-red-500 mr-2" />
+                          Cancelled
+                          {appointment.status === "cancelled" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Payment Status</div>
+                        <DropdownMenuItem 
+                          onClick={() => updatePaymentStatusMutation.mutate({ id: appointment.id, paymentStatus: "pending" })}
+                          disabled={appointment.paymentStatus === "pending"}
+                        >
+                          <IndianRupee className="h-4 w-4 mr-2 text-amber-600" />
+                          Payment Pending
+                          {appointment.paymentStatus === "pending" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => updatePaymentStatusMutation.mutate({ id: appointment.id, paymentStatus: "paid" })}
+                          disabled={appointment.paymentStatus === "paid"}
+                        >
+                          <IndianRupee className="h-4 w-4 mr-2 text-green-600" />
+                          Paid
+                          {appointment.paymentStatus === "paid" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => updatePaymentStatusMutation.mutate({ id: appointment.id, paymentStatus: "refunded" })}
+                          disabled={appointment.paymentStatus === "refunded"}
+                        >
+                          <IndianRupee className="h-4 w-4 mr-2 text-red-600" />
+                          Refunded
+                          {appointment.paymentStatus === "refunded" && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="sm" className="h-9 w-9 p-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => setLocation(`/vendor/appointments/${appointment.id}`)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => setDeleteAppointmentId(appointment.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

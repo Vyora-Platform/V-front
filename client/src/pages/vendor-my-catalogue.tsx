@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Edit, Trash2, Check, X, Plus, ArrowLeft } from "lucide-react";
+import { Edit, Trash2, Check, X, Plus, ArrowLeft, Lock } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -11,12 +12,16 @@ import type { VendorCatalogue } from "@shared/schema";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 
 // TODO: Replace with actual vendor ID from auth
 export default function VendorMyCatalogue() {
   const { vendorId } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Fetch vendor's catalogue
   const { data: catalogue = [] } = useQuery<VendorCatalogue[]>({
@@ -118,9 +123,14 @@ export default function VendorMyCatalogue() {
                   </div>
                   <Switch
                     checked={service.isActive}
-                    onCheckedChange={(checked) =>
-                      toggleActiveMutation.mutate({ id: service.id, isActive: checked })
-                    }
+                    onCheckedChange={(checked) => {
+                      const actionCheck = canPerformAction('update');
+                      if (!actionCheck.allowed) {
+                        setShowUpgradeModal(true);
+                        return;
+                      }
+                      toggleActiveMutation.mutate({ id: service.id, isActive: checked });
+                    }}
                     data-testid={`switch-active-${service.id}`}
                   />
                 </div>
@@ -169,17 +179,26 @@ export default function VendorMyCatalogue() {
                     >
                       <Edit className="w-3 h-3 mr-1" />
                       Edit
+                      {!isPro && <Lock className="w-3 h-3 ml-1 opacity-60" />}
                     </Button>
                   </Link>
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-9 text-xs"
-                    onClick={() => deleteMutation.mutate(service.id)}
+                    onClick={() => {
+                      const actionCheck = canPerformAction('delete');
+                      if (!actionCheck.allowed) {
+                        setShowUpgradeModal(true);
+                        return;
+                      }
+                      deleteMutation.mutate(service.id);
+                    }}
                     data-testid={`button-delete-${service.id}`}
                   >
                     <Trash2 className="w-3 h-3 mr-1" />
                     Remove
+                    {!isPro && <Lock className="w-3 h-3 ml-1 opacity-60" />}
                   </Button>
                 </div>
               </Card>
@@ -205,9 +224,14 @@ export default function VendorMyCatalogue() {
                   </div>
                   <Switch
                     checked={service.isActive}
-                    onCheckedChange={(checked) =>
-                      toggleActiveMutation.mutate({ id: service.id, isActive: checked })
-                    }
+                    onCheckedChange={(checked) => {
+                      const actionCheck = canPerformAction('update');
+                      if (!actionCheck.allowed) {
+                        setShowUpgradeModal(true);
+                        return;
+                      }
+                      toggleActiveMutation.mutate({ id: service.id, isActive: checked });
+                    }}
                     data-testid={`switch-active-${service.id}`}
                   />
                 </div>
@@ -224,17 +248,26 @@ export default function VendorMyCatalogue() {
                     >
                       <Edit className="w-3 h-3 mr-1" />
                       Edit
+                      {!isPro && <Lock className="w-3 h-3 ml-1 opacity-60" />}
                     </Button>
                   </Link>
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-9 text-xs"
-                    onClick={() => deleteMutation.mutate(service.id)}
+                    onClick={() => {
+                      const actionCheck = canPerformAction('delete');
+                      if (!actionCheck.allowed) {
+                        setShowUpgradeModal(true);
+                        return;
+                      }
+                      deleteMutation.mutate(service.id);
+                    }}
                     data-testid={`button-delete-${service.id}`}
                   >
                     <Trash2 className="w-3 h-3 mr-1" />
                     Remove
+                    {!isPro && <Lock className="w-3 h-3 ml-1 opacity-60" />}
                   </Button>
                 </div>
               </Card>
@@ -258,11 +291,23 @@ export default function VendorMyCatalogue() {
               <Button className="h-[var(--cta-h)] text-sm" data-testid="button-create-service-empty">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Custom Service
+                {!isPro && <Lock className="w-3.5 h-3.5 ml-1.5 opacity-60" />}
               </Button>
             </Link>
           </div>
         </Card>
       )}
+
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action="update"
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          setLocation('/vendor/account');
+        }}
+      />
     </div>
   );
 }

@@ -85,7 +85,14 @@ export default function MiniWebsiteMyOrders() {
         <div className="mb-8">
           <Button
             variant="ghost"
-            onClick={() => setLocation(`/${subdomain}`)}
+            onClick={() => {
+              // Standard e-commerce back navigation
+              if (window.history.length > 1) {
+                window.history.back();
+              } else {
+                setLocation(`/${subdomain}`);
+              }
+            }}
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />

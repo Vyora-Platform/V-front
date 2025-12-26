@@ -59,15 +59,16 @@ export default function CustomerForgotPassword() {
     try {
       const res = await apiRequest("POST", `/api/mini-website/${subdomain}/customer/forgot-password`, {
         email: email.trim().toLowerCase(),
-        vendorId: vendorId || localStorage.getItem('vendorId') || undefined,
+        vendorId: vendorId || localStorage.getItem('customer_vendorId') || undefined,
       });
 
       const response = await res.json();
       
       if (response.success) {
-        // Store vendorId in localStorage for future use
+        // Store vendorId in localStorage for customer password reset context
+        // SECURITY: Use customer-specific key to avoid overwriting vendor's vendorId
         if (response.vendorId) {
-          localStorage.setItem('vendorId', response.vendorId);
+          localStorage.setItem('customer_vendorId', response.vendorId);
           setVendorId(response.vendorId);
         }
         if (response.email) {
@@ -112,15 +113,16 @@ export default function CustomerForgotPassword() {
       const res = await apiRequest("POST", `/api/mini-website/${subdomain}/customer/verify-otp`, {
         email: email.trim().toLowerCase(),
         otp: otp.trim(),
-        vendorId: vendorId || localStorage.getItem('vendorId') || undefined,
+        vendorId: vendorId || localStorage.getItem('customer_vendorId') || undefined,
       });
 
       const response = await res.json();
       
       if (response.success) {
         // Update vendorId if returned
+        // SECURITY: Use customer-specific key to avoid overwriting vendor's vendorId
         if (response.vendorId) {
-          localStorage.setItem('vendorId', response.vendorId);
+          localStorage.setItem('customer_vendorId', response.vendorId);
           setVendorId(response.vendorId);
         }
         

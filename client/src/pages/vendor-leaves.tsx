@@ -9,7 +9,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, isSameDay, startOfDay, isWithinInterval } from "date-fns";
 import { useState } from "react";
 import {
   Dialog,
@@ -53,6 +53,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 export default function VendorLeaves() {
   const { vendorId, userId } = useAuth();
@@ -64,6 +67,21 @@ export default function VendorLeaves() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Fetch employees
   const { data: employees = [] } = useQuery<Employee[]>({
@@ -77,14 +95,47 @@ export default function VendorLeaves() {
     enabled: !!vendorId,
   });
 
+  // Mark attendance as on-leave mutation
+  const markAttendanceOnLeaveMutation = useMutation({
+    mutationFn: async (data: { employeeId: string; date: string; notes: string }) => {
+      const response = await apiRequest("POST", `/api/attendance`, {
+        vendorId: vendorId,
+        employeeId: data.employeeId,
+        date: data.date,
+        checkInTime: "00:00",
+        status: "on-leave",
+        notes: data.notes,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/attendance`] });
+    },
+  });
+
   // Mark leave for employee
   const applyLeaveMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insertLeaveSchema>) => {
       const response = await apiRequest("POST", `/api/leaves`, data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/leaves`] });
+      
+      // Also mark attendance as on-leave for today if leave includes today
+      const today = new Date();
+      const startDate = new Date(variables.startDate);
+      const endDate = new Date(variables.endDate);
+      
+      if (isWithinInterval(today, { start: startOfDay(startDate), end: startOfDay(endDate) }) || 
+          isSameDay(today, startDate) || isSameDay(today, endDate)) {
+        markAttendanceOnLeaveMutation.mutate({
+          employeeId: variables.employeeId,
+          date: startOfDay(today).toISOString(),
+          notes: `Leave: ${variables.leaveType} - ${variables.reason}`,
+        });
+      }
+      
       toast({ title: "Leave marked successfully" });
       setIsApplyDialogOpen(false);
       setSelectedEmployeeId("");

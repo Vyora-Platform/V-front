@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useRoute } from "wouter";
 import { queryClient } from "@/lib/queryClient";
@@ -26,23 +26,31 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   Calendar,
-  DollarSign,
   Edit,
   Trash2,
   FileText,
   Building2,
-  Repeat,
   Receipt,
   CreditCard,
   Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
-  User,
-  Briefcase,
-  Tag,
   MessageSquare,
-  Hash
+  IndianRupee,
+  Zap,
+  Wifi,
+  Car,
+  Users,
+  Megaphone,
+  Package,
+  Wrench,
+  HelpCircle,
+  Wallet,
+  ExternalLink,
+  Upload,
+  X,
+  RefreshCw
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -55,7 +63,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
@@ -63,32 +70,43 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
 
+// Updated MSME-friendly categories
 const EXPENSE_CATEGORIES = [
-  "purchase", "rent", "salary", "utility", "maintenance", "marketing",
-  "transport", "office_supplies", "insurance", "tax", "loan_payment",
-  "professional_fees", "software", "other",
+  { value: "rent", label: "Rent", icon: Building2 },
+  { value: "electricity", label: "Electricity", icon: Zap },
+  { value: "internet_mobile", label: "Internet / Mobile", icon: Wifi },
+  { value: "transportation", label: "Transportation", icon: Car },
+  { value: "salaries", label: "Salaries", icon: Users },
+  { value: "marketing", label: "Marketing", icon: Megaphone },
+  { value: "office_supplies", label: "Office Supplies", icon: Package },
+  { value: "maintenance", label: "Maintenance", icon: Wrench },
+  { value: "other", label: "Other", icon: HelpCircle },
 ];
 
-const PAYMENT_TYPES = ["cash", "upi", "card", "bank_transfer", "cheque", "wallet"];
-const EXPENSE_STATUSES = ["paid", "pending", "cancelled"];
-const RECURRENCE_FREQUENCIES = ["daily", "weekly", "monthly", "yearly"];
+const PAYMENT_MODES = [
+  { value: "cash", label: "Cash", icon: Wallet },
+  { value: "upi", label: "UPI", icon: IndianRupee },
+  { value: "bank_transfer", label: "Bank Transfer", icon: Building2 },
+  { value: "card", label: "Card", icon: CreditCard },
+];
+
+const PAID_STATUSES = [
+  { value: "paid", label: "Paid", color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30" },
+  { value: "unpaid", label: "Unpaid", color: "text-red-600", bgColor: "bg-red-100 dark:bg-red-900/30" },
+  { value: "partially_paid", label: "Partially Paid", color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30" },
+];
 
 // Category icons and colors
 const CATEGORY_CONFIG: Record<string, { icon: React.ReactNode; color: string; bgColor: string; gradient: string }> = {
-  purchase: { icon: <Receipt className="h-6 w-6" />, color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-900/30", gradient: "from-blue-500 to-blue-600" },
   rent: { icon: <Building2 className="h-6 w-6" />, color: "text-purple-600", bgColor: "bg-purple-100 dark:bg-purple-900/30", gradient: "from-purple-500 to-purple-600" },
-  salary: { icon: <DollarSign className="h-6 w-6" />, color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30", gradient: "from-green-500 to-green-600" },
-  utility: { icon: <DollarSign className="h-6 w-6" />, color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30", gradient: "from-amber-500 to-amber-600" },
-  maintenance: { icon: <FileText className="h-6 w-6" />, color: "text-orange-600", bgColor: "bg-orange-100 dark:bg-orange-900/30", gradient: "from-orange-500 to-orange-600" },
-  marketing: { icon: <FileText className="h-6 w-6" />, color: "text-pink-600", bgColor: "bg-pink-100 dark:bg-pink-900/30", gradient: "from-pink-500 to-pink-600" },
-  transport: { icon: <FileText className="h-6 w-6" />, color: "text-cyan-600", bgColor: "bg-cyan-100 dark:bg-cyan-900/30", gradient: "from-cyan-500 to-cyan-600" },
-  office_supplies: { icon: <FileText className="h-6 w-6" />, color: "text-indigo-600", bgColor: "bg-indigo-100 dark:bg-indigo-900/30", gradient: "from-indigo-500 to-indigo-600" },
-  insurance: { icon: <CheckCircle className="h-6 w-6" />, color: "text-teal-600", bgColor: "bg-teal-100 dark:bg-teal-900/30", gradient: "from-teal-500 to-teal-600" },
-  tax: { icon: <Receipt className="h-6 w-6" />, color: "text-red-600", bgColor: "bg-red-100 dark:bg-red-900/30", gradient: "from-red-500 to-red-600" },
-  loan_payment: { icon: <CreditCard className="h-6 w-6" />, color: "text-rose-600", bgColor: "bg-rose-100 dark:bg-rose-900/30", gradient: "from-rose-500 to-rose-600" },
-  professional_fees: { icon: <Building2 className="h-6 w-6" />, color: "text-violet-600", bgColor: "bg-violet-100 dark:bg-violet-900/30", gradient: "from-violet-500 to-violet-600" },
-  software: { icon: <FileText className="h-6 w-6" />, color: "text-sky-600", bgColor: "bg-sky-100 dark:bg-sky-900/30", gradient: "from-sky-500 to-sky-600" },
-  other: { icon: <FileText className="h-6 w-6" />, color: "text-gray-600", bgColor: "bg-gray-100 dark:bg-gray-900/30", gradient: "from-gray-500 to-gray-600" },
+  electricity: { icon: <Zap className="h-6 w-6" />, color: "text-yellow-600", bgColor: "bg-yellow-100 dark:bg-yellow-900/30", gradient: "from-yellow-500 to-yellow-600" },
+  internet_mobile: { icon: <Wifi className="h-6 w-6" />, color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-900/30", gradient: "from-blue-500 to-blue-600" },
+  transportation: { icon: <Car className="h-6 w-6" />, color: "text-cyan-600", bgColor: "bg-cyan-100 dark:bg-cyan-900/30", gradient: "from-cyan-500 to-cyan-600" },
+  salaries: { icon: <Users className="h-6 w-6" />, color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30", gradient: "from-green-500 to-green-600" },
+  marketing: { icon: <Megaphone className="h-6 w-6" />, color: "text-pink-600", bgColor: "bg-pink-100 dark:bg-pink-900/30", gradient: "from-pink-500 to-pink-600" },
+  office_supplies: { icon: <Package className="h-6 w-6" />, color: "text-indigo-600", bgColor: "bg-indigo-100 dark:bg-indigo-900/30", gradient: "from-indigo-500 to-indigo-600" },
+  maintenance: { icon: <Wrench className="h-6 w-6" />, color: "text-orange-600", bgColor: "bg-orange-100 dark:bg-orange-900/30", gradient: "from-orange-500 to-orange-600" },
+  other: { icon: <HelpCircle className="h-6 w-6" />, color: "text-gray-600", bgColor: "bg-gray-100 dark:bg-gray-900/30", gradient: "from-gray-500 to-gray-600" },
 };
 
 export default function VendorExpenseDetail() {
@@ -154,10 +172,10 @@ export default function VendorExpenseDetail() {
     switch (status) {
       case "paid":
         return { icon: <CheckCircle className="h-5 w-5" />, color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30", label: "Paid" };
-      case "pending":
-        return { icon: <Clock className="h-5 w-5" />, color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30", label: "Pending" };
-      case "cancelled":
-        return { icon: <XCircle className="h-5 w-5" />, color: "text-red-600", bgColor: "bg-red-100 dark:bg-red-900/30", label: "Cancelled" };
+      case "unpaid":
+        return { icon: <XCircle className="h-5 w-5" />, color: "text-red-600", bgColor: "bg-red-100 dark:bg-red-900/30", label: "Unpaid" };
+      case "partially_paid":
+        return { icon: <AlertCircle className="h-5 w-5" />, color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30", label: "Partially Paid" };
       default:
         return { icon: <AlertCircle className="h-5 w-5" />, color: "text-gray-600", bgColor: "bg-gray-100 dark:bg-gray-900/30", label: status };
     }
@@ -175,7 +193,7 @@ export default function VendorExpenseDetail() {
 
   if (error || !expense) {
     return (
-      <div className="flex flex-col items-center justify-center h-full">
+      <div className="flex flex-col items-center justify-center h-full p-6">
         <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Expense not found</p>
         <Button variant="outline" onClick={() => setLocation("/vendor/expenses")} className="mt-4">
@@ -188,12 +206,14 @@ export default function VendorExpenseDetail() {
   const categoryConfig = getCategoryConfig(expense.category);
   const statusConfig = getStatusConfig(expense.status);
   const supplierName = getSupplierName(expense.supplierId);
+  const categoryLabel = EXPENSE_CATEGORIES.find(c => c.value === expense.category)?.label || expense.category;
+  const paymentLabel = PAYMENT_MODES.find(m => m.value === expense.paymentType)?.label || expense.paymentType;
 
   return (
     <div className="flex flex-col h-full w-full bg-background">
       {/* Header */}
       <div className="bg-background border-b sticky top-0 z-10">
-        <div className="px-4 py-3 flex items-center justify-between gap-3">
+        <div className="px-4 py-3 flex items-center justify-between gap-3 max-w-[1440px] mx-auto">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -211,12 +231,12 @@ export default function VendorExpenseDetail() {
           <div className="flex items-center gap-2">
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
+                <Button variant="outline" size="sm" className="gap-1.5 h-9">
                   <Edit className="h-4 w-4" />
                   <span className="hidden sm:inline">Edit</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-0">
                 <ExpenseEditDialog
                   expense={expense}
                   suppliers={suppliers}
@@ -228,7 +248,7 @@ export default function VendorExpenseDetail() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 text-destructive hover:text-destructive"
+              className="gap-1.5 h-9 text-destructive hover:text-destructive"
               onClick={() => setShowDeleteConfirm(true)}
             >
               <Trash2 className="h-4 w-4" />
@@ -239,24 +259,24 @@ export default function VendorExpenseDetail() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="flex-1 overflow-auto p-4 space-y-4 max-w-[1440px] mx-auto w-full">
         {/* Hero Card */}
-        <Card className={`overflow-hidden bg-gradient-to-br ${categoryConfig.gradient}`}>
+        <Card className={`overflow-hidden bg-gradient-to-br ${categoryConfig.gradient} rounded-xl`}>
           <CardContent className="p-6 text-white">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4 min-w-0">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl shrink-0">
                   {categoryConfig.icon}
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold mb-1">{expense.title}</h2>
-                  <p className="text-white/80 capitalize">
-                    {expense.category.replace("_", " ")}
+                <div className="min-w-0">
+                  <h2 className="text-xl md:text-2xl font-bold mb-1 truncate">{expense.title}</h2>
+                  <p className="text-white/80">
+                    {categoryLabel}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold">₹{expense.amount.toLocaleString()}</p>
+              <div className="text-right shrink-0">
+                <p className="text-2xl md:text-3xl font-bold">₹{expense.amount.toLocaleString()}</p>
                 <Badge className="mt-2 bg-white/20 text-white border-white/30 hover:bg-white/30">
                   {statusConfig.label}
                 </Badge>
@@ -265,61 +285,83 @@ export default function VendorExpenseDetail() {
           </CardContent>
         </Card>
 
+        {/* Payment Progress for Partial Payments */}
+        {expense.status === "partially_paid" && expense.paidAmount && (
+          <Card className="rounded-xl border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Payment Progress</span>
+                <span className="text-sm text-muted-foreground">
+                  {((expense.paidAmount / expense.amount) * 100).toFixed(0)}%
+                </span>
+              </div>
+              <div className="h-3 bg-amber-200 dark:bg-amber-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                  style={{ width: `${(expense.paidAmount / expense.amount) * 100}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-2 text-sm">
+                <span className="text-green-600 font-medium">Paid: ₹{expense.paidAmount.toLocaleString()}</span>
+                <span className="text-red-600 font-medium">Remaining: ₹{(expense.amount - expense.paidAmount).toLocaleString()}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quick Info Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="p-4">
+          <Card className="p-4 rounded-xl">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg ${statusConfig.bgColor}`}>
                 <span className={statusConfig.color}>{statusConfig.icon}</span>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Status</p>
-                <p className="font-semibold capitalize">{expense.status}</p>
+                <p className="font-semibold capitalize truncate">{statusConfig.label}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="p-4">
+          <Card className="p-4 rounded-xl">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
                 <Calendar className="h-5 w-5 text-blue-600" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Date</p>
-                <p className="font-semibold">{format(new Date(expense.expenseDate), "MMM d, yyyy")}</p>
+                <p className="font-semibold truncate">{format(new Date(expense.expenseDate), "MMM d, yyyy")}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="p-4">
+          <Card className="p-4 rounded-xl">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
                 <CreditCard className="h-5 w-5 text-purple-600" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Payment</p>
-                <p className="font-semibold capitalize">{expense.paymentType.replace("_", " ")}</p>
+                <p className="font-semibold capitalize truncate">{paymentLabel}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="p-4">
+          <Card className="p-4 rounded-xl">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
-                {expense.isRecurring ? <Repeat className="h-5 w-5 text-orange-600" /> : <Receipt className="h-5 w-5 text-orange-600" />}
+              <div className={`p-2 rounded-lg ${categoryConfig.bgColor}`}>
+                <span className={categoryConfig.color}>{React.cloneElement(categoryConfig.icon as React.ReactElement, { className: "h-5 w-5" })}</span>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Type</p>
-                <p className="font-semibold capitalize">
-                  {expense.isRecurring ? expense.recurringFrequency : "One-time"}
-                </p>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Category</p>
+                <p className="font-semibold capitalize truncate">{categoryLabel}</p>
               </div>
             </div>
           </Card>
         </div>
 
         {/* Details Card */}
-        <Card>
+        <Card className="rounded-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Expense Details</CardTitle>
           </CardHeader>
@@ -327,37 +369,46 @@ export default function VendorExpenseDetail() {
             {/* Paid To / Supplier */}
             {(supplierName || expense.paidTo) && (
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-muted">
+                <div className="p-2 rounded-lg bg-muted shrink-0">
                   <Building2 className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Paid To</p>
-                  <p className="font-medium">{supplierName || expense.paidTo}</p>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Paid To / Vendor</p>
+                  <p className="font-medium truncate">{supplierName || expense.paidTo}</p>
                   {supplierName && expense.supplierId && (
                     <Button
                       variant="link"
                       className="p-0 h-auto text-xs"
                       onClick={() => setLocation(`/vendor/suppliers/${expense.supplierId}`)}
                     >
-                      View Supplier
+                      View Supplier →
                     </Button>
                   )}
                 </div>
               </div>
             )}
 
-            <Separator />
+            {(supplierName || expense.paidTo) && <Separator />}
 
-            {/* Description */}
-            {expense.description && (
+            {/* Paid Amount for Partial */}
+            {expense.status === "partially_paid" && expense.paidAmount && (
               <>
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-muted">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30 shrink-0">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Description</p>
-                    <p className="font-medium">{expense.description}</p>
+                    <p className="text-xs text-muted-foreground">Amount Paid</p>
+                    <p className="font-medium text-green-600">₹{expense.paidAmount.toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30 shrink-0">
+                    <Clock className="h-4 w-4 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Amount Remaining</p>
+                    <p className="font-medium text-red-600">₹{(expense.amount - expense.paidAmount).toLocaleString()}</p>
                   </div>
                 </div>
                 <Separator />
@@ -368,44 +419,35 @@ export default function VendorExpenseDetail() {
             {expense.notes && (
               <>
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-muted">
+                  <div className="p-2 rounded-lg bg-muted shrink-0">
                     <MessageSquare className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Internal Notes</p>
-                    <p className="font-medium">{expense.notes}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Notes</p>
+                    <p className="font-medium whitespace-pre-wrap">{expense.notes}</p>
                   </div>
                 </div>
                 <Separator />
               </>
             )}
 
-            {/* Department */}
-            {expense.department && (
+            {/* Receipt/Bill */}
+            {expense.receiptUrl && (
               <>
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-muted">
-                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  <div className="p-2 rounded-lg bg-muted shrink-0">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Department</p>
-                    <p className="font-medium">{expense.department}</p>
-                  </div>
-                </div>
-                <Separator />
-              </>
-            )}
-
-            {/* Project ID */}
-            {expense.projectId && (
-              <>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-muted">
-                    <Hash className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Project ID</p>
-                    <p className="font-medium">{expense.projectId}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">Bill / Invoice</p>
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto text-sm gap-1"
+                      onClick={() => window.open(expense.receiptUrl!, "_blank")}
+                    >
+                      View Attached Bill
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
                 <Separator />
@@ -414,7 +456,7 @@ export default function VendorExpenseDetail() {
 
             {/* Created At */}
             <div className="flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-muted">
+              <div className="p-2 rounded-lg bg-muted shrink-0">
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
@@ -424,32 +466,6 @@ export default function VendorExpenseDetail() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Recurring Info Card */}
-        {expense.isRecurring && (
-          <Card className="border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/10">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2 text-orange-700 dark:text-orange-400">
-                <Repeat className="h-4 w-4" />
-                Recurring Expense
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Frequency</p>
-                  <p className="font-semibold capitalize">{expense.recurringFrequency}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Next Due Date</p>
-                  <p className="font-semibold">
-                    {expense.nextDueDate ? format(new Date(expense.nextDueDate), "MMM d, yyyy") : "Not set"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* Delete Confirmation Dialog */}
@@ -486,6 +502,8 @@ interface ExpenseEditDialogProps {
 
 function ExpenseEditDialog({ expense, suppliers, vendorId, onClose }: ExpenseEditDialogProps) {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const [supplierSelection, setSupplierSelection] = useState<"none" | "other" | string>(
     expense.supplierId 
       ? expense.supplierId 
@@ -497,18 +515,14 @@ function ExpenseEditDialog({ expense, suppliers, vendorId, onClose }: ExpenseEdi
     title: expense.title,
     category: expense.category,
     amount: expense.amount.toString(),
+    paidAmount: (expense.paidAmount || 0).toString(),
     expenseDate: format(new Date(expense.expenseDate), "yyyy-MM-dd"),
     paymentType: expense.paymentType,
     status: expense.status,
     paidTo: expense.paidTo || "",
     supplierId: expense.supplierId || "",
-    description: expense.description || "",
     notes: expense.notes || "",
-    department: expense.department || "",
-    projectId: expense.projectId || "",
-    isRecurring: expense.isRecurring || false,
-    recurringFrequency: expense.recurringFrequency || "",
-    nextDueDate: expense.nextDueDate ? format(new Date(expense.nextDueDate), "yyyy-MM-dd") : "",
+    receiptUrl: expense.receiptUrl || "",
   });
 
   const updateMutation = useMutation({
@@ -551,12 +565,42 @@ function ExpenseEditDialog({ expense, suppliers, vendorId, onClose }: ExpenseEdi
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 5MB", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+
+      const response = await fetch(getApiUrl(`/api/vendors/${vendorId}/upload`), {
+        method: "POST",
+        body: formDataUpload,
+      });
+
+      if (!response.ok) throw new Error("Upload failed");
+
+      const { url } = await response.json();
+      setFormData({ ...formData, receiptUrl: url });
+      toast({ title: "Bill uploaded successfully" });
+    } catch (error) {
+      toast({ title: "Upload failed", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate required fields
     if (!formData.title.trim()) {
-      toast({ title: "Title is required", variant: "destructive" });
+      toast({ title: "Expense title is required", variant: "destructive" });
       return;
     }
     if (!formData.category) {
@@ -568,15 +612,19 @@ function ExpenseEditDialog({ expense, suppliers, vendorId, onClose }: ExpenseEdi
       return;
     }
     if (!formData.paymentType) {
-      toast({ title: "Payment type is required", variant: "destructive" });
+      toast({ title: "Payment mode is required", variant: "destructive" });
       return;
     }
     if (!formData.status) {
-      toast({ title: "Status is required", variant: "destructive" });
+      toast({ title: "Paid status is required", variant: "destructive" });
       return;
     }
-    if (formData.isRecurring && !formData.recurringFrequency) {
-      toast({ title: "Recurring frequency is required", variant: "destructive" });
+    if (formData.status === "partially_paid" && (!formData.paidAmount || parseFloat(formData.paidAmount) <= 0)) {
+      toast({ title: "Paid amount is required for partial payments", variant: "destructive" });
+      return;
+    }
+    if (formData.status === "partially_paid" && parseFloat(formData.paidAmount) >= parseFloat(formData.amount)) {
+      toast({ title: "Paid amount must be less than total amount", variant: "destructive" });
       return;
     }
 
@@ -584,58 +632,93 @@ function ExpenseEditDialog({ expense, suppliers, vendorId, onClose }: ExpenseEdi
       title: formData.title.trim(),
       category: formData.category,
       amount: parseFloat(formData.amount),
+      paidAmount: formData.status === "partially_paid" ? parseFloat(formData.paidAmount) : (formData.status === "paid" ? parseFloat(formData.amount) : 0),
       expenseDate: formData.expenseDate,
       paymentType: formData.paymentType,
       status: formData.status,
       paidTo: formData.paidTo.trim() || undefined,
       supplierId: formData.supplierId || undefined,
-      description: formData.description.trim() || undefined,
       notes: formData.notes.trim() || undefined,
-      department: formData.department.trim() || undefined,
-      projectId: formData.projectId.trim() || undefined,
-      isRecurring: formData.isRecurring,
-      recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined,
-      nextDueDate: formData.isRecurring && formData.nextDueDate ? formData.nextDueDate : undefined,
+      receiptUrl: formData.receiptUrl || undefined,
     };
 
     updateMutation.mutate(payload);
   };
 
   const isFormValid = formData.title && formData.category && formData.amount && 
-    formData.paymentType && formData.status && 
-    (!formData.isRecurring || formData.recurringFrequency);
+    formData.paymentType && formData.status &&
+    (formData.status !== "partially_paid" || (formData.paidAmount && parseFloat(formData.paidAmount) < parseFloat(formData.amount)));
 
   return (
-    <>
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <Edit className="h-5 w-5 text-primary" />
-          Edit Expense
-        </DialogTitle>
-      </DialogHeader>
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Title */}
-        <div className="space-y-2">
-          <Label htmlFor="edit-title" className="text-sm font-medium">
-            Title <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="edit-title"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="e.g., Office Rent - January"
-            className="h-11"
-          />
+    <div className="flex flex-col h-full">
+      <DialogHeader className="px-6 py-4 border-b sticky top-0 bg-background z-10">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="shrink-0 h-9 w-9"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit className="h-5 w-5 text-primary" />
+            Edit Expense
+          </DialogTitle>
         </div>
+      </DialogHeader>
 
-        {/* Amount & Date Row */}
-        <div className="grid grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+        <div className="p-6 space-y-5">
+          {/* Expense Title */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-title" className="text-sm font-medium">
+              Expense Title <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="edit-title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="e.g., Shop Rent, Diesel, Internet Bill"
+              className="h-11 rounded-xl"
+            />
+          </div>
+
+          {/* Category */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Expense Category <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={formData.category}
+              onValueChange={(value) => setFormData({ ...formData, category: value })}
+            >
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {EXPENSE_CATEGORIES.map((cat) => {
+                  const Icon = cat.icon;
+                  return (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-4 w-4" />
+                        <span>{cat.label}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Amount */}
           <div className="space-y-2">
             <Label htmlFor="edit-amount" className="text-sm font-medium">
               Amount (₹) <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="edit-amount"
                 type="number"
@@ -644,113 +727,121 @@ function ExpenseEditDialog({ expense, suppliers, vendorId, onClose }: ExpenseEdi
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 placeholder="0.00"
-                className="pl-9 h-11"
+                className="pl-9 h-11 rounded-xl"
               />
             </div>
           </div>
 
+          {/* Payment Mode */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Payment Mode <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={formData.paymentType}
+              onValueChange={(value) => setFormData({ ...formData, paymentType: value })}
+            >
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder="Select payment mode" />
+              </SelectTrigger>
+              <SelectContent>
+                {PAYMENT_MODES.map((mode) => {
+                  const Icon = mode.icon;
+                  return (
+                    <SelectItem key={mode.value} value={mode.value}>
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-4 w-4" />
+                        <span>{mode.label}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Paid Status */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Paid Status <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) => setFormData({ ...formData, status: value, paidAmount: value === "paid" ? formData.amount : formData.paidAmount })}
+            >
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                {PAID_STATUSES.map((status) => (
+                  <SelectItem key={status.value} value={status.value}>
+                    <div className="flex items-center gap-2">
+                      {status.value === "paid" && <CheckCircle className="h-4 w-4 text-green-600" />}
+                      {status.value === "unpaid" && <XCircle className="h-4 w-4 text-red-600" />}
+                      {status.value === "partially_paid" && <AlertCircle className="h-4 w-4 text-amber-600" />}
+                      <span>{status.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Paid Amount - Only visible for Partially Paid */}
+          {formData.status === "partially_paid" && (
+            <div className="space-y-2">
+              <Label htmlFor="edit-paidAmount" className="text-sm font-medium">
+                Paid Amount (₹) <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="edit-paidAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={parseFloat(formData.amount) - 0.01}
+                  value={formData.paidAmount}
+                  onChange={(e) => setFormData({ ...formData, paidAmount: e.target.value })}
+                  placeholder="0.00"
+                  className="pl-9 h-11 rounded-xl"
+                />
+              </div>
+              {formData.amount && formData.paidAmount && (
+                <p className="text-xs text-muted-foreground">
+                  Remaining: ₹{(parseFloat(formData.amount) - parseFloat(formData.paidAmount)).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Expense Date */}
           <div className="space-y-2">
             <Label htmlFor="edit-expenseDate" className="text-sm font-medium">
-              Date <span className="text-destructive">*</span>
+              Expense Date <span className="text-destructive">*</span>
             </Label>
             <Input
               id="edit-expenseDate"
               type="date"
               value={formData.expenseDate}
               onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
-              className="h-11"
+              className="h-11 rounded-xl"
             />
           </div>
-        </div>
 
-        {/* Category & Payment Type Row */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              Category <span className="text-destructive">*</span>
-            </Label>
-            <Select
-              value={formData.category}
-              onValueChange={(value) => setFormData({ ...formData, category: value })}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {EXPENSE_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    <span className="capitalize">{cat.replace("_", " ")}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              Payment Type <span className="text-destructive">*</span>
-            </Label>
-            <Select
-              value={formData.paymentType}
-              onValueChange={(value) => setFormData({ ...formData, paymentType: value })}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Select payment" />
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    <span className="capitalize">{type.replace("_", " ")}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Status */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">
-            Status <span className="text-destructive">*</span>
-          </Label>
-          <Select
-            value={formData.status}
-            onValueChange={(value) => setFormData({ ...formData, status: value })}
-          >
-            <SelectTrigger className="h-11">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              {EXPENSE_STATUSES.map((status) => (
-                <SelectItem key={status} value={status}>
-                  <div className="flex items-center gap-2">
-                    {status === "paid" && <CheckCircle className="h-3.5 w-3.5 text-green-600" />}
-                    {status === "pending" && <Clock className="h-3.5 w-3.5 text-amber-600" />}
-                    {status === "cancelled" && <XCircle className="h-3.5 w-3.5 text-red-600" />}
-                    <span className="capitalize">{status}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Supplier Selection */}
-        <Card className="p-4 bg-muted/30">
+          {/* Vendor / Paid To */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium">Paid To</Label>
+            <Label className="text-sm font-medium">Vendor / Paid To (Optional)</Label>
             <Select
               value={supplierSelection}
               onValueChange={handleSupplierChange}
             >
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Select supplier or other" />
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder="Select vendor or enter manually" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">— Not specified —</span>
-                  </div>
+                  <span className="text-muted-foreground">— Not specified —</span>
                 </SelectItem>
                 <SelectItem value="other">
                   <div className="flex items-center gap-2">
@@ -776,158 +867,105 @@ function ExpenseEditDialog({ expense, suppliers, vendorId, onClose }: ExpenseEdi
               </SelectContent>
             </Select>
 
-            {/* Show manual input when "Others" is selected */}
             {supplierSelection === "other" && (
-              <div className="mt-3">
-                <Label htmlFor="edit-paidTo" className="text-sm">
-                  Enter Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="edit-paidTo"
-                  value={formData.paidTo}
-                  onChange={(e) => setFormData({ ...formData, paidTo: e.target.value })}
-                  placeholder="Person or company name"
-                  className="h-10 mt-1.5"
-                />
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Description */}
-        <div className="space-y-2">
-          <Label htmlFor="edit-description" className="text-sm font-medium">Description</Label>
-          <Textarea
-            id="edit-description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Brief description of the expense"
-            rows={2}
-            className="resize-none"
-          />
-        </div>
-
-        {/* Department & Project Row */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="edit-department" className="text-sm font-medium">Department</Label>
-            <Input
-              id="edit-department"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              placeholder="e.g., Sales, HR"
-              className="h-10"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-projectId" className="text-sm font-medium">Project ID</Label>
-            <Input
-              id="edit-projectId"
-              value={formData.projectId}
-              onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-              placeholder="e.g., PRJ-001"
-              className="h-10"
-            />
-          </div>
-        </div>
-
-        {/* Internal Notes */}
-        <div className="space-y-2">
-          <Label htmlFor="edit-notes" className="text-sm font-medium">Internal Notes</Label>
-          <Textarea
-            id="edit-notes"
-            value={formData.notes}
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            placeholder="Private notes for internal use"
-            rows={2}
-            className="resize-none"
-          />
-        </div>
-
-        {/* Recurring Options */}
-        <Card className="p-4 bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Checkbox
-                id="edit-isRecurring"
-                checked={formData.isRecurring}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, isRecurring: checked as boolean })
-                }
+              <Input
+                value={formData.paidTo}
+                onChange={(e) => setFormData({ ...formData, paidTo: e.target.value })}
+                placeholder="Enter vendor/person name"
+                className="h-11 rounded-xl"
               />
-              <div>
-                <Label htmlFor="edit-isRecurring" className="cursor-pointer font-medium">
-                  Recurring Expense
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Enable for expenses that repeat regularly
-                </p>
-              </div>
-            </div>
-
-            {formData.isRecurring && (
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-purple-200 dark:border-purple-800">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    Frequency <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={formData.recurringFrequency}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, recurringFrequency: value })
-                    }
-                  >
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RECURRENCE_FREQUENCIES.map((freq) => (
-                        <SelectItem key={freq} value={freq}>
-                          <span className="capitalize">{freq}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-nextDueDate" className="text-sm font-medium">Next Due Date</Label>
-                  <Input
-                    id="edit-nextDueDate"
-                    type="date"
-                    value={formData.nextDueDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, nextDueDate: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-              </div>
             )}
           </div>
-        </Card>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-notes" className="text-sm font-medium">Notes (Optional)</Label>
+            <Textarea
+              id="edit-notes"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Add any additional notes..."
+              rows={3}
+              className="resize-none rounded-xl"
+            />
+          </div>
+
+          {/* Upload Bill / Invoice */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Upload Bill / Invoice (Optional)</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            {formData.receiptUrl ? (
+              <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="text-sm text-green-700 dark:text-green-400 flex-1">Bill uploaded</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => window.open(formData.receiptUrl, "_blank")}
+                  className="h-8 text-blue-600"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFormData({ ...formData, receiptUrl: "" })}
+                  className="h-8 text-red-600 hover:text-red-700"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-11 rounded-xl gap-2"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Upload Bill / Invoice
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Actions - Sticky Footer */}
+        <div className="sticky bottom-0 bg-background border-t p-4 flex gap-3">
+          <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-11 rounded-xl">
+            ❌ Cancel
           </Button>
           <Button 
             type="submit" 
             disabled={updateMutation.isPending || !isFormValid}
-            className="min-w-[120px]"
+            className="flex-1 h-11 rounded-xl"
           >
             {updateMutation.isPending ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                <RefreshCw className="w-4 h-4 animate-spin mr-2" />
                 Saving...
               </>
             ) : "Update Expense"}
           </Button>
         </div>
       </form>
-    </>
+    </div>
   );
 }
-

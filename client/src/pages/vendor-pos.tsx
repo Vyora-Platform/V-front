@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
@@ -17,17 +16,20 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { 
-  ShoppingCart, Search, User, CreditCard, Receipt, Trash2, Plus, Minus,
-  Tag, Percent, FileText, Download,
-  Share2, X, Check, ChevronRight, ChevronLeft, ArrowLeft, Package,
-  Scissors, Clock, Store,
+  ShoppingCart, Search, User, CreditCard, Plus, Minus,
+  Tag, Percent, FileText, Download, Printer,
+  Share2, X, Check, ChevronRight, ArrowLeft, Package,
+  Store, Image as ImageIcon,
   CheckCircle2, Sparkles, IndianRupee, PlusCircle
 } from "lucide-react";
-import type { VendorProduct, VendorCatalogue, Customer, Coupon, Bill, Vendor } from "@shared/schema";
+import type { VendorProduct, Customer, Coupon, Bill, Vendor } from "@shared/schema";
 import { format } from "date-fns";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { Lock } from "lucide-react";
 
 interface CartItem {
   type: "product" | "service";
@@ -61,10 +63,14 @@ export default function VendorPOS() {
   const vendorIdMatch = location.match(/\/vendors\/([^\/]+)/);
   const vendorId = vendorIdMatch ? vendorIdMatch[1] : authVendorId;
   
+  // Pro subscription check
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<'create' | 'save' | 'download' | 'export'>('create');
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("walk-in");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [activeTab, setActiveTab] = useState("products");
   
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3 | 4>(1);
@@ -97,11 +103,6 @@ export default function VendorPOS() {
 
   const { data: products = [] } = useQuery<VendorProduct[]>({
     queryKey: [`/api/vendors/${vendorId}/products`],
-    enabled: !!vendorId,
-  });
-
-  const { data: services = [] } = useQuery<VendorCatalogue[]>({
-    queryKey: [`/api/vendors/${vendorId}/catalogue`],
     enabled: !!vendorId,
   });
 
@@ -208,10 +209,6 @@ export default function VendorPOS() {
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredServices = services.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const handleTapProduct = (product: VendorProduct) => {
     const existingItem = cartItems.find((item) => item.id === product.id);
     const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
@@ -258,34 +255,6 @@ export default function VendorPOS() {
     }
     
     toast({ title: `Added ${product.name}`, duration: 1000 });
-  };
-
-  const handleTapService = (service: VendorCatalogue) => {
-    const existingItem = cartItems.find((item) => item.id === service.id);
-    if (existingItem) {
-      setCartItems(cartItems.map((item) =>
-        item.id === service.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCartItems([
-        ...cartItems,
-        {
-          type: "service",
-          id: service.id,
-          name: service.name,
-          price: service.price, // GST already included
-          quantity: 1,
-          unit: "session",
-          serviceId: service.id,
-          image: service.imageUrl || undefined,
-          duration: service.duration || 30,
-        },
-      ]);
-    }
-    
-    toast({ title: `Added ${service.name}`, duration: 1000 });
   };
 
   const incrementQuantity = (itemId: string) => {
@@ -394,9 +363,17 @@ export default function VendorPOS() {
   const grandTotal = subtotalAfterDiscount + additionalServicesTotal;
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const productItems = cartItems.filter(item => item.type === "product");
-  const serviceItems = cartItems.filter(item => item.type === "service");
 
   const handleCheckout = async () => {
+    // PRO SUBSCRIPTION CHECK - Block checkout for non-Pro users
+    const actionCheck = canPerformAction('create');
+    if (!actionCheck.allowed) {
+      console.log('[PRO_GUARD] POS checkout blocked - User is not Pro');
+      setBlockedAction('create');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     if (cartItems.length === 0) {
       toast({ title: "Cart is empty", variant: "destructive" });
       return;
@@ -488,37 +465,6 @@ export default function VendorPOS() {
         console.log('✅ [POS] Order created (auto-confirmed):', createdOrder.id);
       }
 
-      // Create booking for services (auto-confirmed) - even for walk-in customers
-      if (serviceItems.length > 0) {
-        for (const serviceItem of serviceItems) {
-          const bookingData = {
-            vendorId: vendorId,
-            customerId: !isWalkIn ? selectedCustomerId : null,
-            serviceId: serviceItem.serviceId,
-            serviceName: serviceItem.name,
-            customerName: customerName,
-            customerPhone: selectedCustomer?.phone || '',
-            customerEmail: selectedCustomer?.email || null,
-            bookingDate: new Date().toISOString().split('T')[0],
-            startTime: new Date().toTimeString().slice(0, 5),
-            endTime: new Date(Date.now() + (serviceItem.duration || 30) * 60000).toTimeString().slice(0, 5),
-            duration: serviceItem.duration || 30,
-            status: "confirmed", // Auto-confirmed for POS
-            paymentStatus: paymentStatus, // Auto-update payment status
-            totalAmount: Math.round(serviceItem.price * serviceItem.quantity),
-            notes: `POS Sale - Bill ${billNumber}`,
-            source: "pos",
-          };
-
-          try {
-            const createdBooking = await createBookingMutation.mutateAsync(bookingData);
-            console.log('✅ [POS] Booking created (auto-confirmed):', createdBooking.id);
-          } catch (bookingError) {
-            console.error('❌ [POS] Failed to create booking:', bookingError);
-          }
-        }
-      }
-
       // Add bill items
       for (const item of cartItems) {
         await addBillItemMutation.mutateAsync({
@@ -578,9 +524,13 @@ export default function VendorPOS() {
       }
 
       // Create ledger transactions - including for partial payments
+      // IMPORTANT: Paid amounts through POS are EXCLUDED from balance calculation
+      // because money received is in exchange of products (not credit/loan)
+      // Only unpaid/partial amounts (credit) affect the net balance
       if (!isWalkIn) {
         try {
           // Record money received (if any payment made)
+          // Mark as excludeFromBalance=true because this is product exchange, not credit
           if (amount > 0) {
             await createLedgerTransactionMutation.mutateAsync({
               vendorId: vendorId,
@@ -593,23 +543,30 @@ export default function VendorPOS() {
               note: cartItems.map(i => `${i.quantity}x ${i.name}`).join(", "),
               referenceType: createdOrder ? "order" : "bill",
               referenceId: createdOrder?.id || bill.id,
+              excludeFromBalance: true, // Paid amount excluded from net balance
+              isPOSSale: true, // Mark as POS sale for tracking
             });
           }
 
           // Record credit/due amount if not fully paid (this goes to customer dues)
+          // This SHOULD affect balance - customer owes money
+          // Type: "out" = "You Gave" credit to customer = customer owes you
+          // Balance = totalOut - totalIn = positive when customer owes = "You will GET"
           if (grandTotal > amount) {
             const dueAmount = grandTotal - amount;
             await createLedgerTransactionMutation.mutateAsync({
               vendorId: vendorId,
               customerId: selectedCustomerId,
-              type: "out", // Credit given to customer = money out
+              type: "out", // "You Gave" credit = customer owes you (balance increases = "You will GET")
               amount: Math.round(dueAmount),
-              category: "other",
+              category: "product_sale",
               paymentMethod: "credit",
-              description: `Credit/Due - Bill ${billNumber}`,
-              note: `Remaining payment due: ₹${dueAmount.toFixed(2)}`,
+              description: `Credit Due - Bill ${billNumber}`,
+              note: `Pending payment: ₹${dueAmount.toFixed(2)} (${cartItems.map(i => `${i.quantity}x ${i.name}`).join(", ")})`,
               referenceType: createdOrder ? "order" : "bill",
               referenceId: createdOrder?.id || bill.id,
+              excludeFromBalance: false, // Due amount COUNTS in net balance
+              isPOSSale: true, // Mark as POS sale for tracking
             });
             console.log('✅ [POS] Due amount added to customer ledger: ₹' + dueAmount);
           }
@@ -643,6 +600,15 @@ export default function VendorPOS() {
   };
 
   const handleDownloadPDF = () => {
+    // PRO SUBSCRIPTION CHECK - Block download for non-Pro users
+    const actionCheck = canPerformAction('download');
+    if (!actionCheck.allowed) {
+      console.log('[PRO_GUARD] POS download blocked - User is not Pro');
+      setBlockedAction('download');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     if (billRef.current) {
       const printWindow = window.open('', '', 'height=800,width=400');
       if (printWindow) {
@@ -794,15 +760,15 @@ Powered by *Vyora*
             <Button 
               variant="outline" 
               size="icon" 
-              className="lg:hidden relative"
+              className="lg:hidden relative h-11 w-11"
               onClick={() => setShowCart(true)}
-                >
+            >
               <ShoppingCart className="h-5 w-5" />
               {totalItemCount > 0 && (
-                <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm">
                   {totalItemCount}
-            </Badge>
-          )}
+                </span>
+              )}
             </Button>
       </div>
 
@@ -810,7 +776,7 @@ Powered by *Vyora*
           <div className="mt-3 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products or services..."
+              placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 h-11"
@@ -843,74 +809,101 @@ Powered by *Vyora*
             </Select>
           </div>
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-3">
-            <TabsList className="w-full grid grid-cols-2 h-11">
-              <TabsTrigger value="products" className="gap-2 text-sm">
-                <Package className="h-4 w-4" />
-                Products ({filteredProducts.length})
-              </TabsTrigger>
-              <TabsTrigger value="services" className="gap-2 text-sm">
-                <Scissors className="h-4 w-4" />
-                Services ({filteredServices.length})
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {/* Products Count */}
+          <div className="mt-3 flex items-center gap-2 py-2 px-3 bg-muted/50 rounded-lg">
+            <Package className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">{filteredProducts.length} Products Available</span>
+          </div>
         </div>
       </div>
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Products/Services Grid - Fully Scrollable */}
+        {/* Products Grid - Fully Scrollable */}
         <div className="flex-1 overflow-y-auto pb-32 lg:pb-4">
           <div className="p-4">
-            {activeTab === "products" && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="space-y-2">
                 {filteredProducts.map((product) => {
                   const inCart = cartItems.find((item) => item.id === product.id);
                   const isOutOfStock = product.stock === 0;
+                  const productImage = product.imageUrl || ((product as any).images?.[0]);
                   
                   return (
                     <Card
                       key={product.id}
                       className={cn(
-                        "cursor-pointer overflow-hidden transition-all hover:shadow-lg active:scale-[0.98]",
+                        "cursor-pointer overflow-hidden transition-all hover:shadow-md active:scale-[0.99] border",
                         isOutOfStock && "opacity-60",
-                        inCart && "ring-2 ring-primary"
+                        inCart && "ring-2 ring-primary bg-primary/5"
                       )}
                       onClick={() => !isOutOfStock && handleTapProduct(product)}
                     >
-                      <div className="relative aspect-square bg-gray-100 dark:bg-gray-800">
-                        {product.imageUrl ? (
-                          <img 
-                            src={product.imageUrl} 
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Package className="h-10 w-10 text-gray-300" />
+                      <CardContent className="p-3">
+                        <div className="flex gap-3">
+                          {/* Product Image */}
+                          <div className="relative w-20 h-20 md:w-24 md:h-24 shrink-0 bg-muted rounded-xl overflow-hidden">
+                            {productImage ? (
+                              <img 
+                                src={productImage} 
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                                <span className="text-2xl mb-0.5">{(product as any).icon || '📦'}</span>
+                                <ImageIcon className="w-3.5 h-3.5 opacity-30" />
+                              </div>
+                            )}
+                            
+                            {/* Cart Quantity Badge */}
+                            {inCart && (
+                              <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-lg border-2 border-white">
+                                {inCart.quantity}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        
-                        {isOutOfStock ? (
-                          <Badge className="absolute top-2 right-2 bg-red-500 text-xs">Out</Badge>
-                        ) : product.stock <= 5 && (
-                          <Badge className="absolute top-2 right-2 bg-orange-500 text-xs">{product.stock}</Badge>
-                        )}
-                        
-                          {inCart && (
-                          <div className="absolute bottom-2 right-2 bg-primary text-primary-foreground w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-lg">
-                              {inCart.quantity}
+                          
+                          {/* Product Info */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                            <div>
+                              <h3 className="font-semibold text-sm line-clamp-1">{product.name}</h3>
+                              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                {product.category || 'Product'}
+                              </p>
+                            </div>
+                            
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-lg font-bold text-primary">₹{product.price}</span>
+                                <span className="text-xs text-muted-foreground">/{product.unit}</span>
+                              </div>
+                              
+                              {/* Stock Badge */}
+                              <Badge 
+                                variant={isOutOfStock ? "destructive" : product.stock <= 5 ? "secondary" : "outline"}
+                                className="text-[10px] px-1.5 py-0 h-5"
+                              >
+                                {isOutOfStock ? "Out" : `${product.stock} left`}
+                              </Badge>
+                            </div>
                           </div>
-                          )}
-                      </div>
-                      
-                      <CardContent className="p-2.5">
-                        <h3 className="font-medium text-xs truncate">{product.name}</h3>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-sm font-bold text-primary">₹{product.price}</span>
-                          <span className="text-[10px] text-muted-foreground">{product.unit}</span>
+                          
+                          {/* Quick Add Button */}
+                          <div className="flex items-center">
+                            {!isOutOfStock && (
+                              <Button
+                                size="icon"
+                                variant={inCart ? "default" : "outline"}
+                                className="h-10 w-10 rounded-full shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTapProduct(product);
+                                }}
+                              >
+                                <Plus className="h-5 w-5" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -918,79 +911,15 @@ Powered by *Vyora*
                 })}
 
                 {filteredProducts.length === 0 && (
-                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
                     <Package className="h-12 w-12 text-muted-foreground mb-3" />
                     <h3 className="font-semibold mb-1">No Products</h3>
                     <p className="text-muted-foreground text-sm">
                       {searchQuery ? "Try different search" : "Add products to inventory"}
                     </p>
-              </div>
+                  </div>
                 )}
               </div>
-            )}
-
-            {activeTab === "services" && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {filteredServices.map((service) => {
-                  const inCart = cartItems.find((item) => item.id === service.id);
-                  
-                  return (
-                    <Card
-                      key={service.id}
-                      className={cn(
-                        "cursor-pointer overflow-hidden transition-all hover:shadow-lg active:scale-[0.98]",
-                        inCart && "ring-2 ring-primary"
-                      )}
-                      onClick={() => handleTapService(service)}
-                    >
-                      <div className="relative aspect-square bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30">
-                        {service.imageUrl ? (
-                          <img 
-                            src={service.imageUrl} 
-                            alt={service.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Scissors className="h-10 w-10 text-purple-300" />
-                          </div>
-                        )}
-                        
-                        {service.duration && (
-                          <Badge className="absolute top-2 right-2 bg-purple-500 text-xs">
-                            {service.duration}m
-                          </Badge>
-                        )}
-                        
-                          {inCart && (
-                          <div className="absolute bottom-2 right-2 bg-primary text-primary-foreground w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-lg">
-                              {inCart.quantity}
-                          </div>
-                          )}
-                      </div>
-                      
-                      <CardContent className="p-2.5">
-                        <h3 className="font-medium text-xs truncate">{service.name}</h3>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-sm font-bold text-primary">₹{service.price}</span>
-                          <span className="text-[10px] text-muted-foreground">{service.category}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-
-                {filteredServices.length === 0 && (
-                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-                    <Scissors className="h-12 w-12 text-muted-foreground mb-3" />
-                    <h3 className="font-semibold mb-1">No Services</h3>
-                    <p className="text-muted-foreground text-sm">
-                      {searchQuery ? "Try different search" : "Add services to catalogue"}
-                    </p>
-              </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
@@ -1021,7 +950,7 @@ Powered by *Vyora*
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          {item.type === "product" ? <Package className="h-4 w-4 text-gray-400" /> : <Scissors className="h-4 w-4 text-gray-400" />}
+                          <Package className="h-4 w-4 text-gray-400" />
                         </div>
                       )}
                     </div>
@@ -1075,11 +1004,11 @@ Powered by *Vyora*
               </div>
               
             <Button
-                className="w-full h-11 text-base gap-2" 
+              className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 rounded-xl" 
               onClick={() => setShowCheckoutDialog(true)}
             >
-                <Receipt className="h-4 w-4" />
               Checkout
+              <ChevronRight className="h-5 w-5 ml-1" />
             </Button>
           </div>
           )}
@@ -1113,7 +1042,7 @@ Powered by *Vyora*
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          {item.type === "product" ? <Package className="h-5 w-5 text-gray-400" /> : <Scissors className="h-5 w-5 text-gray-400" />}
+                          <Package className="h-5 w-5 text-gray-400" />
                         </div>
                       )}
                     </div>
@@ -1144,14 +1073,21 @@ Powered by *Vyora*
                 <span>₹{grandTotal.toFixed(2)}</span>
               </div>
               <Button 
-                className="w-full h-11" 
+                className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90" 
                 onClick={() => {
+                  const actionCheck = canPerformAction('create');
+                  if (!actionCheck.allowed) {
+                    setBlockedAction('create');
+                    setShowUpgradeModal(true);
+                    return;
+                  }
                   setShowCart(false);
                   setShowCheckoutDialog(true);
                 }}
               >
-                <Receipt className="h-4 w-4 mr-2" />
                 Proceed to Checkout
+                {!isPro && <Lock className="h-4 w-4 ml-2 opacity-70" />}
+                {isPro && <ChevronRight className="h-5 w-5 ml-1" />}
               </Button>
             </div>
           )}
@@ -1159,21 +1095,21 @@ Powered by *Vyora*
       </Dialog>
 
       {/* Mobile Bottom Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t shadow-lg z-30">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t shadow-xl z-30">
         <div className="p-3 flex items-center gap-3">
           <div className="flex-1">
-            <p className="text-xs text-muted-foreground">{totalItemCount} items</p>
-            <p className="text-lg font-bold">₹{grandTotal.toFixed(2)}</p>
-            </div>
-            <Button
-              size="lg"
-            className="min-w-[130px] h-11"
-              disabled={cartItems.length === 0}
-              onClick={() => setShowCheckoutDialog(true)}
-            >
-            <Receipt className="h-4 w-4 mr-2" />
-              Checkout
-            </Button>
+            <p className="text-[11px] text-muted-foreground font-medium">{totalItemCount} {totalItemCount === 1 ? 'item' : 'items'}</p>
+            <p className="text-xl font-bold text-foreground">₹{grandTotal.toFixed(2)}</p>
+          </div>
+          <Button
+            size="lg"
+            className="min-w-[160px] h-12 text-base font-semibold bg-primary hover:bg-primary/90 rounded-xl shadow-lg"
+            disabled={cartItems.length === 0}
+            onClick={() => setShowCheckoutDialog(true)}
+          >
+            Checkout
+            <ChevronRight className="h-5 w-5 ml-1" />
+          </Button>
         </div>
       </div>
 
@@ -1193,7 +1129,7 @@ Powered by *Vyora*
               )}
               <DialogTitle className="flex-1">
                 {checkoutStep === 1 && "Review Order"}
-                {checkoutStep === 2 && "Discounts & Services"}
+                {checkoutStep === 2 && "Discounts & Charges"}
               {checkoutStep === 3 && "Payment"}
                 {checkoutStep === 4 && "Bill Generated"}
             </DialogTitle>
@@ -1243,14 +1179,14 @@ Powered by *Vyora*
                 {/* Items */}
               <div className="space-y-2">
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Items</h3>
-                {cartItems.map((item) => (
+                    {cartItems.map((item) => (
                     <div key={item.id} className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-900 rounded-lg">
                       <div className="w-10 h-10 rounded overflow-hidden bg-gray-200 shrink-0">
                         {item.image ? (
                           <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            {item.type === "product" ? <Package className="h-4 w-4 text-gray-400" /> : <Scissors className="h-4 w-4 text-gray-400" />}
+                            <Package className="h-4 w-4 text-gray-400" />
                       </div>
                         )}
                     </div>
@@ -1280,7 +1216,7 @@ Powered by *Vyora*
             </div>
           )}
 
-            {/* Step 2: Discounts & Additional Services */}
+            {/* Step 2: Discounts & Additional Charges */}
           {checkoutStep === 2 && (
               <div className="space-y-5">
                 {/* Coupon */}
@@ -1345,12 +1281,12 @@ Powered by *Vyora*
                 </div>
               )}
 
-                {/* Additional Services */}
+                {/* Additional Charges */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-sm flex items-center gap-2">
                       <PlusCircle className="h-4 w-4 text-primary" />
-                      Additional Services
+                      Additional Charges
                 </h3>
                     <Button 
                       variant="outline" 
@@ -1366,7 +1302,7 @@ Powered by *Vyora*
                   {showAddService && (
                     <Card className="p-3 space-y-2">
                       <Input
-                        placeholder="Service name *"
+                        placeholder="Charge name *"
                         value={newServiceName}
                         onChange={(e) => setNewServiceName(e.target.value)}
                         className="h-9"
@@ -1450,7 +1386,7 @@ Powered by *Vyora*
                 )}
                     {additionalServicesTotal > 0 && (
                 <div className="flex justify-between">
-                        <span className="text-muted-foreground">Additional Services</span>
+                        <span className="text-muted-foreground">Additional Charges</span>
                         <span>₹{additionalServicesTotal.toFixed(2)}</span>
                 </div>
                     )}
@@ -1570,133 +1506,269 @@ Powered by *Vyora*
             {/* Step 4: Bill Generated */}
           {checkoutStep === 4 && completedBill && (
             <div className="space-y-4">
-                {/* Success */}
-                <div className="text-center py-4">
-                  <div className="w-16 h-16 mx-auto mb-3 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                {/* Success Animation */}
+                <div className="text-center py-5 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl border border-green-100 dark:border-green-800">
+                  <div className="w-16 h-16 mx-auto mb-3 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
                     <CheckCircle2 className="h-8 w-8 text-green-600" />
                   </div>
                   <h2 className="text-xl font-bold text-green-600">Payment Successful!</h2>
-                  <p className="text-sm text-muted-foreground">Bill #{completedBill.billNumber}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Bill #{completedBill.billNumber}</p>
+                  <div className="flex justify-center gap-6 mt-3">
+                    <div className="text-center">
+                      <p className="text-[10px] text-muted-foreground uppercase">Paid</p>
+                      <p className="font-bold text-green-600">₹{parseFloat(completedBill.paidAmount).toFixed(2)}</p>
+                    </div>
+                    {parseFloat(completedBill.dueAmount) > 0 && (
+                      <div className="text-center">
+                        <p className="text-[10px] text-muted-foreground uppercase">Due</p>
+                        <p className="font-bold text-red-600">₹{parseFloat(completedBill.dueAmount).toFixed(2)}</p>
+                      </div>
+                    )}
+                  </div>
               </div>
 
-                {/* Bill */}
-                <div ref={billRef} className="bg-white dark:bg-gray-900 rounded-xl overflow-hidden border shadow">
-                  <div className="p-5 text-center border-b-2 border-dashed">
-                    <h2 className="text-xl font-bold">{vendor?.businessName || "Vyora"}</h2>
-                    {vendor?.address && <p className="text-xs text-muted-foreground">{vendor.address}</p>}
-                    {vendor?.phone && <p className="text-xs text-muted-foreground">{vendor.phone}</p>}
-                    {vendor?.city && vendor?.state && (
-                      <p className="text-xs text-muted-foreground">{vendor.city}, {vendor.state}</p>
-                    )}
-                </div>
-
-                  <div className="text-center py-2 font-bold tracking-widest text-sm border-b">TAX INVOICE</div>
-
-                  <div className="p-4 flex justify-between text-xs border-b border-dashed">
-                  <div>
-                      <p className="text-muted-foreground">Bill No.</p>
-                      <p className="font-mono font-bold">{completedBill.billNumber}</p>
-                  </div>
-                  <div className="text-right">
-                      <p className="text-muted-foreground">Date</p>
-                      <p className="font-mono">{format(new Date(completedBill.billDate), 'dd/MM/yyyy')}</p>
-                  </div>
-                </div>
-
-                  <div className="p-4 border-b border-dashed">
-                    <p className="text-[10px] text-muted-foreground mb-0.5">BILL TO</p>
-                    <p className="font-medium text-sm">{selectedCustomer?.name || "Walk-in Customer"}</p>
-                    {selectedCustomer?.phone && <p className="text-xs text-muted-foreground">{selectedCustomer.phone}</p>}
-                  </div>
-
-                  <div className="p-4">
-                    <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b">
-                          <th className="text-left py-1.5">Item</th>
-                          <th className="text-center py-1.5">Qty</th>
-                          <th className="text-right py-1.5">Price</th>
-                          <th className="text-right py-1.5">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cartItems.map((item) => (
-                          <tr key={item.id} className="border-b border-dotted">
-                            <td className="py-1.5">{item.name}</td>
-                            <td className="text-center py-1.5">{item.quantity}</td>
-                            <td className="text-right py-1.5">₹{item.price}</td>
-                            <td className="text-right py-1.5 font-medium">₹{(item.price * item.quantity).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                        {additionalServices.map((service) => (
-                          <tr key={service.id} className="border-b border-dotted text-muted-foreground">
-                            <td className="py-1.5">{service.name}</td>
-                            <td className="text-center py-1.5">1</td>
-                            <td className="text-right py-1.5">₹{service.amount}</td>
-                            <td className="text-right py-1.5 font-medium">₹{service.totalAmount.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                  </div>
-
-                  <div className="p-4 border-t-2 border-dashed space-y-1 text-xs">
-                  <div className="flex justify-between">
-                      <span>Subtotal</span>
-                    <span>₹{subtotal.toFixed(2)}</span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-green-600">
-                        <span>Discount</span>
-                      <span>-₹{discountAmount.toFixed(2)}</span>
+                {/* Premium MNC-Level Bill Design */}
+                <div ref={billRef} className="bg-white rounded-xl overflow-hidden shadow-2xl border border-gray-200">
+                  {/* Elegant Header with Logo & Business Info */}
+                  <div className="relative bg-gradient-to-br from-slate-50 via-white to-blue-50 p-5">
+                    {/* Top accent line */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-primary to-purple-600"></div>
+                    
+                    <div className="flex items-start gap-4">
+                      {/* Business Logo - Premium Style */}
+                      <div className="w-[72px] h-[72px] rounded-2xl bg-white border-2 border-gray-100 flex items-center justify-center overflow-hidden shadow-lg ring-4 ring-gray-50">
+                        {vendor?.logo ? (
+                          <img 
+                            src={vendor.logo} 
+                            alt={vendor?.businessName} 
+                            className="w-full h-full object-contain p-1"
+                          />
+                        ) : vendor?.businessName ? (
+                          <div className="w-full h-full bg-gradient-to-br from-blue-600 to-primary flex items-center justify-center">
+                            <span className="text-3xl font-bold text-white">
+                              {vendor.businessName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-blue-600 to-primary flex items-center justify-center">
+                            <Store className="h-8 w-8 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-xl font-bold text-gray-900 tracking-tight">{vendor?.businessName || "Vyora"}</h2>
+                        {vendor?.address && (
+                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{vendor.address}</p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500 mt-1">
+                          {vendor?.pincode && (
+                            <span>{vendor?.city}, {vendor?.state} - {vendor.pincode}</span>
+                          )}
+                          {!vendor?.pincode && vendor?.city && vendor?.state && (
+                            <span>{vendor.city}, {vendor.state}</span>
+                          )}
+                        </div>
+                        {vendor?.phone && (
+                          <p className="text-xs text-gray-600 font-medium mt-1">📞 {vendor.phone}</p>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Tax Invoice Title - Professional */}
+                  <div className="bg-gradient-to-r from-blue-600 via-primary to-blue-700 py-2.5 text-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50"></div>
+                    <span className="relative font-bold tracking-[0.35em] text-sm text-white drop-shadow-sm">TAX INVOICE</span>
+                  </div>
+
+                  {/* Invoice Meta - Clean Grid */}
+                  <div className="px-5 py-4 grid grid-cols-2 gap-4 bg-gradient-to-b from-gray-50 to-white border-b border-dashed border-gray-200">
+                    <div>
+                      <p className="text-[9px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Invoice No.</p>
+                      <p className="font-mono font-bold text-sm text-gray-900">{completedBill.billNumber}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Date & Time</p>
+                      <p className="font-mono text-sm text-gray-700">{format(new Date(completedBill.billDate), 'dd/MM/yyyy')}</p>
+                      <p className="font-mono text-xs text-gray-500">{format(new Date(completedBill.billDate), 'hh:mm a')}</p>
+                    </div>
+                  </div>
+
+                  {/* Customer Info - Professional Card */}
+                  <div className="px-5 py-4 border-b border-dashed border-gray-200">
+                    <p className="text-[9px] text-gray-400 uppercase tracking-widest font-semibold mb-2">Billed To</p>
+                    <div className="flex items-center gap-3 bg-blue-50/50 rounded-xl p-3 border border-blue-100">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-primary flex items-center justify-center shadow-md">
+                        <User className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900">{selectedCustomer?.name || "Walk-in Customer"}</p>
+                        {selectedCustomer?.phone && (
+                          <p className="text-xs text-gray-500 mt-0.5">📱 {selectedCustomer.phone}</p>
+                        )}
+                        {selectedCustomer?.email && (
+                          <p className="text-xs text-gray-500 truncate">✉️ {selectedCustomer.email}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Items Table - Professional Layout */}
+                  <div className="px-5 py-4">
+                    <p className="text-[9px] text-gray-400 uppercase tracking-widest font-semibold mb-3">Order Details</p>
+                    <div className="space-y-2">
+                      {cartItems.map((item, index) => (
+                        <div key={item.id} className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100 hover:shadow-sm transition-shadow">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200">
+                            <Package className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 truncate">{item.name}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              ₹{item.price.toFixed(2)} × {item.quantity} {item.unit}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-sm text-gray-900">₹{(item.price * item.quantity).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {additionalServices.map((service) => (
+                        <div key={service.id} className="flex items-center gap-3 p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-200 to-amber-100 border border-amber-300 flex items-center justify-center shadow-sm">
+                            <PlusCircle className="h-5 w-5 text-amber-700" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 truncate">{service.name}</p>
+                            <p className="text-xs text-amber-600">Additional Charge</p>
+                          </div>
+                          <p className="font-bold text-sm text-gray-900">₹{service.totalAmount.toFixed(2)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Totals Section - Premium Styling */}
+                  <div className="mx-5 mb-4 p-4 bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50 rounded-2xl border border-gray-200 space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">Subtotal</span>
+                      <span className="font-medium text-gray-800">₹{subtotal.toFixed(2)}</span>
+                    </div>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-green-600 flex items-center gap-1.5">
+                          <Tag className="h-3.5 w-3.5" />
+                          Discount Applied
+                        </span>
+                        <span className="font-semibold text-green-600">-₹{discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
                     {additionalServicesTotal > 0 && (
-                  <div className="flex justify-between">
-                        <span>Additional Services (incl. GST)</span>
-                        <span>₹{additionalServicesTotal.toFixed(2)}</span>
-                  </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Additional Charges</span>
+                        <span className="font-medium text-gray-800">₹{additionalServicesTotal.toFixed(2)}</span>
+                      </div>
                     )}
-                    <div className="flex justify-between text-lg font-bold pt-2 border-t">
-                      <span>Grand Total</span>
-                    <span>₹{grandTotal.toFixed(2)}</span>
-                  </div>
-                    <div className="flex justify-between text-green-600">
-                      <span>Paid</span>
-                    <span>₹{parseFloat(completedBill.paidAmount).toFixed(2)}</span>
-                  </div>
-                  {parseFloat(completedBill.dueAmount) > 0 && (
-                    <div className="flex justify-between text-red-600 font-bold">
-                        <span>Due</span>
-                      <span>₹{parseFloat(completedBill.dueAmount).toFixed(2)}</span>
+                    
+                    <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent my-3"></div>
+                    
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="text-base font-bold text-gray-900">Grand Total</span>
+                      <span className="text-2xl font-extrabold bg-gradient-to-r from-blue-600 to-primary bg-clip-text text-transparent">₹{grandTotal.toFixed(2)}</span>
                     </div>
-                  )}
-                </div>
-
-                  <div className="p-4 text-center border-t-2 border-dashed">
-                    <p className="font-bold">Thank You!</p>
-                    <p className="text-xs text-muted-foreground">Visit Again</p>
+                    
+                    <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent my-2"></div>
+                    
+                    <div className="flex justify-between items-center text-sm pt-1">
+                      <span className="font-medium text-green-700 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Amount Paid
+                      </span>
+                      <span className="font-bold text-green-600 text-base">₹{parseFloat(completedBill.paidAmount).toFixed(2)}</span>
+                    </div>
+                    {parseFloat(completedBill.dueAmount) > 0 && (
+                      <div className="flex justify-between items-center text-sm bg-red-50 -mx-4 px-4 py-2 rounded-lg mt-2">
+                        <span className="font-medium text-red-700">Balance Due</span>
+                        <span className="font-bold text-red-600 text-base">₹{parseFloat(completedBill.dueAmount).toFixed(2)}</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="p-2 text-center bg-gray-50 dark:bg-gray-800">
-                    <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-                      <Sparkles className="h-2.5 w-2.5" />
-                  Powered by <span className="font-bold">Vyora</span>
-                    </p>
-                </div>
-              </div>
+                  {/* Thank You Footer - Elegant */}
+                  <div className="px-5 py-6 text-center bg-gradient-to-t from-gray-50 to-white border-t border-dashed border-gray-200">
+                    <div className="inline-flex items-center gap-2 bg-gradient-to-r from-green-100 to-emerald-100 px-5 py-2 rounded-full shadow-sm border border-green-200 mb-3">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-semibold text-green-700">Payment Confirmed</span>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900">Thank You for Your Business!</p>
+                    <p className="text-xs text-gray-500 mt-1">We appreciate your trust in us. Visit again soon! 🙏</p>
+                  </div>
 
-                {/* Actions */}
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="h-11" onClick={handleDownloadPDF}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                </Button>
-                  <Button variant="outline" className="h-11" onClick={handleShareWhatsApp}>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    WhatsApp
+                  {/* Powered By Footer - Subtle */}
+                  <div className="py-3 px-4 bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 flex items-center justify-center gap-2 border-t border-gray-100">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-[11px] text-gray-500">
+                      Powered by <span className="font-bold text-gray-700">Vyora</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Buttons - 3 Column Grid */}
+                <div className="grid grid-cols-3 gap-2">
+                  <Button variant="outline" className="h-12 flex-col gap-0.5 text-xs px-2" onClick={handleDownloadPDF}>
+                    <Download className="h-4 w-4" />
+                    <span>Download</span>
                   </Button>
-              </div>
+                  <Button variant="outline" className="h-12 flex-col gap-0.5 text-xs px-2" onClick={() => {
+                    if (billRef.current) {
+                      const printWindow = window.open('', '', 'height=800,width=400');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <!DOCTYPE html>
+                          <html>
+                            <head>
+                              <title>Print Invoice - ${completedBill?.billNumber || 'Bill'}</title>
+                              <style>
+                                * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                                body { 
+                                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+                                  max-width: 380px;
+                                  margin: 0 auto;
+                                  background: white;
+                                  color: #1a1a1a;
+                                }
+                                .invoice-wrapper { padding: 0; }
+                                @media print { 
+                                  body { padding: 0; margin: 0; } 
+                                  @page { size: 80mm auto; margin: 5mm; }
+                                }
+                              </style>
+                            </head>
+                            <body>
+                              <div class="invoice-wrapper">${billRef.current.innerHTML}</div>
+                              <script>
+                                window.onload = function() {
+                                  setTimeout(function() { window.print(); }, 100);
+                                  setTimeout(function() { window.close(); }, 1000);
+                                }
+                              </script>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                      }
+                    }
+                    toast({ title: "🖨️ Opening print dialog..." });
+                  }}>
+                    <Printer className="h-4 w-4" />
+                    <span>Print Bill</span>
+                  </Button>
+                  <Button variant="outline" className="h-12 flex-col gap-0.5 text-xs px-2" onClick={handleShareWhatsApp}>
+                    <Share2 className="h-4 w-4" />
+                    <span>WhatsApp</span>
+                  </Button>
+                </div>
             </div>
           )}
           </div>
@@ -1733,6 +1805,17 @@ Powered by *Vyora*
             )}
         </DialogContent>
       </Dialog>
+
+      {/* Pro Subscription Upgrade Modal */}
+      <ProUpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action={blockedAction}
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          window.location.href = '/vendor/account';
+        }}
+      />
     </div>
   );
 }

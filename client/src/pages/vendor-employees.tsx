@@ -49,13 +49,16 @@ import {
   Users, Phone, Mail, MapPin, Briefcase, Calendar, Plus, Edit2, Trash2,
   UserCheck, UserX, Wallet, ArrowLeft, Search, RefreshCw, Eye,
   MoreHorizontal, Clock, Building2, Award, FileText, Timer, Activity,
-  CalendarDays, DollarSign, AlertTriangle, CheckCircle2, Crown, Target
+  CalendarDays, DollarSign, AlertTriangle, CheckCircle2, Crown, Target, ChevronRight
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { format, formatDistanceToNow, differenceInDays, isPast } from "date-fns";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/AuthGuard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpgradeModal } from "@/components/ProActionGuard";
+import { Lock } from "lucide-react";
 
 const payrollFormSchema = insertPayrollSchema.extend({
   month: z.number().min(1).max(12),
@@ -74,6 +77,21 @@ export default function VendorEmployees() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [payingSalaryEmployee, setPayingSalaryEmployee] = useState<Employee | null>(null);
+  
+  // Pro subscription
+  const { isPro, canPerformAction } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [blockedAction, setBlockedAction] = useState<string | undefined>();
+
+  const handleProAction = (action: string, callback: () => void) => {
+    const result = canPerformAction(action as any);
+    if (!result.allowed) {
+      setBlockedAction(action);
+      setShowUpgradeModal(true);
+      return;
+    }
+    callback();
+  };
 
   // Fetch employees
   const { data: employees = [], isLoading, refetch } = useQuery<Employee[]>({
@@ -111,15 +129,20 @@ export default function VendorEmployees() {
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insertEmployeeSchema>) => {
       const response = await apiRequest("POST", `/api/vendors/${vendorId}/employees`, data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to add employee");
+      }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendors/${vendorId}/employees`] });
       toast({ title: "✅ Employee added" });
       setIsAddDialogOpen(false);
+      form.reset();
     },
-    onError: () => {
-      toast({ title: "Failed to add employee", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: error.message || "Failed to add employee", variant: "destructive" });
     },
   });
 
@@ -352,10 +375,27 @@ export default function VendorEmployees() {
   };
 
   const onSubmit = (data: z.infer<typeof insertEmployeeSchema>) => {
+    // Clean up empty strings to null for optional fields
+    const cleanedData = {
+      ...data,
+      address: data.address || null,
+      city: data.city || null,
+      state: data.state || null,
+      pincode: data.pincode || null,
+      department: data.department || null,
+      shiftStartTime: data.shiftStartTime || null,
+      shiftEndTime: data.shiftEndTime || null,
+      bankName: data.bankName || null,
+      bankAccountNumber: data.bankAccountNumber || null,
+      bankIfscCode: data.bankIfscCode || null,
+      idProofType: data.idProofType || null,
+      idProofNumber: data.idProofNumber || null,
+    };
+    
     if (editingEmployee) {
-      updateMutation.mutate({ id: editingEmployee.id, updates: data });
+      updateMutation.mutate({ id: editingEmployee.id, updates: cleanedData });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(cleanedData);
     }
   };
 
@@ -445,25 +485,55 @@ export default function VendorEmployees() {
               }
             }}>
               <DialogTrigger asChild>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-10 px-4">
+                <Button 
+                  size="sm" 
+                  className="bg-blue-600 hover:bg-blue-700 h-10 px-4"
+                  onClick={(e) => {
+                    if (!isPro) {
+                      e.preventDefault();
+                      handleProAction('create', () => {});
+                    }
+                  }}
+                >
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline ml-1.5">Add Employee</span>
+                  {!isPro && <Lock className="w-3.5 h-3.5 ml-1 opacity-60" />}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    {editingEmployee ? <Edit2 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-                    {editingEmployee ? "Edit Employee" : "Add Employee"}
-                  </DialogTitle>
-                </DialogHeader>
-                <EmployeeForm
-                  form={form}
-                  onSubmit={onSubmit}
-                  isPending={createMutation.isPending || updateMutation.isPending}
-                  isEditing={!!editingEmployee}
-                  onCancel={() => setIsAddDialogOpen(false)}
-                />
+              <DialogContent className="fixed inset-0 w-full h-full max-w-full max-h-full overflow-hidden rounded-none p-0 bg-gray-50 dark:bg-background translate-x-0 translate-y-0 left-0 top-0 sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-2xl sm:max-h-[90vh] sm:rounded-xl sm:h-auto">
+                {/* Container */}
+                <div className="h-full flex flex-col overflow-hidden">
+                  {/* Sticky Header */}
+                  <div className="sticky top-0 z-10 bg-white dark:bg-card border-b px-4 py-3 sm:px-6 shrink-0">
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsAddDialogOpen(false)}
+                        className="flex-shrink-0 h-9 w-9"
+                      >
+                        <ArrowLeft className="h-5 w-5" />
+                      </Button>
+                      <DialogHeader className="p-0 space-y-0 flex-1">
+                        <DialogTitle className="flex items-center gap-2">
+                          {editingEmployee ? <Edit2 className="h-5 w-5 text-blue-600" /> : <Plus className="h-5 w-5 text-blue-600" />}
+                          {editingEmployee ? "Edit Employee" : "Add Employee"}
+                        </DialogTitle>
+                      </DialogHeader>
+                    </div>
+                  </div>
+                  
+                  {/* Form Container - Scrollable */}
+                  <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+                    <EmployeeForm
+                      form={form}
+                      onSubmit={onSubmit}
+                      isPending={createMutation.isPending || updateMutation.isPending}
+                      isEditing={!!editingEmployee}
+                      onCancel={() => setIsAddDialogOpen(false)}
+                    />
+                  </div>
+                </div>
               </DialogContent>
             </Dialog>
           </div>
@@ -603,9 +673,14 @@ export default function VendorEmployees() {
                 <p className="text-muted-foreground text-sm text-center">
                   {searchQuery ? "No employees found" : "No employees yet"}
                 </p>
-                <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="mt-4 bg-blue-600 h-10 px-5">
+                <Button 
+                  onClick={() => handleProAction('create', () => setIsAddDialogOpen(true))} 
+                  size="sm" 
+                  className="mt-4 bg-blue-600 h-10 px-5"
+                >
                   <Plus className="h-4 w-4 mr-1.5" />
                   Add Employee
+                  {!isPro && <Lock className="w-3.5 h-3.5 ml-1 opacity-60" />}
                 </Button>
               </CardContent>
             </Card>
@@ -663,6 +738,11 @@ export default function VendorEmployees() {
           </DialogHeader>
           <Form {...payrollForm}>
             <form onSubmit={payrollForm.handleSubmit((data) => {
+              if (!isPro) {
+                setBlockedAction('save');
+                setShowUpgradeModal(true);
+                return;
+              }
               if (payingSalaryEmployee) {
                 paySalaryMutation.mutate({ employeeId: payingSalaryEmployee.id, data });
               }
@@ -757,6 +837,12 @@ export default function VendorEmployees() {
         </DialogContent>
       </Dialog>
 
+      {/* Pro Upgrade Modal */}
+      <ProUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        action={blockedAction}
+      />
     </div>
   );
 }
@@ -982,7 +1068,7 @@ function EmployeeCard({
   );
 }
 
-// Employee Form Component
+// Employee Form Component with Multi-step
 function EmployeeForm({
   form,
   onSubmit,
@@ -996,336 +1082,529 @@ function EmployeeForm({
   isEditing: boolean;
   onCancel: () => void;
 }) {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [shiftStartPeriod, setShiftStartPeriod] = useState<string>(form.getValues("shiftStartPeriod") || "AM");
+  const [shiftEndPeriod, setShiftEndPeriod] = useState<string>(form.getValues("shiftEndPeriod") || "PM");
+  
+  const steps = [
+    { id: "basic", title: "Basic Info", description: "Personal details" },
+    { id: "job", title: "Job Details", description: "Role and schedule" },
+    { id: "salary", title: "Salary", description: "Compensation details" },
+    { id: "docs", title: "Documents", description: "ID proofs" },
+  ];
+
+  const validateCurrentStep = () => {
+    const values = form.getValues();
+    switch (currentStep) {
+      case 0: // Basic
+        return values.name && values.phone && values.email;
+      case 1: // Job
+        return values.role;
+      case 2: // Salary
+        return true; // Salary is optional
+      case 3: // Docs
+        return true; // Docs are optional
+      default:
+        return true;
+    }
+  };
+
+  const handleNext = () => {
+    if (validateCurrentStep() && currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleFormSubmit = (data: any) => {
+    // Add the shift periods to the data
+    onSubmit({
+      ...data,
+      shiftStartPeriod,
+      shiftEndPeriod,
+    });
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-9">
-            <TabsTrigger value="basic" className="text-xs">Basic</TabsTrigger>
-            <TabsTrigger value="job" className="text-xs">Job</TabsTrigger>
-            <TabsTrigger value="salary" className="text-xs">Salary</TabsTrigger>
-            <TabsTrigger value="docs" className="text-xs">Docs</TabsTrigger>
-          </TabsList>
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 w-full">
+        {/* Step Indicator - Card Style */}
+        <div className="bg-white dark:bg-card rounded-xl shadow-sm border p-4">
+          <div className="flex items-center justify-between">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                <div className="flex flex-col items-center">
+                  <div 
+                    className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-semibold transition-all shadow-sm ${
+                      index < currentStep 
+                        ? "bg-gradient-to-br from-green-500 to-emerald-600 text-white" 
+                        : index === currentStep 
+                          ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white ring-4 ring-blue-100 dark:ring-blue-900/30" 
+                          : "bg-gray-100 dark:bg-gray-800 text-gray-400"
+                    }`}
+                  >
+                    {index < currentStep ? <CheckCircle2 className="h-5 w-5" /> : index + 1}
+                  </div>
+                  <div className="mt-2 text-center">
+                    <p className={`text-xs font-medium ${index === currentStep ? "text-blue-600" : index < currentStep ? "text-green-600" : "text-gray-400"}`}>
+                      {step.title}
+                    </p>
+                  </div>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-8 sm:w-16 lg:w-24 h-1 mx-1 sm:mx-3 rounded-full -mt-6 ${index < currentStep ? "bg-gradient-to-r from-green-500 to-emerald-500" : "bg-gray-200 dark:bg-gray-700"}`} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
 
-          <TabsContent value="basic" className="space-y-3 mt-3">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full Name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-3">
+        {/* Step Content - Card Style */}
+        <div>
+          <div className="bg-white dark:bg-card rounded-xl shadow-sm border p-4 sm:p-6">
+          {currentStep === 0 && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold">Basic Information</h3>
+              </div>
               <FormField
                 control={form.control}
-                name="phone"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone *</FormLabel>
+                    <FormLabel>Full Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="9876543210" {...field} />
+                      <Input placeholder="John Doe" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email *</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="email@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Full address" {...field} value={field.value || ""} rows={2} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-3 gap-3">
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City</FormLabel>
-                    <FormControl>
-                      <Input placeholder="City" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="state"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>State</FormLabel>
-                    <FormControl>
-                      <Input placeholder="State" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="pincode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pincode</FormLabel>
-                    <FormControl>
-                      <Input placeholder="123456" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="job" className="space-y-3 mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Manager, Trainer..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Sales, Operations..." {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="employmentType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Type *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="full-time">Full-Time</SelectItem>
-                        <SelectItem value="part-time">Part-Time</SelectItem>
-                        <SelectItem value="contract">Contract</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="onboarding">Onboarding</SelectItem>
-                        <SelectItem value="ex-employee">Ex-Employee</SelectItem>
-                        <SelectItem value="terminated">Terminated</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="shiftStartTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Shift Start</FormLabel>
-                    <FormControl>
-                      <Input placeholder="09:00 AM" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="shiftEndTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Shift End</FormLabel>
-                    <FormControl>
-                      <Input placeholder="06:00 PM" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="salary" className="space-y-3 mt-3">
-            <FormField
-              control={form.control}
-              name="basicSalary"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monthly Salary (₹)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="30000"
-                      {...field}
-                      value={field.value || 0}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            
-            <div className="p-3 bg-gray-50 rounded-lg space-y-3">
-              <p className="text-xs font-medium text-gray-600">Bank Details (Optional)</p>
-              <FormField
-                control={form.control}
-                name="bankName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Bank Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="HDFC Bank" {...field} value={field.value || ""} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
               <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
-                  name="bankAccountNumber"
+                  name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Account Number</FormLabel>
+                      <FormLabel>Phone *</FormLabel>
                       <FormControl>
-                        <Input placeholder="1234567890" {...field} value={field.value || ""} />
+                        <Input placeholder="9876543210" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email *</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="email@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Full address" {...field} value={field.value || ""} rows={2} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-3 gap-3">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input placeholder="City" {...field} value={field.value || ""} />
                       </FormControl>
                     </FormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="bankIfscCode"
+                  name="state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">IFSC Code</FormLabel>
+                      <FormLabel>State</FormLabel>
                       <FormControl>
-                        <Input placeholder="HDFC0001234" {...field} value={field.value || ""} />
+                        <Input placeholder="State" {...field} value={field.value || ""} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="pincode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pincode</FormLabel>
+                      <FormControl>
+                        <Input placeholder="123456" {...field} value={field.value || ""} />
                       </FormControl>
                     </FormItem>
                   )}
                 />
               </div>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="docs" className="space-y-3 mt-3">
-            <div className="p-3 bg-gray-50 rounded-lg space-y-3">
-              <p className="text-xs font-medium text-gray-600">ID Proof Details</p>
-              <FormField
-                control={form.control}
-                name="idProofType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">ID Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+          {currentStep === 1 && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                  <Briefcase className="h-4 w-4 text-indigo-600" />
+                </div>
+                <h3 className="text-lg font-semibold">Job Details</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Role *</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select ID type" />
-                        </SelectTrigger>
+                        <Input placeholder="Manager, Trainer..." {...field} />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="aadhar">Aadhar Card</SelectItem>
-                        <SelectItem value="pan">PAN Card</SelectItem>
-                        <SelectItem value="passport">Passport</SelectItem>
-                        <SelectItem value="driving_license">Driving License</SelectItem>
-                        <SelectItem value="voter_id">Voter ID</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Department</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Sales, Operations..." {...field} value={field.value || ""} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="employmentType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Type *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="full-time">Full-Time</SelectItem>
+                          <SelectItem value="part-time">Part-Time</SelectItem>
+                          <SelectItem value="contract">Contract</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                          <SelectItem value="onboarding">Onboarding</SelectItem>
+                          <SelectItem value="ex-employee">Ex-Employee</SelectItem>
+                          <SelectItem value="terminated">Terminated</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Shift Time with AM/PM */}
+              <div className="p-4 bg-gray-50 dark:bg-muted/30 rounded-xl space-y-3">
+                <p className="text-sm font-medium">Shift Timing</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <FormLabel className="text-xs">Shift Start</FormLabel>
+                    <div className="flex gap-2">
+                      <FormField
+                        control={form.control}
+                        name="shiftStartTime"
+                        render={({ field }) => (
+                          <FormControl>
+                            <Input 
+                              type="time" 
+                              placeholder="09:00" 
+                              {...field} 
+                              value={field.value || ""} 
+                              className="flex-1"
+                            />
+                          </FormControl>
+                        )}
+                      />
+                      <Select value={shiftStartPeriod} onValueChange={setShiftStartPeriod}>
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AM">AM</SelectItem>
+                          <SelectItem value="PM">PM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <FormLabel className="text-xs">Shift End</FormLabel>
+                    <div className="flex gap-2">
+                      <FormField
+                        control={form.control}
+                        name="shiftEndTime"
+                        render={({ field }) => (
+                          <FormControl>
+                            <Input 
+                              type="time" 
+                              placeholder="06:00" 
+                              {...field} 
+                              value={field.value || ""} 
+                              className="flex-1"
+                            />
+                          </FormControl>
+                        )}
+                      />
+                      <Select value={shiftEndPeriod} onValueChange={setShiftEndPeriod}>
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AM">AM</SelectItem>
+                          <SelectItem value="PM">PM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Work Days Per Month */}
               <FormField
                 control={form.control}
-                name="idProofNumber"
+                name="workDaysPerMonth"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs">ID Number</FormLabel>
+                    <FormLabel>Work Days Per Month</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter ID number" {...field} value={field.value || ""} />
+                      <Input
+                        type="number"
+                        placeholder="Enter number of work days"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
+                      />
                     </FormControl>
+                    <p className="text-xs text-muted-foreground">Number of days employee is expected to work per month</p>
                   </FormItem>
                 )}
               />
             </div>
-            <p className="text-xs text-gray-500 text-center py-2">Document uploads can be added from employee profile</p>
-          </TabsContent>
-        </Tabs>
+          )}
 
-        <DialogFooter className="gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700">
-            {isPending ? "Saving..." : isEditing ? "Update" : "Add Employee"}
-          </Button>
-        </DialogFooter>
+          {currentStep === 2 && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <Wallet className="h-4 w-4 text-emerald-600" />
+                </div>
+                <h3 className="text-lg font-semibold">Salary Details</h3>
+              </div>
+              <FormField
+                control={form.control}
+                name="basicSalary"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Monthly Salary (₹)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Enter monthly salary"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              
+              <div className="p-4 bg-gray-50 dark:bg-muted/30 rounded-xl space-y-3">
+                <p className="text-sm font-medium">Bank Details (Optional)</p>
+                <FormField
+                  control={form.control}
+                  name="bankName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Bank Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="HDFC Bank" {...field} value={field.value || ""} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="bankAccountNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Account Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter account number" {...field} value={field.value || ""} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="bankIfscCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">IFSC Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="HDFC0001234" {...field} value={field.value || ""} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 3 && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                  <FileText className="h-4 w-4 text-purple-600" />
+                </div>
+                <h3 className="text-lg font-semibold">Documents</h3>
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-muted/30 rounded-xl space-y-3">
+                <p className="text-sm font-medium">ID Proof Details</p>
+                <FormField
+                  control={form.control}
+                  name="idProofType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">ID Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select ID type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="aadhar">Aadhar Card</SelectItem>
+                          <SelectItem value="pan">PAN Card</SelectItem>
+                          <SelectItem value="passport">Passport</SelectItem>
+                          <SelectItem value="driving_license">Driving License</SelectItem>
+                          <SelectItem value="voter_id">Voter ID</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="idProofNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">ID Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter ID number" {...field} value={field.value || ""} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-center py-2">Document uploads can be added from employee profile</p>
+            </div>
+          )}
+          </div>
+        </div>
+
+        {/* Footer with Navigation - Card Style */}
+        <div className="bg-white dark:bg-card rounded-xl shadow-sm border p-4 sticky bottom-0">
+          <div className="flex gap-3">
+            {currentStep > 0 && (
+              <Button type="button" variant="outline" onClick={handleBack} className="flex-1 h-12 text-base font-medium">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            )}
+            {currentStep === 0 && (
+              <Button type="button" variant="outline" onClick={onCancel} className="flex-1 h-12 text-base font-medium">
+                Cancel
+              </Button>
+            )}
+            {currentStep < steps.length - 1 ? (
+              <Button 
+                type="button" 
+                onClick={handleNext} 
+                className="flex-1 h-12 text-base font-medium bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg shadow-blue-500/25"
+                disabled={!validateCurrentStep()}
+              >
+                Save & Next
+                <ChevronRight className="h-5 w-5 ml-2" />
+              </Button>
+            ) : (
+              <Button 
+                type="submit" 
+                disabled={isPending} 
+                className="flex-1 h-12 text-base font-medium bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg shadow-green-500/25"
+              >
+                {isPending ? "Saving..." : isEditing ? "Update Employee" : "Add Employee"}
+              </Button>
+            )}
+          </div>
+        </div>
       </form>
     </Form>
   );

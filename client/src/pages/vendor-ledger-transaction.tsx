@@ -229,7 +229,7 @@ export default function VendorLedgerTransaction() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky Header - Transaction Type Selection */}
-      <div className="sticky top-0 z-50 bg-background border-b">
+      <div className="sticky top-0 z-30 bg-background border-b">
         <div className="flex items-center gap-3 px-4 py-3">
       <Button
         variant="ghost"
@@ -282,8 +282,8 @@ export default function VendorLedgerTransaction() {
         </div>
       </div>
 
-      {/* Form Content - Scrollable */}
-      <div className="flex-1 overflow-auto pb-24">
+      {/* Form Content - Scrollable with extra padding for fixed button */}
+      <div className="flex-1 overflow-auto pb-32">
           <Form {...form}>
           <form className="p-4 space-y-4">
             {/* Amount - Big Input */}
@@ -632,21 +632,20 @@ export default function VendorLedgerTransaction() {
             )}
           </form>
         </Form>
-                </div>
-
-      {/* Fixed Bottom Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t safe-area-inset-bottom">
-                        <Button
+      
+      {/* Save Entry Button - Inline in scrollable content with gap from footer */}
+      <div className="px-4 pb-28 md:pb-8">
+        <Button
           type="submit"
           size="lg"
           disabled={createMutation.isPending || amount <= 0}
           onClick={form.handleSubmit(onSubmit)}
-          className={`w-full h-14 rounded-xl text-lg font-semibold ${
+          className={`w-full h-14 rounded-xl text-lg font-semibold shadow-lg ${
             transactionType === "in" 
               ? "bg-green-600 hover:bg-green-700" 
               : "bg-red-600 hover:bg-red-700"
           }`}
-                        >
+        >
           {createMutation.isPending ? (
             "Saving..."
           ) : (
@@ -655,8 +654,9 @@ export default function VendorLedgerTransaction() {
               Save Entry
             </>
           )}
-                        </Button>
-                      </div>
+        </Button>
+      </div>
+      </div>
 
       {/* Customer Selection Sheet */}
       <Sheet open={customerSheetOpen} onOpenChange={setCustomerSheetOpen}>

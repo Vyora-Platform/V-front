@@ -202,7 +202,7 @@ export default function VendorReferral() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-600 via-blue-500 to-blue-600 dark:from-blue-900 dark:via-blue-800 dark:to-blue-900">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-blue-600/95 dark:bg-blue-900/95 backdrop-blur-sm">
+      <div className="sticky top-0 z-30 bg-blue-600/95 dark:bg-blue-900/95 backdrop-blur-sm">
         <div className="flex items-center gap-3 p-4 max-w-4xl mx-auto">
           <Link href="/vendor/dashboard">
             <Button variant="ghost" size="icon" className="shrink-0 text-white hover:bg-white/20">

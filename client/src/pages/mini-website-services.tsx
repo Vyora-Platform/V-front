@@ -421,7 +421,14 @@ export default function MiniWebsiteServices() {
             {/* Back Button + Title Row */}
             <div className="flex items-center gap-3 mb-2">
               <button
-                onClick={() => setLocation(`/${subdomain}`)}
+                onClick={() => {
+                  // Standard e-commerce back navigation
+                  if (window.history.length > 1) {
+                    window.history.back();
+                  } else {
+                    setLocation(`/${subdomain}`);
+                  }
+                }}
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-700" />

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useRoute } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Booking, Vendor } from "@shared/schema";
+import type { Booking, Vendor, Employee } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ import {
   Building2,
   MessageCircle,
   Repeat,
+  UserCheck,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +87,17 @@ export default function VendorBookingDetail() {
     queryKey: [`/api/vendors/${vendorId}`],
     enabled: !!vendorId,
   });
+
+  // Fetch employees for assigned to info
+  const { data: employees = [] } = useQuery<Employee[]>({
+    queryKey: [`/api/vendors/${vendorId}/employees`],
+    enabled: !!vendorId,
+  });
+
+  // Get assigned employee
+  const assignedEmployee = booking?.assignedTo 
+    ? employees.find(e => e.id === booking.assignedTo) 
+    : null;
 
   // Update status mutation
   const updateStatusMutation = useMutation({
@@ -472,6 +484,23 @@ Thank you for choosing us! 🙏`;
               <div className="p-3 bg-muted/30 rounded-lg">
                 <p className="text-xs text-muted-foreground mb-1">Last Updated</p>
                 <p className="text-sm font-medium">{format(new Date(booking.updatedAt), "PPp")}</p>
+              </div>
+            </div>
+            {/* Assigned To */}
+            <div className="flex items-center gap-3 p-3 rounded-lg border">
+              <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                <UserCheck className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Assigned To</p>
+                {assignedEmployee ? (
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{assignedEmployee.name}</p>
+                    <Badge variant="outline" className="text-[10px]">{assignedEmployee.role}</Badge>
+                  </div>
+                ) : (
+                  <p className="font-medium text-muted-foreground">Unassigned</p>
+                )}
               </div>
             </div>
             {booking.notes && (

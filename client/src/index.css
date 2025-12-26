@@ -64,6 +64,52 @@
   }
 }
 
+/* ============================================
+   GLOBAL Z-INDEX LAYERING SYSTEM
+   Prevents header overlap issues across all modules
+   ============================================ */
+
+/* 
+  Z-Index Hierarchy (highest to lowest):
+  - z-[200]: Toast notifications
+  - z-[150]: Modals, Dialogs, Sheets
+  - z-[100]: Main app header (VendorLayout/AdminLayout)
+  - z-[90]:  Mobile bottom navigation
+  - z-50:   Dropdowns, Popovers, Tooltips
+  - z-40:   Module-level floating elements (FABs)
+  - z-30:   Module sticky sub-headers, filter bars
+  - z-20:   Module headers, navigation within modules
+  - z-10:   Elevated cards, nested sticky elements
+  - z-0:    Base content layer
+*/
+
+/* Ensure main content scrolls under the fixed header */
+@layer base {
+  /* Module content should create a new stacking context */
+  main > div,
+  main > section {
+    isolation: isolate;
+  }
+  
+  /* Prevent module-level sticky elements from overlapping main header */
+  [class*="sticky"][class*="top-0"]:not([class*="z-[100]"]):not([class*="z-[150]"]) {
+    z-index: 30 !important;
+  }
+  
+  /* Ensure dialogs/modals always appear above everything */
+  [role="dialog"],
+  [data-radix-portal],
+  .fixed[class*="inset-0"] {
+    z-index: 150 !important;
+  }
+  
+  /* Toast container at the very top */
+  [data-sonner-toaster],
+  .toaster {
+    z-index: 200 !important;
+  }
+}
+
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0,0,0, .10);
