@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +14,27 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getApiUrl } from "@/lib/config";
-import { ArrowLeft, Save, Upload, X, FileText } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Save, 
+  Upload, 
+  X, 
+  FileText, 
+  Camera,
+  Calculator,
+  Calendar,
+  CreditCard,
+  Banknote,
+  Smartphone,
+  Building2,
+  Repeat,
+  Clock,
+  Plus,
+  Minus,
+  IndianRupee,
+  ChevronDown,
+  Image
+} from "lucide-react";
 
 const formSchema = z.object({
   customerId: z.string(),
@@ -38,11 +58,37 @@ type Customer = {
   phone: string;
 };
 
+const PAYMENT_METHODS = [
+  { id: "cash", label: "Cash", icon: Banknote },
+  { id: "upi", label: "UPI", icon: Smartphone },
+  { id: "bank_transfer", label: "Bank", icon: Building2 },
+  { id: "card", label: "Card", icon: CreditCard },
+];
+
+const CATEGORIES_IN = [
+  { id: "product_sale", label: "Product Sale" },
+  { id: "service", label: "Service" },
+  { id: "loan_received", label: "Loan Received" },
+  { id: "advance", label: "Advance Payment" },
+  { id: "other", label: "Other" },
+];
+
+const CATEGORIES_OUT = [
+  { id: "purchase", label: "Purchase" },
+  { id: "refund", label: "Refund" },
+  { id: "loan_given", label: "Loan Given" },
+  { id: "salary", label: "Salary" },
+  { id: "rent", label: "Rent" },
+  { id: "utility", label: "Utility Bill" },
+  { id: "other", label: "Other" },
+];
+
 export default function VendorLedgerCustomerTransaction() {
   const params = useParams<{ vendorId: string; customerId: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   const vendorId = params.vendorId!;
   const customerId = params.customerId!;
@@ -77,8 +123,8 @@ export default function VendorLedgerCustomerTransaction() {
     mutationFn: (data: FormData) => apiRequest("POST", `/api/vendors/${vendorId}/ledger-transactions`, data),
     onSuccess: () => {
       toast({
-        title: "Transaction created",
-        description: "The transaction has been added successfully.",
+        title: "Entry added!",
+        description: `₹${form.getValues('amount').toLocaleString()} ${transactionType === "in" ? "received" : "paid"} successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "ledger-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "ledger-summary"] });
@@ -103,7 +149,7 @@ export default function VendorLedgerCustomerTransaction() {
     if (!validTypes.includes(file.type)) {
       toast({
         title: "Invalid file type",
-        description: "Only images (JPEG, PNG, WebP, GIF) and PDF files are allowed",
+        description: "Only images and PDF files are allowed",
         variant: "destructive",
       });
       return;
@@ -149,7 +195,6 @@ export default function VendorLedgerCustomerTransaction() {
       });
     } finally {
       setUploadingFile(false);
-      // Reset file input
       event.target.value = "";
     }
   };
@@ -164,196 +209,312 @@ export default function VendorLedgerCustomerTransaction() {
   };
 
   const isRecurring = form.watch("isRecurring");
+  const amount = form.watch("amount");
+  const categories = transactionType === "in" ? CATEGORIES_IN : CATEGORIES_OUT;
 
   return (
-    <div className="flex h-full w-full flex-col gap-6 p-3 sm:p-4 md:p-6 pb-16 md:pb-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
+    <div className="flex flex-col min-h-screen bg-background">
+      {/* Sticky Header - Khatabook Style */}
+      <div className={`sticky top-0 z-50 ${transactionType === "in" ? "bg-green-600" : "bg-red-600"}`}>
+        <div className="flex items-center justify-between px-4 py-3 text-white">
+          <div className="flex items-center gap-3">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => navigate(`/vendors/${vendorId}/ledger/customer/${customerId}`)}
-          className="md:hidden flex-shrink-0"
-          data-testid="button-back"
+              className="text-white hover:bg-white/20 -ml-2"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-3xl font-semibold" data-testid="heading-transaction">
+              <h1 className="text-lg font-semibold">
             {transactionType === "in" ? "You Got Money" : "You Gave Money"}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {transactionType === "in" ? "Record money received from" : "Record money paid to"} {customer?.name}
+              <p className="text-xs opacity-90">
+                {transactionType === "in" ? "Received from" : "Paid to"} {customer?.name}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Big Amount Display */}
+        <div className="px-4 pb-6 pt-2">
+          <div className="flex items-center justify-center">
+            <span className="text-3xl font-bold text-white mr-1">₹</span>
+            <input
+              type="number"
+              value={amount || ""}
+              onChange={(e) => form.setValue("amount", parseFloat(e.target.value) || 0)}
+              placeholder="0"
+              className="text-5xl font-bold text-white bg-transparent border-none outline-none text-center w-full placeholder:text-white/50"
+              style={{ maxWidth: "280px" }}
+            />
+          </div>
+          <p className="text-center text-white/80 text-sm mt-2">
+            Enter {transactionType === "in" ? "received" : "paid"} amount
           </p>
         </div>
       </div>
 
-      {/* Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Transaction Details</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Form Content - Scrollable */}
+      <div className="flex-1 overflow-auto pb-24">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Amount */}
+          <form className="p-4 space-y-4">
+            {/* Date Field - Prominent */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
               <FormField
                 control={form.control}
-                name="amount"
+                  name="transactionDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Amount *</FormLabel>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Calendar className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <FormLabel className="text-sm font-medium">Date</FormLabel>
+                            <p className="text-xs text-muted-foreground">When did this happen?</p>
+                          </div>
+                        </div>
                     <FormControl>
                       <Input
-                        type="number"
-                        placeholder="0"
+                            type="date" 
                         {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        data-testid="input-amount"
+                            className="w-auto border-0 bg-muted/50 rounded-lg text-right"
                       />
                     </FormControl>
+                      </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              </CardContent>
+            </Card>
 
-              {/* Transaction Date */}
+            {/* Payment Method - Visual Selection */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
               <FormField
                 control={form.control}
-                name="transactionDate"
+                  name="paymentMethod"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Transaction Date *</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} data-testid="input-transaction-date" />
-                    </FormControl>
+                      <FormLabel className="text-sm font-medium mb-3 block">Payment Mode</FormLabel>
+                      <div className="grid grid-cols-4 gap-2">
+                        {PAYMENT_METHODS.map((method) => {
+                          const Icon = method.icon;
+                          const isSelected = field.value === method.id;
+                          return (
+                            <button
+                              key={method.id}
+                              type="button"
+                              onClick={() => field.onChange(method.id)}
+                              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                                isSelected 
+                                  ? "border-primary bg-primary/5 text-primary" 
+                                  : "border-transparent bg-muted/50 text-muted-foreground hover:border-muted-foreground/30"
+                              }`}
+                            >
+                              <Icon className="h-5 w-5" />
+                              <span className="text-xs font-medium">{method.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              </CardContent>
+            </Card>
 
               {/* Description */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
               <FormField
                 control={form.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <FormLabel className="text-sm font-medium">Details (Optional)</FormLabel>
+                          <p className="text-xs text-muted-foreground">Add a note about this entry</p>
+                        </div>
+                      </div>
                     <FormControl>
                       <Textarea
-                        placeholder="What was this transaction for?"
+                          placeholder="e.g., Payment for invoice #123"
                         {...field}
                         value={field.value || ""}
-                        data-testid="textarea-description"
+                          className="rounded-xl border-muted resize-none"
+                          rows={2}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              </CardContent>
+            </Card>
 
-              {/* Optional Fields Section */}
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-medium">Optional Details</h3>
+            {/* Attachments */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Camera className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Attach Bill/Receipt</p>
+                    <p className="text-xs text-muted-foreground">Add photo proof</p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <Input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={handleFileUpload}
+                      disabled={uploadingFile}
+                      className="hidden"
+                    />
+                    <div className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      uploadingFile ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+                    }`}>
+                      {uploadingFile ? "Uploading..." : "Add Photo"}
+                    </div>
+                  </label>
+                </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Attachments Preview */}
+                {form.watch("attachments").length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {form.watch("attachments").map((attachment, index) => (
+                      <div
+                        key={index}
+                        className="relative w-16 h-16 rounded-lg overflow-hidden border bg-muted"
+                      >
+                        {attachment.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                          <img 
+                            src={attachment} 
+                            alt="Attachment" 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <FileText className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(index)}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* More Options Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowMoreOptions(!showMoreOptions)}
+              className="w-full flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>{showMoreOptions ? "Hide" : "Show"} more options</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${showMoreOptions ? "rotate-180" : ""}`} />
+            </button>
+
+            {/* More Options */}
+            {showMoreOptions && (
+              <div className="space-y-4">
                   {/* Category */}
+                <Card className="overflow-hidden">
+                  <CardContent className="p-4">
                   <FormField
                     control={form.control}
                     name="category"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-category">
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="product_sale">Product Sale</SelectItem>
-                            <SelectItem value="service">Service</SelectItem>
-                            <SelectItem value="rent">Rent</SelectItem>
-                            <SelectItem value="salary">Salary</SelectItem>
-                            <SelectItem value="utility">Utility</SelectItem>
-                            <SelectItem value="purchase">Purchase</SelectItem>
-                            <SelectItem value="investment">Investment</SelectItem>
-                            <SelectItem value="loan">Loan</SelectItem>
-                            <SelectItem value="tax">Tax</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <FormLabel className="text-sm font-medium mb-3 block">Category</FormLabel>
+                          <div className="flex flex-wrap gap-2">
+                            {categories.map((cat) => (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => field.onChange(cat.id)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                                  field.value === cat.id
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-border bg-background hover:border-primary/50"
+                                }`}
+                              >
+                                {cat.label}
+                              </button>
+                            ))}
+                          </div>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  </CardContent>
+                </Card>
 
-                  {/* Payment Method */}
-                  <FormField
-                    control={form.control}
-                    name="paymentMethod"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Payment Method</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-payment-method">
-                              <SelectValue placeholder="Select payment method" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="cash">Cash</SelectItem>
-                            <SelectItem value="upi">UPI</SelectItem>
-                            <SelectItem value="card">Card</SelectItem>
-                            <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                            <SelectItem value="cheque">Cheque</SelectItem>
-                            <SelectItem value="wallet">Wallet</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Note (Private) */}
+                {/* Private Note */}
+                <Card className="overflow-hidden">
+                  <CardContent className="p-4">
                 <FormField
                   control={form.control}
                   name="note"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Private Note</FormLabel>
+                          <FormLabel className="text-sm font-medium">Private Note</FormLabel>
+                          <FormDescription className="text-xs">Only visible to you</FormDescription>
                       <FormControl>
                         <Textarea
-                          placeholder="Add a private note (only visible to you)"
+                              placeholder="Add a private note..."
                           {...field}
                           value={field.value || ""}
-                          data-testid="textarea-note"
+                              className="rounded-xl border-muted resize-none mt-2"
+                              rows={2}
                         />
                       </FormControl>
-                      <FormDescription>This note is private and won't be shared</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                  </CardContent>
+                </Card>
 
-                {/* Recurring Transaction */}
+                {/* Recurring */}
+                <Card className="overflow-hidden">
+                  <CardContent className="p-4">
                 <FormField
                   control={form.control}
                   name="isRecurring"
                   render={({ field }) => (
-                    <FormItem className="flex items-center justify-between rounded-md border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel>Recurring Transaction</FormLabel>
-                        <FormDescription>
-                          Set up automatic recurring transactions
-                        </FormDescription>
+                        <FormItem className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Repeat className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <FormLabel className="text-sm font-medium">Recurring Entry</FormLabel>
+                              <FormDescription className="text-xs">Repeat this entry automatically</FormDescription>
+                            </div>
                       </div>
                       <FormControl>
                         <Switch
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          data-testid="switch-recurring"
                         />
                       </FormControl>
                     </FormItem>
@@ -365,12 +526,12 @@ export default function VendorLedgerCustomerTransaction() {
                     control={form.control}
                     name="recurringPattern"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Recurrence Pattern</FormLabel>
+                          <FormItem className="mt-4">
+                            <FormLabel className="text-sm font-medium">Repeat</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || undefined}>
                           <FormControl>
-                            <SelectTrigger data-testid="select-recurring-pattern">
-                              <SelectValue placeholder="Select pattern" />
+                                <SelectTrigger className="rounded-xl">
+                                  <SelectValue placeholder="Select frequency" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -385,79 +546,37 @@ export default function VendorLedgerCustomerTransaction() {
                     )}
                   />
                 )}
-
-                {/* File Upload Section */}
-                <div className="space-y-2">
-                  <FormLabel>Attachments</FormLabel>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={handleFileUpload}
-                      disabled={uploadingFile}
-                      className="cursor-pointer"
-                      data-testid="input-file-upload"
-                    />
-                    {uploadingFile && (
-                      <span className="text-sm text-muted-foreground">Uploading...</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Upload receipts, invoices, or bills (Images or PDF, max 10MB)
-                  </p>
-
-                  {/* Attachments List */}
-                  {form.watch("attachments").length > 0 && (
-                    <div className="space-y-2 mt-4">
-                      {form.watch("attachments").map((attachment, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-2 rounded-md border bg-muted/50"
-                          data-testid={`attachment-${index}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4" />
-                            <span className="text-sm truncate">{attachment.split('/').pop()}</span>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeAttachment(index)}
-                            data-testid={`button-remove-attachment-${index}`}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </form>
+        </Form>
               </div>
 
-              {/* Submit Button */}
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate(`/vendors/${vendorId}/ledger/customer/${customerId}`)}
-                  data-testid="button-cancel"
-                >
-                  Cancel
-                </Button>
+      {/* Fixed Bottom Button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t safe-area-inset-bottom">
                 <Button
                   type="submit"
-                  disabled={createMutation.isPending}
-                  data-testid="button-submit"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {createMutation.isPending ? "Saving..." : "Save Transaction"}
+          size="lg"
+          disabled={createMutation.isPending || amount <= 0}
+          onClick={form.handleSubmit(onSubmit)}
+          className={`w-full h-14 rounded-xl text-lg font-semibold ${
+            transactionType === "in" 
+              ? "bg-green-600 hover:bg-green-700" 
+              : "bg-red-600 hover:bg-red-700"
+          }`}
+        >
+          {createMutation.isPending ? (
+            "Saving..."
+          ) : (
+            <>
+              <Save className="h-5 w-5 mr-2" />
+              Save Entry
+            </>
+          )}
                 </Button>
               </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
     </div>
   );
 }

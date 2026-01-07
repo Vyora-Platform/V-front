@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { LogIn, ArrowLeft } from "lucide-react";
 
 export default function CustomerSignup() {
-  const [, params] = useRoute("/site/:subdomain/signup");
+  const [, params] = useRoute("/:subdomain/signup");
   const subdomain = params?.subdomain || "";
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -95,7 +95,7 @@ export default function CustomerSignup() {
 
       // Small delay to ensure localStorage is written before redirect
       setTimeout(() => {
-        window.location.href = `/site/${subdomain}`;
+        window.location.href = `/${subdomain}`;
       }, 100);
     } catch (error: any) {
       toast({
@@ -116,7 +116,7 @@ export default function CustomerSignup() {
           variant="ghost"
           size="sm"
           className="mb-4"
-          onClick={() => window.location.href = `/site/${subdomain}`}
+          onClick={() => window.location.href = `/${subdomain}`}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to website
@@ -198,7 +198,7 @@ export default function CustomerSignup() {
             <div className="mt-6 text-center text-sm">
               <span className="text-muted-foreground">Already have an account?</span>{" "}
               <a
-                href={`/site/${subdomain}/login`}
+                href={`/${subdomain}/login`}
                 className="text-primary hover:underline font-semibold"
               >
                 <LogIn className="inline h-4 w-4 mr-1" />

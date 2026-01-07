@@ -230,34 +230,34 @@ interface QuickStatsProps {
 
 function QuickStats({ stats }: QuickStatsProps) {
   return (
-    <div className="grid grid-cols-4 gap-2 md:gap-3">
-      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3 text-white shadow-lg shadow-blue-500/20">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3 md:p-4 text-white shadow-lg shadow-blue-500/20 min-h-[var(--card-min-h)]">
         <div className="flex items-center justify-between">
-          <Inbox className="w-4 h-4 md:w-5 md:h-5 opacity-80" />
-          <span className="text-lg md:text-2xl font-bold">{stats.total}</span>
+          <Inbox className="w-5 h-5 opacity-80" />
+          <span className="text-xl md:text-2xl font-bold">{stats.total}</span>
         </div>
-        <p className="text-[10px] md:text-xs opacity-80 mt-1">Total</p>
+        <p className="text-xs opacity-80 mt-1">Total</p>
       </div>
-      <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl p-3 text-white shadow-lg shadow-rose-500/20">
+      <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl p-3 md:p-4 text-white shadow-lg shadow-rose-500/20 min-h-[var(--card-min-h)]">
         <div className="flex items-center justify-between">
-          <CircleDot className="w-4 h-4 md:w-5 md:h-5 opacity-80" />
-          <span className="text-lg md:text-2xl font-bold">{stats.unread}</span>
+          <CircleDot className="w-5 h-5 opacity-80" />
+          <span className="text-xl md:text-2xl font-bold">{stats.unread}</span>
         </div>
-        <p className="text-[10px] md:text-xs opacity-80 mt-1">Unread</p>
+        <p className="text-xs opacity-80 mt-1">Unread</p>
       </div>
-      <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-3 text-white shadow-lg shadow-amber-500/20">
+      <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-3 md:p-4 text-white shadow-lg shadow-amber-500/20 min-h-[var(--card-min-h)]">
         <div className="flex items-center justify-between">
-          <Zap className="w-4 h-4 md:w-5 md:h-5 opacity-80" />
-          <span className="text-lg md:text-2xl font-bold">{stats.today}</span>
+          <Zap className="w-5 h-5 opacity-80" />
+          <span className="text-xl md:text-2xl font-bold">{stats.today}</span>
         </div>
-        <p className="text-[10px] md:text-xs opacity-80 mt-1">Today</p>
+        <p className="text-xs opacity-80 mt-1">Today</p>
       </div>
-      <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-3 text-white shadow-lg shadow-emerald-500/20">
+      <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-3 md:p-4 text-white shadow-lg shadow-emerald-500/20 min-h-[var(--card-min-h)]">
         <div className="flex items-center justify-between">
-          <CheckCheck className="w-4 h-4 md:w-5 md:h-5 opacity-80" />
-          <span className="text-lg md:text-2xl font-bold">{stats.total - stats.unread}</span>
+          <CheckCheck className="w-5 h-5 opacity-80" />
+          <span className="text-xl md:text-2xl font-bold">{stats.total - stats.unread}</span>
         </div>
-        <p className="text-[10px] md:text-xs opacity-80 mt-1">Read</p>
+        <p className="text-xs opacity-80 mt-1">Read</p>
       </div>
     </div>
   );
@@ -475,20 +475,54 @@ function NotificationDetail({ notification, isOpen, onClose, onRead, onDelete, o
             </Badge>
           </div>
           
-          {/* Actions */}
+          {/* Actions - Smart redirect based on notification type */}
           <div className="flex items-center gap-2 pt-4 border-t">
-            {notification.link && (
+            {/* Smart navigation button based on notification type */}
               <Button 
                 className={cn("flex-1 bg-gradient-to-r text-white", config.color)}
                 onClick={() => {
-                  onNavigate(notification.link!);
+                // Smart redirect based on notification type
+                let targetUrl = notification.link;
+                if (!targetUrl) {
+                  switch (notification.type) {
+                    case 'quotation':
+                      targetUrl = '/vendor/quotations?tab=requests';
+                      break;
+                    case 'lead':
+                      targetUrl = '/vendor/leads';
+                      break;
+                    case 'order':
+                      targetUrl = '/vendor/orders';
+                      break;
+                    case 'booking':
+                      targetUrl = '/vendor/bookings';
+                      break;
+                    case 'payment':
+                      targetUrl = '/vendor/transactions';
+                      break;
+                    case 'customer':
+                      targetUrl = '/vendor/customers';
+                      break;
+                    case 'review':
+                      targetUrl = '/vendor/reviews';
+                      break;
+                    case 'stock':
+                      targetUrl = '/vendor/inventory';
+                      break;
+                    case 'attendance':
+                      targetUrl = '/vendor/employee-attendance';
+                      break;
+                    default:
+                      targetUrl = '/vendor/dashboard';
+                  }
+                }
+                onNavigate(targetUrl);
                   onClose();
                 }}
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
-                View Details
+              Go to {config.label}
               </Button>
-            )}
             {!notification.read && (
               <Button 
                 variant="outline" 
@@ -737,10 +771,10 @@ export default function VendorNotifications() {
           
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-muted/50 rounded-xl">
+            <TabsList className="grid w-full grid-cols-2 h-[var(--input-h)] p-1 bg-muted/50 rounded-xl">
               <TabsTrigger 
                 value="all" 
-                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm"
               >
                 <Inbox className="w-4 h-4 mr-2" />
                 All
@@ -750,7 +784,7 @@ export default function VendorNotifications() {
               </TabsTrigger>
               <TabsTrigger 
                 value="unread"
-                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm"
               >
                 <CircleDot className="w-4 h-4 mr-2" />
                 Unread
@@ -770,7 +804,7 @@ export default function VendorNotifications() {
               placeholder="Search notifications..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-11 bg-muted/50 border-0 focus-visible:ring-2"
+              className="pl-10 h-[var(--input-h)] bg-muted/50 border-0 focus-visible:ring-2 text-sm"
             />
             {searchQuery && (
           <Button
@@ -810,7 +844,7 @@ export default function VendorNotifications() {
               } : undefined}
             />
           ) : (
-            <div className="bg-background rounded-2xl border shadow-sm overflow-hidden">
+            <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
               <AnimatePresence>
                 {Object.entries(groupedNotifications).map(([date, items]) => (
                   <div key={date}>

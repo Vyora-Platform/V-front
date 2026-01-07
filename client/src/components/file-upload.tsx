@@ -124,7 +124,7 @@ export function FileUpload({
 interface MultiFileUploadProps {
   values: string[];
   onChange: (urls: string[]) => void;
-  category: "hero" | "coupon";
+  category: "hero" | "coupon" | "product" | "service";
   maxFiles?: number;
   className?: string;
   allowAnyFile?: boolean;

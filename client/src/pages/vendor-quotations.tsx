@@ -12,12 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, FileText, Search, Trash2, Send, Check, X, Clock, ArrowLeft, 
   User, Calendar, IndianRupee, Package, Wrench, ChevronRight, 
   MoreVertical, Eye, Download, Share2, CheckCircle2,
   AlertCircle, XCircle, Mail, Phone, MapPin, ShoppingBag, Receipt,
-  Building2, Hash, Percent, PlusCircle
+  Building2, Hash, Percent, PlusCircle, MessageCircle, Globe, Edit
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Quotation, Customer, VendorCatalogue, VendorProduct } from "@shared/schema";
@@ -67,11 +68,24 @@ type AdditionalCharge = {
 export default function VendorQuotations() {
   const { vendorId } = useAuth();
   const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState<"created" | "requests">("created");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [prefilledCustomerId, setPrefilledCustomerId] = useState<string | null>(null);
   const { toast } = useToast();
   const mainContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Handle URL tab parameter (e.g., /vendor/quotations?tab=requests)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'requests') {
+      setActiveTab('requests');
+    } else if (tabParam === 'created') {
+      setActiveTab('created');
+    }
+  }, []);
 
   // Fetch quotations
   const { data: quotations = [], isLoading: loadingQuotations } = useQuery<QuotationWithItems[]>({
@@ -93,20 +107,28 @@ export default function VendorQuotations() {
     enabled: !!vendorId,
   });
 
-  // Calculate stats
+  // Separate quotations by source
+  const createdQuotations = quotations.filter(q => q.source !== "miniwebsite");
+  const requestedQuotations = quotations.filter(q => q.source === "miniwebsite");
+
+  // Calculate stats for current tab
+  const currentQuotations = activeTab === "created" ? createdQuotations : requestedQuotations;
+  
   const stats = {
-    total: quotations.length,
-    draft: quotations.filter(q => q.status === "draft").length,
-    sent: quotations.filter(q => q.status === "sent").length,
-    accepted: quotations.filter(q => q.status === "accepted").length,
-    rejected: quotations.filter(q => q.status === "rejected").length,
-    totalValue: quotations.reduce((sum, q) => sum + parseFloat(q.totalAmount || "0"), 0),
+    total: currentQuotations.length,
+    draft: currentQuotations.filter(q => q.status === "draft").length,
+    sent: currentQuotations.filter(q => q.status === "sent").length,
+    accepted: currentQuotations.filter(q => q.status === "accepted").length,
+    rejected: currentQuotations.filter(q => q.status === "rejected").length,
+    totalValue: currentQuotations.reduce((sum, q) => sum + parseFloat(q.totalAmount || "0"), 0),
+    createdCount: createdQuotations.length,
+    requestsCount: requestedQuotations.length,
   };
 
   // Filter quotations
   if (!vendorId) { return <LoadingSpinner />; }
 
-  const filteredQuotations = quotations.filter(quotation => {
+  const filteredQuotations = currentQuotations.filter(quotation => {
     const matchesStatus = statusFilter === "all" || quotation.status === statusFilter;
     const customer = customers.find(c => c.id === quotation.customerId);
     const matchesSearch = !searchQuery || 
@@ -116,6 +138,23 @@ export default function VendorQuotations() {
     
     return matchesStatus && matchesSearch;
   });
+  
+  // Helper function to make a call
+  const handleCall = (phone: string) => {
+    window.open(`tel:${phone}`);
+  };
+  
+  // Helper function to send WhatsApp message
+  const handleWhatsApp = (phone: string, quotationNumber: string, customerName: string) => {
+    const message = `Hi ${customerName}, regarding your quotation ${quotationNumber} - `;
+    window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`);
+  };
+  
+  // Helper to create quotation from request
+  const handleCreateFromRequest = (customerId: string) => {
+    setPrefilledCustomerId(customerId);
+    setShowCreateDialog(true);
+  };
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -167,213 +206,253 @@ export default function VendorQuotations() {
   return (
     <div 
       ref={mainContainerRef}
-      className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 overflow-y-auto"
+      className="flex flex-col min-h-screen bg-background overflow-y-auto"
     >
-      {/* Hero Header - Fully Scrollable */}
-      <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 text-white">
-        <div className="px-4 py-4 safe-area-inset-top">
-          {/* Top Navigation */}
-          <div className="flex items-center justify-between mb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setLocation("/vendor/dashboard")}
-              className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-            <h1 className="text-xl font-bold">Quotations</h1>
+      {/* Header - Clean Design Like Other Modules */}
+      <div className="bg-background border-b sticky top-0 z-10">
+        <div className="px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <Button
-              onClick={() => setShowCreateDialog(true)}
-              className="h-10 px-4 rounded-full bg-white text-indigo-700 hover:bg-white/90 shadow-lg"
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation("/vendor/dashboard")}
+              className="shrink-0 md:hidden"
             >
-              <Plus className="h-4 w-4 mr-1" />
-              New
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-          </div>
-
-          {/* Stats Cards - Horizontal Scroll */}
-          <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[130px]">
-              <div className="flex items-center gap-2 mb-1">
-                <FileText className="h-4 w-4 text-white/70" />
-                <span className="text-xs text-white/70">Total</span>
-        </div>
-              <p className="text-2xl font-bold">{stats.total}</p>
-      </div>
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[130px]">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock className="h-4 w-4 text-white/70" />
-                <span className="text-xs text-white/70">Draft</span>
-              </div>
-              <p className="text-2xl font-bold">{stats.draft}</p>
-            </div>
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[130px]">
-              <div className="flex items-center gap-2 mb-1">
-                <Send className="h-4 w-4 text-white/70" />
-                <span className="text-xs text-white/70">Sent</span>
-              </div>
-              <p className="text-2xl font-bold">{stats.sent}</p>
-            </div>
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[130px]">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                <span className="text-xs text-white/70">Accepted</span>
-              </div>
-              <p className="text-2xl font-bold text-emerald-300">{stats.accepted}</p>
-            </div>
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[130px]">
-              <div className="flex items-center gap-2 mb-1">
-                <XCircle className="h-4 w-4 text-red-300" />
-                <span className="text-xs text-white/70">Rejected</span>
-              </div>
-              <p className="text-2xl font-bold text-red-300">{stats.rejected}</p>
-            </div>
-            <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4 min-w-[150px]">
-              <div className="flex items-center gap-2 mb-1">
-                <IndianRupee className="h-4 w-4 text-white/70" />
-                <span className="text-xs text-white/70">Total Value</span>
-              </div>
-              <p className="text-xl font-bold">₹{stats.totalValue.toLocaleString('en-IN')}</p>
+            <div>
+              <h1 className="text-lg font-bold text-foreground">Quotations</h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">Manage your quotes</p>
             </div>
           </div>
+          <Button
+            onClick={() => {
+              setPrefilledCustomerId(null);
+              setShowCreateDialog(true);
+            }}
+            size="sm"
+            className="gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Quotation</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        </div>
+
+        {/* Tabs - Created vs Requests */}
+        <div className="px-4">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "created" | "requests")}>
+            <TabsList className="grid w-full grid-cols-2 h-10">
+              <TabsTrigger value="created" className="text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <FileText className="h-4 w-4 mr-2" />
+                Created ({stats.createdCount})
+              </TabsTrigger>
+              <TabsTrigger value="requests" className="text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Globe className="h-4 w-4 mr-2" />
+                Requests ({stats.requestsCount})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {/* Stats Cards - Horizontal Scroll */}
+        <div className="px-4 py-3 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-3 min-w-max">
+            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-blue-200 dark:border-blue-800 rounded-xl">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-blue-500/20">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
+                  <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{stats.total}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/30 dark:to-slate-800/30 border-slate-200 dark:border-slate-800 rounded-xl">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-slate-500/20">
+                  <Clock className="h-4 w-4 text-slate-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Draft</p>
+                  <p className="text-lg font-bold text-slate-700 dark:text-slate-400">{stats.draft}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 border-amber-200 dark:border-amber-800 rounded-xl">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-amber-500/20">
+                  <Send className="h-4 w-4 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Sent</p>
+                  <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{stats.sent}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800 rounded-xl">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-green-500/20">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Accepted</p>
+                  <p className="text-lg font-bold text-green-700 dark:text-green-400">{stats.accepted}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 min-w-[120px] bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 border-red-200 dark:border-red-800 rounded-xl">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-red-500/20">
+                  <XCircle className="h-4 w-4 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Rejected</p>
+                  <p className="text-lg font-bold text-red-700 dark:text-red-400">{stats.rejected}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 min-w-[140px] bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800 rounded-xl">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-purple-500/20">
+                  <IndianRupee className="h-4 w-4 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Value</p>
+                  <p className="text-lg font-bold text-purple-700 dark:text-purple-400">₹{(stats.totalValue / 1000).toFixed(1)}k</p>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
       </div>
 
-      {/* Main Content - White Card with Rounded Top */}
-      <div className="flex-1 bg-white rounded-t-3xl -mt-4 shadow-xl">
+      {/* Main Content */}
+      <div className="flex-1 bg-background">
         {/* Search & Filters */}
-        <div className="p-4 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <Input
-              placeholder="Search by number, customer..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
-            />
-          </div>
-
-          {/* Status Filter Pills */}
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {[
-              { value: "all", label: "All" },
-              { value: "draft", label: "Draft" },
-              { value: "sent", label: "Sent" },
-              { value: "accepted", label: "Accepted" },
-              { value: "rejected", label: "Rejected" },
-            ].map((status) => (
-              <Button
-                key={status.value}
-                variant={statusFilter === status.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter(status.value)}
-                className={`rounded-full flex-shrink-0 ${
-                  statusFilter === status.value 
-                    ? "bg-indigo-600 hover:bg-indigo-700" 
-                    : "bg-white hover:bg-slate-50"
-                }`}
-              >
-                {status.label}
-              </Button>
-              ))}
+        <div className="px-4 py-3 bg-background border-b">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search quotations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-[var(--input-h)] text-sm"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[110px] h-[var(--input-h)] text-sm flex-shrink-0">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="accepted">Accepted</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         {/* Quotations List */}
-        <div className="px-4 pb-24">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-slate-800">
-              Quotations ({filteredQuotations.length})
-            </h2>
-          </div>
-
-            {loadingQuotations ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-              <p className="mt-4 text-slate-500">Loading quotations...</p>
+        <div className="flex-1 overflow-y-auto p-4">
+          {loadingQuotations ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="p-4 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-muted rounded w-1/3" />
+                      <div className="h-3 bg-muted rounded w-1/4" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : filteredQuotations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+                <FileText className="h-10 w-10 text-muted-foreground" />
               </div>
-            ) : filteredQuotations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                <FileText className="h-10 w-10 text-slate-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-700 mb-2">No quotations found</h3>
-              <p className="text-slate-500 text-center mb-6">Create your first quotation to get started</p>
-              <Button 
-                onClick={() => setShowCreateDialog(true)}
-                className="rounded-full bg-indigo-600 hover:bg-indigo-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Quotation
-              </Button>
-          </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No quotations found</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-xs">
+                {statusFilter !== 'all' || searchQuery 
+                  ? "Try adjusting your search or filters"
+                  : "Create your first quotation to get started"}
+              </p>
+              {!searchQuery && statusFilter === 'all' && (
+                <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create Quotation
+                </Button>
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
               {filteredQuotations.map(quotation => {
                 const customer = customers.find(c => c.id === quotation.customerId);
                 const statusConfig = getStatusConfig(quotation.status);
                 const StatusIcon = statusConfig.icon;
+                const isRequest = quotation.source === "miniwebsite";
 
-  return (
+                return (
                   <Card 
                     key={quotation.id} 
-                    className="border border-slate-200 hover:border-indigo-200 hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden"
+                    className="overflow-hidden hover:shadow-md transition-all cursor-pointer active:scale-[0.99] rounded-xl"
                     onClick={() => setLocation(`/vendor/quotations/${quotation.id}`)}
                   >
-                    <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          {/* Header Row */}
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${statusConfig.gradient} flex items-center justify-center`}>
-                              <FileText className="h-4 w-4 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-slate-800 truncate text-sm">
-                {quotation.quotationNumber}
-              </h3>
-                              <p className="text-xs text-slate-500">
-                                {format(new Date(quotation.quotationDate), "dd MMM yyyy")}
-                              </p>
-                            </div>
-                            <Badge className={`${statusConfig.color} border text-xs`}>
-                              <StatusIcon className="h-3 w-3 mr-1" />
-                              {statusConfig.label}
-              </Badge>
-            </div>
-            
-                          {/* Customer Info */}
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
-                              <User className="h-3 w-3 text-indigo-600" />
-              </div>
-                            <span className="text-sm text-slate-600 truncate">
-                              {customer?.name || "Unknown Customer"}
-                            </span>
-              </div>
+                    <CardContent className="p-3 md:p-4">
+                      <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-3">
+                        {/* Icon */}
+                        <div className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center bg-gradient-to-br ${statusConfig.gradient}`}>
+                            {isRequest ? <Globe className="h-5 w-5 text-white" /> : <FileText className="h-5 w-5 text-white" />}
+                        </div>
 
-                          {/* Footer Row */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4 text-xs text-slate-500">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                Valid: {format(new Date(quotation.validUntil), "dd MMM")}
-                              </span>
-              </div>
-                            <div className="flex items-center gap-1">
-                              <IndianRupee className="h-4 w-4 text-indigo-600" />
-                              <span className="text-lg font-bold text-indigo-600">
-                                {parseFloat(quotation.totalAmount || "0").toLocaleString('en-IN')}
-                              </span>
-                            </div>
-              </div>
-            </div>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold text-foreground truncate">{quotation.quotationNumber}</h3>
+                            <Badge className={`${statusConfig.color} border text-[10px] px-1.5 py-0 h-5`}>
+                              {statusConfig.label}
+                            </Badge>
+                              {isRequest && quotation.miniWebsiteSubdomain && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-blue-50 text-blue-700 border-blue-200">
+                                  {quotation.miniWebsiteSubdomain}
+                                </Badge>
+                              )}
+                          </div>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {customer?.name || "Unknown Customer"}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {format(new Date(quotation.quotationDate), "dd MMM yyyy")}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Valid till {format(new Date(quotation.validUntil), "dd MMM")}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Amount */}
+                          <div className="text-right shrink-0 hidden sm:block">
+                          <p className="text-xs text-muted-foreground">Amount</p>
+                          <p className="text-sm font-semibold text-primary">
+                            ₹{parseFloat(quotation.totalAmount || "0").toLocaleString('en-IN')}
+                          </p>
+                        </div>
 
                         {/* Actions Menu */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 ml-2">
+                            <Button variant="ghost" size="icon" className="shrink-0">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -385,6 +464,13 @@ export default function VendorQuotations() {
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                setLocation(`/vendor/quotations/${quotation.id}/edit`);
+                              }}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Quotation
+                              </DropdownMenuItem>
                             <DropdownMenuItem>
                               <Download className="h-4 w-4 mr-2" />
                               Download PDF
@@ -393,12 +479,73 @@ export default function VendorQuotations() {
                               <Share2 className="h-4 w-4 mr-2" />
                               Share
                             </DropdownMenuItem>
+                              {isRequest && (
+                                <DropdownMenuItem onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCreateFromRequest(quotation.customerId);
+                                }}>
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Create New Quotation
+                                </DropdownMenuItem>
+                              )}
                           </DropdownMenuContent>
                         </DropdownMenu>
-        </div>
-      </CardContent>
-    </Card>
-  );
+                        </div>
+
+                        {/* Action Buttons Row */}
+                        {customer && (
+                          <div className="flex items-center gap-2 ml-15 pl-15">
+                            <p className="text-sm font-semibold text-primary sm:hidden mr-auto">
+                              ₹{parseFloat(quotation.totalAmount || "0").toLocaleString('en-IN')}
+                            </p>
+                            {customer.phone && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 px-3 text-xs gap-1.5 text-green-600 border-green-200 hover:bg-green-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCall(customer.phone!);
+                                  }}
+                                >
+                                  <Phone className="h-3.5 w-3.5" />
+                                  <span className="hidden sm:inline">Call</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 px-3 text-xs gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleWhatsApp(customer.phone!, quotation.quotationNumber, customer.name);
+                                  }}
+                                >
+                                  <MessageCircle className="h-3.5 w-3.5" />
+                                  <span className="hidden sm:inline">WhatsApp</span>
+                                </Button>
+                              </>
+                            )}
+                            {isRequest && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="h-8 px-3 text-xs gap-1.5"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCreateFromRequest(quotation.customerId);
+                                }}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Create Quote</span>
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
               })}
             </div>
           )}
@@ -408,11 +555,16 @@ export default function VendorQuotations() {
       {/* Create Quotation Dialog */}
       <CreateQuotationDialog
         open={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
+        onClose={() => {
+          setShowCreateDialog(false);
+          setPrefilledCustomerId(null);
+        }}
         customers={customers}
         vendorId={vendorId}
+        prefilledCustomerId={prefilledCustomerId}
         onSuccess={() => {
           setShowCreateDialog(false);
+          setPrefilledCustomerId(null);
           queryClient.invalidateQueries({ queryKey: ["/api/vendors", vendorId, "quotations"] });
         }}
       />
@@ -426,12 +578,14 @@ function CreateQuotationDialog({
   onClose,
   customers,
   vendorId,
+  prefilledCustomerId,
   onSuccess 
 }: { 
   open: boolean;
   onClose: () => void;
   customers: Customer[];
   vendorId: string;
+  prefilledCustomerId?: string | null;
   onSuccess: () => void;
 }) {
   const [step, setStep] = useState<"customer" | "items" | "charges" | "review">("customer");
@@ -479,8 +633,12 @@ function CreateQuotationDialog({
       setNewChargeName("");
       setNewChargeAmount("");
       setNewChargeTax("18");
+    } else if (prefilledCustomerId) {
+      // Pre-fill customer if coming from a request
+      setCustomerId(prefilledCustomerId);
+      setStep("items"); // Skip to items step
     }
-  }, [open]);
+  }, [open, prefilledCustomerId]);
 
   const addCharge = () => {
     if (!newChargeName.trim() || !newChargeAmount) return;
@@ -685,9 +843,9 @@ function CreateQuotationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
         {/* Header */}
-        <div className="px-4 py-3 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
+        <div className="px-4 py-3 border-b bg-muted/50">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -701,7 +859,7 @@ function CreateQuotationDialog({
               className="h-9 w-9 rounded-full"
             >
               <ArrowLeft className="h-5 w-5" />
-        </Button>
+            </Button>
             <div>
               <DialogTitle className="text-lg font-semibold">Create Quotation</DialogTitle>
               <DialogDescription className="text-xs">
@@ -709,7 +867,7 @@ function CreateQuotationDialog({
                 {step === "items" && "Step 2: Add Items from Catalogue"}
                 {step === "charges" && "Step 3: Additional Charges"}
                 {step === "review" && "Step 4: Review & Create"}
-          </DialogDescription>
+              </DialogDescription>
             </div>
           </div>
 
@@ -718,9 +876,9 @@ function CreateQuotationDialog({
             {steps.map((s, idx) => (
               <div key={s} className="flex items-center gap-1 flex-1">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
-                  step === s ? "bg-indigo-600 text-white" :
-                  currentStepIndex > idx ? "bg-emerald-500 text-white" :
-                  "bg-slate-200 text-slate-500"
+                  step === s ? "bg-primary text-primary-foreground" :
+                  currentStepIndex > idx ? "bg-green-500 text-white" :
+                  "bg-muted text-muted-foreground"
                 }`}>
                   {currentStepIndex > idx ? (
                     <Check className="h-3 w-3" />
@@ -729,7 +887,7 @@ function CreateQuotationDialog({
                   )}
                 </div>
                 {idx < steps.length - 1 && <div className={`flex-1 h-0.5 ${
-                  currentStepIndex > idx ? "bg-emerald-500" : "bg-slate-200"
+                  currentStepIndex > idx ? "bg-green-500" : "bg-muted"
                 }`} />}
               </div>
             ))}
@@ -750,8 +908,8 @@ function CreateQuotationDialog({
                   {customers.map(customer => (
                     <SelectItem key={customer.id} value={customer.id}>
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                            <User className="h-4 w-4 text-indigo-600" />
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <User className="h-4 w-4 text-primary" />
                           </div>
                           <div>
                             <p className="font-medium">{customer.name}</p>
@@ -765,30 +923,30 @@ function CreateQuotationDialog({
               </div>
 
               {selectedCustomer && (
-                <Card className="bg-indigo-50 border-indigo-100">
+                <Card className="bg-primary/5 border-primary/20">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">
+                      <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
+                        <span className="text-primary-foreground font-bold text-lg">
                           {selectedCustomer.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
                         <h3 className="font-semibold">{selectedCustomer.name}</h3>
-                        <p className="text-sm text-slate-600">{selectedCustomer.phone}</p>
+                        <p className="text-sm text-muted-foreground">{selectedCustomer.phone}</p>
                       </div>
                     </div>
                     {selectedCustomer.email && (
-                      <div className="flex items-center gap-2 text-sm text-slate-600 mb-1">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                         <Mail className="h-4 w-4" />
                         <span>{selectedCustomer.email}</span>
-                </div>
-              )}
+                      </div>
+                    )}
                     {selectedCustomer.address && (
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <MapPin className="h-4 w-4" />
                         <span>{selectedCustomer.address}</span>
-            </div>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -834,7 +992,7 @@ function CreateQuotationDialog({
               {products.filter(p => p.isActive).length > 0 && (
                 <div>
                   <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                    <Package className="h-5 w-5 text-indigo-600" />
+                    <Package className="h-5 w-5 text-primary" />
                     Products ({products.filter(p => p.isActive).length})
                   </h3>
                   <div className="space-y-2">
@@ -844,14 +1002,14 @@ function CreateQuotationDialog({
                         <Card 
                           key={product.id}
                           className={`border cursor-pointer transition-all ${
-                            isSelected ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-indigo-200"
+                            isSelected ? "border-primary bg-primary/5" : "border-muted hover:border-primary/50"
                           }`}
                           onClick={() => toggleProduct(product.id)}
                         >
                           <CardContent className="p-3">
                             <div className="flex items-center gap-3">
                               <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
-                                isSelected ? "bg-indigo-600 text-white" : "bg-slate-100"
+                                isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
                               }`}>
                                 {product.icon || "📦"}
                               </div>
@@ -1083,7 +1241,7 @@ function CreateQuotationDialog({
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
                       <span className="text-white font-bold">
                         {selectedCustomer?.name.charAt(0).toUpperCase()}
                       </span>
@@ -1176,7 +1334,7 @@ function CreateQuotationDialog({
               </Card>
 
               {/* Total */}
-              <Card className="bg-indigo-600 text-white">
+              <Card className="bg-primary text-primary-foreground">
                 <CardContent className="p-4">
               <div className="space-y-2">
                     <div className="flex justify-between text-sm opacity-80">
@@ -1202,52 +1360,52 @@ function CreateQuotationDialog({
                   </div>
 
         {/* Footer */}
-        <div className="border-t bg-white p-4">
+        <div className="border-t bg-background p-4">
           {step === "customer" && (
-              <Button 
+            <Button 
               onClick={() => setStep("items")}
               disabled={!customerId}
-              className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700"
-              >
+              className="w-full h-12 rounded-xl"
+            >
               Continue to Add Items
               <ChevronRight className="h-5 w-5 ml-2" />
-              </Button>
-            )}
+            </Button>
+          )}
 
           {step === "items" && (
             <div className="space-y-3">
               {hasItems && (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">{selectedProducts.length + selectedServices.length} items selected</span>
-                  <span className="font-bold text-indigo-600">₹{calculateItemsTotal().toLocaleString('en-IN')}</span>
+                  <span className="text-muted-foreground">{selectedProducts.length + selectedServices.length} items selected</span>
+                  <span className="font-bold text-primary">₹{calculateItemsTotal().toLocaleString('en-IN')}</span>
                 </div>
               )}
-                <Button 
+              <Button 
                 onClick={() => setStep("charges")}
                 disabled={!hasItems}
-                className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700"
-                >
+                className="w-full h-12 rounded-xl"
+              >
                 Continue to Additional Charges
                 <ChevronRight className="h-5 w-5 ml-2" />
-                </Button>
+              </Button>
             </div>
           )}
 
           {step === "charges" && (
-                <Button 
+            <Button 
               onClick={() => setStep("review")}
-              className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700"
-                >
+              className="w-full h-12 rounded-xl"
+            >
               Review Quotation
               <ChevronRight className="h-5 w-5 ml-2" />
-                </Button>
-            )}
+            </Button>
+          )}
 
           {step === "review" && (
-              <Button 
+            <Button 
               onClick={() => createQuotationMutation.mutate()}
               disabled={createQuotationMutation.isPending}
-              className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700"
+              className="w-full h-12 rounded-xl"
             >
               {createQuotationMutation.isPending ? (
                 <>
@@ -1260,8 +1418,8 @@ function CreateQuotationDialog({
                   Create Quotation
                 </>
               )}
-              </Button>
-            )}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

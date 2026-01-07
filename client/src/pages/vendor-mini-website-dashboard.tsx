@@ -120,7 +120,7 @@ export default function VendorMiniWebsiteDashboard() {
           <Link href="/vendor/website/create">
             <Button size="lg" data-testid="button-create-website">
               <Plus className="w-4 h-4 mr-2" />
-              Create Mini-Website
+              Create Website
             </Button>
           </Link>
         </div>
@@ -128,7 +128,7 @@ export default function VendorMiniWebsiteDashboard() {
     );
   }
 
-  const websiteUrl = `${window.location.origin}/site/${miniWebsite.subdomain}`;
+  const websiteUrl = `${window.location.origin}/${miniWebsite.subdomain}`;
   const isPublished = miniWebsite.status === "published";
   
   const shareLinks = {
@@ -152,14 +152,15 @@ export default function VendorMiniWebsiteDashboard() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">My Mini-Website</h1>
+            <h1 className="text-3xl font-bold">My Website</h1>
             <p className="text-muted-foreground">Manage your business online presence</p>
           </div>
         </div>
+        {/* Only show Edit button - vendor can only have one website */}
         <Link href="/vendor/website/create">
-          <Button variant="outline" data-testid="button-create-new">
-            <Plus className="w-4 h-4 mr-2" />
-            Create New
+          <Button variant="outline" data-testid="button-edit-website">
+            <Edit className="w-4 h-4 mr-2" />
+            Edit Website
           </Button>
         </Link>
       </div>
