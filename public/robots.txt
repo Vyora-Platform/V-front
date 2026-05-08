@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# AI Bots & Scrapers (Permitted for AEO)
+User-agent: GPTBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://vyora.club/sitemap.xml
